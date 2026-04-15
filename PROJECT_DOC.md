@@ -45,7 +45,9 @@ Main function: Convert images and videos with predefined presets.
   - Backend: `cargo clippy`, `cargo fmt`.
 
 ## 5. Roadmap
-- [ ] Phase 1: Environment Setup (Standardization, Plugins, Sidecar config).
-- [ ] Phase 2: Rust Backend (FFmpeg command builder, Progress parsing).
-- [ ] Phase 3: Frontend (Presets UI, Task Queue, Progress bars).
-- [ ] Phase 4: Packaging & Auto-Update.
+- [x] Phase 1: Environment Setup (Standardization, Plugins, Sidecar config).
+- [x] Phase 2: Rust Backend (FFmpeg command builder, Progress parsing).
+- [x] Phase 3: Frontend (Sidebar Layout, Video Converter UI).
+- [ ] Phase 4: Image Processing (Placeholder created).
+- [ ] Phase 5: Settings & Preferences.
+- [ ] Phase 6: Packaging & Auto-Update.

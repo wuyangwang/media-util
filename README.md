@@ -1,7 +1,27 @@
-# Tauri + React + Typescript
+# Media Utility
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A cross-platform desktop application built with Tauri v2 and React for media processing.
 
-## Recommended IDE Setup
+## Features
+- **Video Conversion**: Convert videos to different resolutions (720p, 1080p, 2K) using FFmpeg.
+- **Progress Tracking**: Real-time progress bars for video conversion tasks.
+- **Sidebar Layout**: Modern navigation for Video, Images, and Settings.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Tech Stack
+- **Frontend**: React 19, TypeScript, TanStack Router, Tailwind CSS v4, Shadcn UI.
+- **Backend**: Rust, Tauri v2, FFmpeg (Sidecar).
+
+## Development
+```bash
+# Install dependencies
+pnpm install
+
+# Run in development mode
+pnpm tauri dev
+```
+
+## Status
+- [x] Sidebar Layout
+- [x] Video Format Conversion
+- [ ] Image Processing (Planned)
+- [ ] Settings (Planned)
