@@ -38,6 +38,7 @@ use serde_json::Value;
 pub struct MediaInfo {
     pub format: String,
     pub size: u64,
+    pub duration: f64,
     pub video: Option<VideoInfo>,
 }
 
@@ -67,6 +68,7 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
         return Ok(MediaInfo {
             format: ext,
             size,
+            duration: 0.0,
             video: Some(VideoInfo {
                 width: img.0 as i32,
                 height: img.1 as i32,
@@ -95,6 +97,7 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
     let json: Value = serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
     
     let format = json["format"]["format_name"].as_str().unwrap_or("unknown").to_string();
+    let duration = json["format"]["duration"].as_str().unwrap_or("0").parse::<f64>().unwrap_or(0.0);
     
     let video_stream = json["streams"]
         .as_array()
@@ -111,6 +114,7 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
     Ok(MediaInfo {
         format,
         size,
+        duration,
         video,
     })
 }
@@ -123,6 +127,10 @@ pub async fn convert_video(
     output_path: String,
     preset: Preset,
 ) -> Result<(), String> {
+    // Get total duration first for progress calculation
+    let media_info = get_media_info(app.clone(), input_path.clone()).await?;
+    let total_duration = media_info.duration;
+
     let (width, height, crf) = preset.get_params();
     let scale_vf = format!("scale={}:{}", width, height);
 
@@ -144,31 +152,40 @@ pub async fn convert_video(
 
     let (mut rx, _child) = output;
 
-    let re = Regex::new(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})").unwrap();
+    let re = Regex::new(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})").unwrap();
     
-    // In a real app, we'd first get the total duration using ffprobe
-    // For this example, we'll emit the raw time string or a placeholder progress
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             if let CommandEvent::Stderr(line) = event {
                 let line_str = String::from_utf8_lossy(&line);
                 if let Some(caps) = re.captures(&line_str) {
-                    let time_str = caps.get(1).map_or("", |m| m.as_str());
+                    let h: f64 = caps.get(1).unwrap().as_str().parse().unwrap_or(0.0);
+                    let m: f64 = caps.get(2).unwrap().as_str().parse().unwrap_or(0.0);
+                    let s: f64 = caps.get(3).unwrap().as_str().parse().unwrap_or(0.0);
+                    let ms: f64 = caps.get(4).unwrap().as_str().parse().unwrap_or(0.0);
+                    
+                    let current_seconds = h * 3600.0 + m * 60.0 + s + ms / 100.0;
+                    let progress = if total_duration > 0.0 {
+                        (current_seconds / total_duration * 100.0).min(99.9)
+                    } else {
+                        0.0
+                    };
+
                     app.emit("conversion-progress", ProgressPayload {
                         id: id.clone(),
-                        progress: 0.0, // Placeholder: calculating percentage requires duration
-                        status: format!("Processing: {}", time_str),
+                        progress,
+                        status: format!("Processing... ({:.1}%)", progress),
                     }).unwrap();
                 }
             } else if let CommandEvent::Terminated(payload) = event {
-                let status = if payload.code == Some(0) {
-                    "Completed"
+                let (status, progress) = if payload.code == Some(0) {
+                    ("Completed", 100.0)
                 } else {
-                    "Failed"
+                    ("Failed", 0.0)
                 };
                 app.emit("conversion-progress", ProgressPayload {
                     id: id.clone(),
-                    progress: 100.0,
+                    progress,
                     status: status.to_string(),
                 }).unwrap();
                 break;
