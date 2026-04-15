@@ -205,3 +205,32 @@ pub fn convert_image(
     img.save(&output_path).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    let mut stack = vec![std::path::PathBuf::from(path)];
+
+    let video_exts = ["mp4", "mkv", "avi", "mov", "webm"];
+    let image_exts = ["jpg", "jpeg", "png", "webp", "bmp", "tiff"];
+    let target_exts = if mode == "video" { &video_exts[..] } else { &image_exts[..] };
+
+    while let Some(current_path) = stack.pop() {
+        if current_path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(current_path) {
+                for entry in entries.flatten() {
+                    stack.push(entry.path());
+                }
+            }
+        } else if current_path.is_file() {
+            if let Some(ext) = current_path.extension().and_then(|e| e.to_str()) {
+                if target_exts.contains(&ext.to_lowercase().as_str()) {
+                    if let Some(path_str) = current_path.to_str() {
+                        files.push(path_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+    Ok(files)
+}

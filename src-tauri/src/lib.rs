@@ -10,7 +10,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             media::convert_video,
             media::convert_image,
-            media::get_media_info
+            media::get_media_info,
+            media::scan_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { Trash2, Play, Plus, FolderPlus, FileVideo } from 'lucide-react';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 
 interface MediaInfo {
   format: string;
@@ -28,172 +30,221 @@ interface ProgressPayload {
   status: string;
 }
 
+interface Task {
+  id: string;
+  path: string;
+  fileName: string;
+  progress: number;
+  status: string;
+  info?: MediaInfo;
+}
+
 export const Route = createFileRoute('/')({
   component: Index,
 });
 
 function Index() {
-  const [filePath, setFilePath] = useState<string | null>(null);
-  const [info, setInfo] = useState<MediaInfo | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [preset, setPreset] = useState('720p');
-  const [converting, setConverting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     const unlisten = listen<ProgressPayload>('conversion-progress', (event) => {
-      setProgress(event.payload.progress);
-      setStatus(event.payload.status);
+      setTasks(prev => prev.map(t => 
+        t.id === event.payload.id 
+          ? { ...t, progress: event.payload.progress, status: event.payload.status }
+          : t
+      ));
+    });
+
+    // Handle drag and drop
+    const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
+      if (event.payload.type === 'drop') {
+        const paths = event.payload.paths;
+        await handleAddPaths(paths);
+      }
     });
 
     return () => {
-      unlisten.then((fn) => fn());
+      unlisten.then(fn => fn());
+      unlistenDrop.then(fn => fn());
     };
   }, []);
 
-  const handlePickFile = async () => {
-    const file = await open({
-      multiple: false,
-      filters: [
-        { name: 'Video', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm'] }
-      ]
-    });
-
-    if (file) {
-      setFilePath(file as string);
-      setProgress(0);
-      setStatus('');
+  const handleAddPaths = async (paths: string[]) => {
+    const newTasks: Task[] = [];
+    for (const path of paths) {
+      // Check if it's a directory (simple heuristic or backend check)
+      // For now, let's let backend handle it
       try {
-        const mediaInfo = await invoke<MediaInfo>('get_media_info', { path: file });
-        setInfo(mediaInfo);
+        const files = await invoke<string[]>('scan_directory', { path, mode: 'video' });
+        for (const file of files) {
+          if (tasks.find(t => t.path === file)) continue;
+          const fileName = file.split(/[\\/]/).pop() || file;
+          newTasks.push({
+            id: Math.random().toString(36).substring(7),
+            path: file,
+            fileName,
+            progress: 0,
+            status: '待处理'
+          });
+        }
       } catch (err) {
-        toast.error(`获取媒体信息失败: ${err}`);
+        toast.error(`添加路径失败: ${err}`);
       }
     }
+    setTasks(prev => [...prev, ...newTasks]);
   };
 
-  const handleConvert = async () => {
-    if (!filePath || !info) return;
-    setConverting(true);
-    setProgress(0);
-    setStatus('正在初始化...');
-    try {
-      const outputPath = `${filePath.substring(0, filePath.lastIndexOf('.'))}_converted.mp4`;
-      
-      await invoke('convert_video', {
-        id: 'task-1',
-        inputPath: filePath,
-        outputPath,
-        preset,
-      });
-    } catch (err) {
-      toast.error(`转换失败: ${err}`);
-    } finally {
-      setConverting(false);
+  const handlePickFiles = async () => {
+    const files = await open({
+      multiple: true,
+      filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm'] }]
+    });
+    if (files && Array.isArray(files)) {
+      await handleAddPaths(files);
+    } else if (files) {
+      await handleAddPaths([files as string]);
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
+  const handlePickDir = async () => {
+    const dir = await open({ directory: true });
+    if (dir) {
+      await handleAddPaths([dir as string]);
+    }
+  };
+
+  const removeTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const clearTasks = () => {
+    setTasks([]);
+  };
+
+  const startBatch = async () => {
+    if (tasks.length === 0 || processing) return;
+    setProcessing(true);
+    
+    // Simple sequential processing
+    for (const task of tasks) {
+      if (task.status === 'Completed') continue;
+      
+      try {
+        const outputPath = `${task.path.substring(0, task.path.lastIndexOf('.'))}_converted.mp4`;
+        await invoke('convert_video', {
+          id: task.id,
+          inputPath: task.path,
+          outputPath,
+          preset,
+        });
+        
+        // Wait for task to complete by polling or waiting for event (current logic relies on events)
+        // In a more robust system, we would await a specific task completion promise
+      } catch (err) {
+        toast.error(`任务 ${task.fileName} 失败: ${err}`);
+      }
+    }
+    setProcessing(false);
   };
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <header className="p-6 border-b">
-        <h2 className="text-2xl font-bold tracking-tight">视频转换器</h2>
-        <p className="text-muted-foreground">转换视频格式和分辨率，支持多种预设。</p>
+      <header className="p-6 border-b flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">批量视频转换</h2>
+          <p className="text-muted-foreground text-sm">拖拽文件夹或多个视频文件到此处开始。</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePickFiles} variant="outline" size="sm">
+            <Plus className="w-4 h-4 mr-1" /> 添加文件
+          </Button>
+          <Button onClick={handlePickDir} variant="outline" size="sm">
+            <FolderPlus className="w-4 h-4 mr-1" /> 添加文件夹
+          </Button>
+          <Button 
+            onClick={startBatch} 
+            disabled={processing || tasks.length === 0}
+            size="sm"
+          >
+            <Play className="w-4 h-4 mr-1" /> 全部开始
+          </Button>
+          <Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive">
+             清空
+          </Button>
+        </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl mx-auto w-full">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">选择视频</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <main className="flex-1 overflow-hidden flex flex-col p-6 gap-6">
+        {/* Controls */}
+        <Card className="shrink-0">
+          <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button onClick={handlePickFile} variant="outline" className="shrink-0">
-                选择视频文件
-              </Button>
-              <div className="flex-1 p-2 bg-muted rounded-md border text-sm truncate font-mono">
-                {filePath || '未选择任何文件'}
-              </div>
+              <span className="text-sm font-medium">转换预设:</span>
+              <Select value={preset} onValueChange={setPreset}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="选择预设" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="720p">720p (HD)</SelectItem>
+                  <SelectItem value="1080p">1080p (Full HD)</SelectItem>
+                  <SelectItem value="2k">2K (Quad HD)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            {info && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-                <InfoItem label="格式" value={info.format} />
-                <InfoItem label="大小" value={`${(info.size / 1024 / 1024).toFixed(2)} MB`} />
-                <InfoItem label="时长" value={formatDuration(info.duration)} />
-                {info.video && (
-                  <>
-                    <InfoItem label="分辨率" value={`${info.video.width} x ${info.video.height}`} />
-                    <InfoItem label="编码" value={info.video.codec} />
-                    <InfoItem label="帧率" value={info.video.fps} />
-                  </>
-                )}
-              </div>
-            )}
+            <div className="text-sm text-muted-foreground">
+              队列中: {tasks.length} 个任务
+            </div>
           </CardContent>
         </Card>
 
-        {info && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">转换设置</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium">目标预设:</span>
-                <Select value={preset} onValueChange={setPreset}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="选择预设" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="720p">720p (HD)</SelectItem>
-                    <SelectItem value="1080p">1080p (Full HD)</SelectItem>
-                    <SelectItem value="2k">2K (Quad HD)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <Button 
-                  className="w-full h-12 text-lg font-semibold shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99]" 
-                  onClick={handleConvert} 
-                  disabled={converting || !filePath}
-                >
-                  {converting ? '正在转换...' : '开始转换'}
-                </Button>
-
-                {(converting || progress > 0) && (
-                  <div className="space-y-3 p-4 bg-muted/50 rounded-xl border animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex justify-between items-end">
-                      <div className="space-y-1">
-                        <span className="text-sm font-medium text-foreground">{status}</span>
-                        <p className="text-xs text-muted-foreground">请勿关闭应用程序</p>
-                      </div>
-                      <span className="text-2xl font-bold text-primary">{progress.toFixed(1)}%</span>
+        {/* Task List */}
+        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+          {tasks.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl">
+              <FileVideo className="w-12 h-12 mb-4 opacity-20" />
+              <p>暂无任务</p>
+              <p className="text-xs">支持多选文件或整个文件夹拖拽</p>
+            </div>
+          ) : (
+            tasks.map(task => (
+              <div key={task.id} className="p-4 bg-muted/30 border rounded-lg space-y-3 animate-in fade-in slide-in-from-top-1">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold truncate">{task.fileName}</h3>
+                    <p className="text-xs text-muted-foreground truncate font-mono">{task.path}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-primary whitespace-nowrap">
+                      {task.status}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeTask(task.id)}
+                      disabled={processing && task.progress > 0 && task.progress < 100}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {(task.progress > 0 || task.status !== '待处理') && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{task.status}</span>
+                      <span>{task.progress.toFixed(1)}%</span>
                     </div>
-                    <Progress value={progress} className="h-3 rounded-full" />
+                    <Progress value={task.progress} className="h-1.5" />
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col p-3 bg-muted/30 rounded-lg border border-dashed">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-bold truncate">{value}</span>
+            ))
+          )}
+        </div>
+      </main>
     </div>
   );
 }

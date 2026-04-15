@@ -1,23 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Trash2, Play, Plus, FolderPlus, ImageIcon } from 'lucide-react';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 
-interface MediaInfo {
-  format: string;
-  size: number;
-  duration: number;
-  video?: {
-    width: number;
-    height: number;
-    codec: string;
-    fps: string;
-    bitrate?: string;
-  };
+interface Task {
+  id: string;
+  path: string;
+  fileName: string;
+  status: '待处理' | '正在转换...' | 'Completed' | 'Failed';
 }
 
 export const Route = createFileRoute('/images')({
@@ -25,131 +21,189 @@ export const Route = createFileRoute('/images')({
 });
 
 function Images() {
-  const [filePath, setFilePath] = useState<string | null>(null);
-  const [info, setInfo] = useState<MediaInfo | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [targetFormat, setTargetFormat] = useState('png');
-  const [converting, setConverting] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
-  const handlePickFile = async () => {
-    const file = await open({
-      multiple: false,
-      filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'] }
-      ]
+  useEffect(() => {
+    // Handle drag and drop
+    const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
+      if (event.payload.type === 'drop') {
+        const paths = event.payload.paths;
+        await handleAddPaths(paths);
+      }
     });
 
-    if (file) {
-      setFilePath(file as string);
+    return () => {
+      unlistenDrop.then(fn => fn());
+    };
+  }, []);
+
+  const handleAddPaths = async (paths: string[]) => {
+    const newTasks: Task[] = [];
+    for (const path of paths) {
       try {
-        const mediaInfo = await invoke<MediaInfo>('get_media_info', { path: file });
-        setInfo(mediaInfo);
+        const files = await invoke<string[]>('scan_directory', { path, mode: 'image' });
+        for (const file of files) {
+          if (tasks.find(t => t.path === file)) continue;
+          const fileName = file.split(/[\\/]/).pop() || file;
+          newTasks.push({
+            id: Math.random().toString(36).substring(7),
+            path: file,
+            fileName,
+            status: '待处理'
+          });
+        }
       } catch (err) {
-        toast.error(`Failed to get image info: ${err}`);
+        toast.error(`添加路径失败: ${err}`);
       }
+    }
+    setTasks(prev => [...prev, ...newTasks]);
+  };
+
+  const handlePickFiles = async () => {
+    const files = await open({
+      multiple: true,
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'] }]
+    });
+    if (files && Array.isArray(files)) {
+      await handleAddPaths(files);
+    } else if (files) {
+      await handleAddPaths([files as string]);
     }
   };
 
-  const handleConvert = async () => {
-    if (!filePath || !info) return;
-    setConverting(true);
-    try {
-      const baseName = filePath.substring(0, filePath.lastIndexOf('.'));
-      const outputExtension = targetFormat;
-      const outputPath = `${baseName}_converted.${outputExtension}`;
-
-      await invoke('convert_image', {
-        inputPath: filePath,
-        outputPath,
-      });
-      
-      toast.success(`Image converted successfully to ${targetFormat.toUpperCase()}`);
-    } catch (err) {
-      toast.error(`Image conversion failed: ${err}`);
-    } finally {
-      setConverting(false);
+  const handlePickDir = async () => {
+    const dir = await open({ directory: true });
+    if (dir) {
+      await handleAddPaths([dir as string]);
     }
+  };
+
+  const removeTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const clearTasks = () => {
+    setTasks([]);
+  };
+
+  const startBatch = async () => {
+    if (tasks.length === 0 || processing) return;
+    setProcessing(true);
+    
+    for (const task of tasks) {
+      if (task.status === 'Completed') continue;
+      
+      try {
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: '正在转换...' } : t));
+        
+        const baseName = task.path.substring(0, task.path.lastIndexOf('.'));
+        const outputPath = `${baseName}_converted.${targetFormat}`;
+
+        await invoke('convert_image', {
+          inputPath: task.path,
+          outputPath,
+        });
+        
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Completed' } : t));
+      } catch (err) {
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Failed' } : t));
+        toast.error(`任务 ${task.fileName} 失败: ${err}`);
+      }
+    }
+    setProcessing(false);
+    toast.success('所有图片转换任务已完成');
   };
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <header className="p-6 border-b">
-        <h2 className="text-2xl font-bold tracking-tight">图片转换器</h2>
-        <p className="text-muted-foreground">转换图片格式，支持主流格式之间的快速转换。</p>
+      <header className="p-6 border-b flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">批量图片转换</h2>
+          <p className="text-muted-foreground text-sm">拖拽文件夹或多个图片文件到此处开始。</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePickFiles} variant="outline" size="sm">
+            <Plus className="w-4 h-4 mr-1" /> 添加图片
+          </Button>
+          <Button onClick={handlePickDir} variant="outline" size="sm">
+            <FolderPlus className="w-4 h-4 mr-1" /> 添加文件夹
+          </Button>
+          <Button 
+            onClick={startBatch} 
+            disabled={processing || tasks.length === 0}
+            size="sm"
+          >
+            <Play className="w-4 h-4 mr-1" /> 全部开始
+          </Button>
+          <Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive">
+             清空
+          </Button>
+        </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl mx-auto w-full">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">选择图片</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <main className="flex-1 overflow-hidden flex flex-col p-6 gap-6">
+        <Card className="shrink-0">
+          <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button onClick={handlePickFile} variant="outline" className="shrink-0">
-                选择图片文件
-              </Button>
-              <div className="flex-1 p-2 bg-muted rounded-md border text-sm truncate font-mono">
-                {filePath || '未选择任何文件'}
-              </div>
+              <span className="text-sm font-medium">目标格式:</span>
+              <Select value={targetFormat} onValueChange={setTargetFormat}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="选择格式" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="png">PNG</SelectItem>
+                  <SelectItem value="jpg">JPEG (JPG)</SelectItem>
+                  <SelectItem value="webp">WebP</SelectItem>
+                  <SelectItem value="bmp">BMP</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            {info && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-                <InfoItem label="当前格式" value={info.format.toUpperCase()} />
-                <InfoItem label="文件大小" value={`${(info.size / 1024).toFixed(2)} KB`} />
-                {info.video && (
-                  <>
-                    <InfoItem label="分辨率" value={`${info.video.width} x ${info.video.height}`} />
-                    <InfoItem label="类型" value="静态图片" />
-                  </>
-                )}
-              </div>
-            )}
+            <div className="text-sm text-muted-foreground">
+              队列中: {tasks.length} 个任务
+            </div>
           </CardContent>
         </Card>
 
-        {info && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">转换设置</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium">目标格式:</span>
-                <Select value={targetFormat} onValueChange={setTargetFormat}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="选择目标格式" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="png">PNG</SelectItem>
-                    <SelectItem value="jpg">JPEG (JPG)</SelectItem>
-                    <SelectItem value="webp">WebP</SelectItem>
-                    <SelectItem value="bmp">BMP</SelectItem>
-                  </SelectContent>
-                </Select>
+        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+          {tasks.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl">
+              <ImageIcon className="w-12 h-12 mb-4 opacity-20" />
+              <p>暂无任务</p>
+              <p className="text-xs">支持多选图片或整个文件夹拖拽</p>
+            </div>
+          ) : (
+            tasks.map(task => (
+              <div key={task.id} className="p-4 bg-muted/30 border rounded-lg flex justify-between items-center animate-in fade-in slide-in-from-top-1">
+                <div className="flex-1 min-w-0 mr-4">
+                  <h3 className="text-sm font-semibold truncate">{task.fileName}</h3>
+                  <p className="text-xs text-muted-foreground truncate font-mono">{task.path}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className={`text-xs font-medium whitespace-nowrap ${
+                    task.status === 'Completed' ? 'text-green-500' : 
+                    task.status === 'Failed' ? 'text-destructive' : 
+                    task.status === '正在转换...' ? 'text-primary animate-pulse' : 
+                    'text-muted-foreground'
+                  }`}>
+                    {task.status}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeTask(task.id)}
+                    disabled={processing && task.status === '正在转换...'}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <Button 
-                  className="w-full h-12 text-lg font-semibold shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99]" 
-                  onClick={handleConvert} 
-                  disabled={converting || !filePath}
-                >
-                  {converting ? '正在转换...' : '开始转换'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col p-3 bg-muted/30 rounded-lg border border-dashed">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-bold truncate">{value}</span>
+            ))
+          )}
+        </div>
+      </main>
     </div>
   );
 }
