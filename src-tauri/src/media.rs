@@ -8,6 +8,7 @@ use std::path::Path;
 use base64::{Engine as _, engine::general_purpose};
 use std::io::Write;
 use std::fs::File;
+use image::GenericImageView;
 
 #[derive(Clone, Serialize)]
 struct ProgressPayload {

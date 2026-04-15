@@ -7,7 +7,7 @@ pub const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "bmp", "ti
 // Image Crop Presets
 // ============================================
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum CropMode {
     Fixed,    // 固定尺寸
@@ -15,23 +15,12 @@ pub enum CropMode {
     Custom,   // 自定义
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ImageSizePreset {
-    pub name: String,
+    pub name: &'static str,
     pub width: u32,
     pub height: u32,
-    pub category: String,
-}
-
-impl ImageSizePreset {
-    pub fn new(name: &str, width: u32, height: u32, category: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            width,
-            height,
-            category: category.to_string(),
-        }
-    }
+    pub category: &'static str,
 }
 
 // 预设尺寸列表
@@ -67,7 +56,7 @@ pub const IMAGE_RATIO_PRESETS: &[(&str, f32)] = &[
 ];
 
 // 前端配置数据结构
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct AppConfig {
     pub video_extensions: Vec<&'static str>,
     pub image_extensions: Vec<&'static str>,
@@ -78,25 +67,25 @@ pub struct AppConfig {
     pub ratio_presets: Vec<RatioPresetConfig>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct VideoPresetConfig {
     pub value: String,
     pub label: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ImageFormatConfig {
     pub value: String,
     pub label: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct CropModeConfig {
     pub value: String,
     pub label: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct RatioPresetConfig {
     pub label: String,
     pub ratio: f32,
