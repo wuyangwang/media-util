@@ -48,6 +48,6 @@ Main function: Convert images and videos with predefined presets.
 - [x] Phase 1: Environment Setup (Standardization, Plugins, Sidecar config).
 - [x] Phase 2: Rust Backend (FFmpeg command builder, Progress parsing).
 - [x] Phase 3: Frontend (Sidebar Layout, Video Converter UI).
-- [ ] Phase 4: Image Processing (Placeholder created).
+- [x] Phase 4: Image Processing (Implemented basic format conversion).
 - [ ] Phase 5: Settings & Preferences.
 - [ ] Phase 6: Packaging & Auto-Update.

@@ -67,7 +67,7 @@ function Index() {
         const mediaInfo = await invoke<MediaInfo>('get_media_info', { path: file });
         setInfo(mediaInfo);
       } catch (err) {
-        toast.error(`Failed to get media info: ${err}`);
+        toast.error(`获取媒体信息失败: ${err}`);
       }
     }
   };
@@ -76,7 +76,7 @@ function Index() {
     if (!filePath || !info) return;
     setConverting(true);
     setProgress(0);
-    setStatus('Initializing...');
+    setStatus('正在初始化...');
     try {
       const outputPath = `${filePath.substring(0, filePath.lastIndexOf('.'))}_converted.mp4`;
       
@@ -87,7 +87,7 @@ function Index() {
         preset,
       });
     } catch (err) {
-      toast.error(`Conversion failed: ${err}`);
+      toast.error(`转换失败: ${err}`);
     } finally {
       setConverting(false);
     }
@@ -103,35 +103,35 @@ function Index() {
   return (
     <div className="flex flex-col h-full bg-background">
       <header className="p-6 border-b">
-        <h2 className="text-2xl font-bold tracking-tight">Video Converter</h2>
-        <p className="text-muted-foreground">Convert your videos to different formats and resolutions.</p>
+        <h2 className="text-2xl font-bold tracking-tight">视频转换器</h2>
+        <p className="text-muted-foreground">转换视频格式和分辨率，支持多种预设。</p>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl mx-auto w-full">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Select Video</CardTitle>
+            <CardTitle className="text-lg">选择视频</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <Button onClick={handlePickFile} variant="outline" className="shrink-0">
-                Pick Video File
+                选择视频文件
               </Button>
               <div className="flex-1 p-2 bg-muted rounded-md border text-sm truncate font-mono">
-                {filePath || 'No file selected'}
+                {filePath || '未选择任何文件'}
               </div>
             </div>
 
             {info && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-                <InfoItem label="Format" value={info.format} />
-                <InfoItem label="Size" value={`${(info.size / 1024 / 1024).toFixed(2)} MB`} />
-                <InfoItem label="Duration" value={formatDuration(info.duration)} />
+                <InfoItem label="格式" value={info.format} />
+                <InfoItem label="大小" value={`${(info.size / 1024 / 1024).toFixed(2)} MB`} />
+                <InfoItem label="时长" value={formatDuration(info.duration)} />
                 {info.video && (
                   <>
-                    <InfoItem label="Resolution" value={`${info.video.width} x ${info.video.height}`} />
-                    <InfoItem label="Codec" value={info.video.codec} />
-                    <InfoItem label="FPS" value={info.video.fps} />
+                    <InfoItem label="分辨率" value={`${info.video.width} x ${info.video.height}`} />
+                    <InfoItem label="编码" value={info.video.codec} />
+                    <InfoItem label="帧率" value={info.video.fps} />
                   </>
                 )}
               </div>
@@ -142,14 +142,14 @@ function Index() {
         {info && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Conversion Settings</CardTitle>
+              <CardTitle className="text-lg">转换设置</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-medium">Target Preset:</span>
+                <span className="text-sm font-medium">目标预设:</span>
                 <Select value={preset} onValueChange={setPreset}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select preset" />
+                    <SelectValue placeholder="选择预设" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="720p">720p (HD)</SelectItem>
@@ -165,7 +165,7 @@ function Index() {
                   onClick={handleConvert} 
                   disabled={converting || !filePath}
                 >
-                  {converting ? 'Converting...' : 'Start Conversion'}
+                  {converting ? '正在转换...' : '开始转换'}
                 </Button>
 
                 {(converting || progress > 0) && (
@@ -173,7 +173,7 @@ function Index() {
                     <div className="flex justify-between items-end">
                       <div className="space-y-1">
                         <span className="text-sm font-medium text-foreground">{status}</span>
-                        <p className="text-xs text-muted-foreground">Do not close the application</p>
+                        <p className="text-xs text-muted-foreground">请勿关闭应用程序</p>
                       </div>
                       <span className="text-2xl font-bold text-primary">{progress.toFixed(1)}%</span>
                     </div>
