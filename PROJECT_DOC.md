@@ -62,6 +62,7 @@ Main function: Convert images and videos with predefined presets.
 - **Standards**:
   - Frontend: `pnpm lint`, `pnpm format`.
   - Backend: `cargo clippy`, `cargo fmt`.
+  - **Workflow**: Commit after every small step or requirement and record the completed task in `PROJECT_DOC.md` and `SKILL.md`.
 
 ## 5. Roadmap
 - [x] Phase 1: Environment Setup (Standardization, Plugins, Sidecar config).
@@ -71,3 +72,4 @@ Main function: Convert images and videos with predefined presets.
 - [x] Phase 5: Settings & Preferences (Implemented theme switching and info).
 - [x] Phase 6: Batch Operations (Implemented recursive scanning and ZIP export).
 - [x] Phase 7: Packaging & Auto-Update (Configured tauri.conf.json and updater plugin).
+- [x] **Phase 8: Routing Refactor**: Fixed duplicate route ID error by enabling TanStack Router file-based routing and Vite plugin.
