@@ -107,7 +107,7 @@ function Settings() {
 					<CardContent className="space-y-2">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">应用名称:</span>
-							<span className="font-medium">Media Utility</span>
+							<span className="font-medium">媒体工具箱 (Media Utility)</span>
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">当前版本:</span>
@@ -115,7 +115,7 @@ function Settings() {
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">核心引擎:</span>
-							<span className="font-medium">FFmpeg 7.x & image crate</span>
+							<span className="font-medium">FFmpeg 7.x & image 库</span>
 						</div>
 					</CardContent>
 				</Card>

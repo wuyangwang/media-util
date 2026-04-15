@@ -70,15 +70,19 @@ function Index() {
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
 			setTasks((prev) =>
-				prev.map((t) =>
-					t.id === event.payload.id
-						? {
-								...t,
-								progress: event.payload.progress,
-								status: event.payload.status,
-							}
-						: t,
-				),
+				prev.map((t) => {
+					if (t.id === event.payload.id) {
+						let status = event.payload.status;
+						if (status === "Completed") status = "已完成";
+						if (status === "Failed") status = "失败";
+						return {
+							...t,
+							progress: event.payload.progress,
+							status: status,
+						};
+					}
+					return t;
+				}),
 			);
 		});
 
@@ -136,7 +140,7 @@ function Index() {
 	const handlePickFiles = async () => {
 		const files = await open({
 			multiple: true,
-			filters: [{ name: "Video", extensions: CONFIG.video.extensions }],
+			filters: [{ name: "视频", extensions: CONFIG.video.extensions }],
 		});
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
@@ -160,7 +164,7 @@ function Index() {
 
 	const startBatch = async () => {
 		if (tasks.length === 0 || processing) return;
-		const pendingTasks = tasks.filter((t) => t.status !== "Completed");
+		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
 			return;
@@ -170,7 +174,7 @@ function Index() {
 		toast.info(`开始批量处理 ${pendingTasks.length} 个任务`);
 
 		for (const task of tasks) {
-			if (task.status === "Completed") continue;
+			if (task.status === "已完成") continue;
 
 			try {
 				const outputPath = `${task.path.substring(0, task.path.lastIndexOf("."))}_converted.mp4`;
@@ -294,7 +298,7 @@ function Index() {
 									<div className="flex-1 min-w-0">
 										<h3 className="text-sm font-semibold truncate flex items-center gap-2">
 											{task.fileName}
-											{task.status === "Completed" && (
+											{task.status === "已完成" && (
 												<span className="inline-block w-2 h-2 rounded-full bg-green-500" />
 											)}
 										</h3>
@@ -305,9 +309,9 @@ function Index() {
 									<div className="flex items-center gap-3">
 										<span
 											className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-												task.status === "Completed"
+												task.status === "已完成"
 													? "bg-green-100 text-green-700"
-													: task.status === "Failed"
+													: task.status === "失败"
 														? "bg-red-100 text-red-700"
 														: task.status === "待处理"
 															? "bg-blue-100 text-blue-700"
@@ -322,7 +326,7 @@ function Index() {
 											className="h-6 w-6 text-muted-foreground hover:text-destructive transition-colors"
 											onClick={() => removeTask(task.id)}
 											disabled={
-												processing && task.status.startsWith("Processing")
+												processing && (task.status === "正在处理..." || task.status === "正在转换...")
 											}
 										>
 											<Trash2 className="w-4 h-4" />
@@ -333,7 +337,7 @@ function Index() {
 								{(task.progress > 0 || task.status !== "待处理") && (
 									<div className="space-y-1.5">
 										<div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-											<span>PROGRESS</span>
+											<span>进度</span>
 											<span>{task.progress.toFixed(1)}%</span>
 										</div>
 										<Progress

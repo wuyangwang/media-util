@@ -44,3 +44,18 @@ let re = Regex::new(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})").unwrap();
 ## 5. Coding Standards (Biome)
 - **Frontend**: `pnpm biome check --apply .` (Lint & Format).
 - **Rust**: `cargo clippy --fix`, `cargo fmt`.
+
+## 6. Localization (Chinese)
+To localize the application into Chinese:
+- **UI Labels**: Replace English strings with Chinese equivalents in the JSX/TSX files.
+- **Backend Status Mapping**: Since Tauri backend may emit English status strings (e.g., "Completed", "Failed"), map them to Chinese in the frontend event listener:
+  ```typescript
+  let status = event.payload.status;
+  if (status === "Completed") status = "已完成";
+  if (status === "Failed") status = "失败";
+  ```
+- **File Dialog Filters**: Localize names in the `open` or `save` dialog options:
+  ```typescript
+  filters: [{ name: "视频", extensions: ["mp4", "mkv"] }]
+  ```
+

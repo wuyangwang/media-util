@@ -14,12 +14,12 @@ function RootComponent() {
 			<aside className="w-64 border-r flex flex-col bg-muted/30">
 				<div className="p-6 border-b flex items-center gap-2">
 					<Film className="w-6 h-6 text-primary" />
-					<h1 className="text-xl font-bold tracking-tight">Media Util</h1>
+					<h1 className="text-xl font-bold tracking-tight">媒体工具</h1>
 				</div>
 				<nav className="flex-1 p-4 space-y-2">
-					<SidebarLink to="/" label="Video" icon={Video} />
-					<SidebarLink to="/images" label="Images" icon={ImageIcon} />
-					<SidebarLink to="/settings" label="Settings" icon={Settings} />
+					<SidebarLink to="/" label="视频" icon={Video} />
+					<SidebarLink to="/images" label="图片" icon={ImageIcon} />
+					<SidebarLink to="/settings" label="设置" icon={Settings} />
 				</nav>
 				<div className="p-4 border-t text-xs text-muted-foreground text-center">
 					v0.1.0

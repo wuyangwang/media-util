@@ -4,6 +4,9 @@
 A cross-platform desktop application built with Tauri v2, TanStack Router (SPA), and Rust.
 Main function: Convert images and videos with predefined presets.
 
+**Developer**: @wuyang
+**Localization**: Fully localized in Chinese (Simplified).
+
 ## 2. Tech Stack
 - **Frontend**: 
   - Framework: React 19 + TypeScript

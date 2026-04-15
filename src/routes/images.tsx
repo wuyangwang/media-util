@@ -34,7 +34,7 @@ interface Task {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "待处理" | "正在处理..." | "正在转换..." | "Completed" | "Failed";
+	status: "待处理" | "正在处理..." | "正在转换..." | "已完成" | "失败";
 	output?: string;
 }
 
@@ -112,7 +112,7 @@ function Images() {
 	const handlePickFiles = async () => {
 		const files = await open({
 			multiple: true,
-			filters: [{ name: "Images", extensions: CONFIG.image.extensions }],
+			filters: [{ name: "图片", extensions: CONFIG.image.extensions }],
 		});
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
@@ -136,7 +136,7 @@ function Images() {
 
 	const startBatch = async () => {
 		if (tasks.length === 0 || processing) return;
-		const pendingTasks = tasks.filter((t) => t.status !== "Completed");
+		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
 			return;
@@ -146,7 +146,7 @@ function Images() {
 		toast.info(`开始处理 ${pendingTasks.length} 个图片任务`);
 
 		for (const task of tasks) {
-			if (task.status === "Completed") continue;
+			if (task.status === "已完成") continue;
 
 			try {
 				setTasks((prev) =>
@@ -192,13 +192,13 @@ function Images() {
 				setTasks((prev) =>
 					prev.map((t) =>
 						t.id === task.id
-							? { ...t, status: "Completed", output: outputPath }
+							? { ...t, status: "已完成", output: outputPath }
 							: t,
 					),
 				);
 			} catch (err) {
 				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, status: "Failed" } : t)),
+					prev.map((t) => (t.id === task.id ? { ...t, status: "失败" } : t)),
 				);
 				toast.error(`任务 ${task.fileName} 失败: ${err}`);
 			}
@@ -209,7 +209,7 @@ function Images() {
 
 	const handleBatchDownload = async () => {
 		const completedTasks = tasks.filter(
-			(t) => t.status === "Completed" && t.output,
+			(t) => t.status === "已完成" && t.output,
 		);
 		if (completedTasks.length === 0) {
 			toast.error("没有可下载的任务");
@@ -217,7 +217,7 @@ function Images() {
 		}
 
 		const filePath = await save({
-			filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+			filters: [{ name: "ZIP 压缩包", extensions: ["zip"] }],
 			defaultPath: "images_batch.zip",
 		});
 
@@ -464,7 +464,7 @@ function Images() {
 								<div className="flex-1 min-w-0 mr-4">
 									<h3 className="text-sm font-semibold truncate flex items-center gap-2">
 										{task.fileName}
-										{task.status === "Completed" && (
+										{task.status === "已完成" && (
 											<span className="inline-block w-2 h-2 rounded-full bg-green-500" />
 										)}
 									</h3>
@@ -475,9 +475,9 @@ function Images() {
 								<div className="flex items-center gap-4">
 									<span
 										className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-											task.status === "Completed"
+											task.status === "已完成"
 												? "bg-green-100 text-green-700"
-												: task.status === "Failed"
+												: task.status === "失败"
 													? "bg-red-100 text-red-700"
 													: task.status === "正在转换..."
 														? "bg-primary/10 text-primary animate-pulse"

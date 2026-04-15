@@ -15,9 +15,9 @@ export const DEFAULT_CONFIG: AppConfig = {
 	video_extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm'],
 	image_extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'jfif'],
 	video_presets: [
-		{ value: '720p', label: '720p (HD)' },
-		{ value: '1080p', label: '1080p (Full HD)' },
-		{ value: '2k', label: '2K (Quad HD)' },
+		{ value: '720p', label: '720p (高清)' },
+		{ value: '1080p', label: '1080p (全高清)' },
+		{ value: '2k', label: '2K (超清)' },
 	],
 	image_formats: [
 		{ value: 'png', label: 'PNG' },
