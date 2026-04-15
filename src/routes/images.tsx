@@ -1,12 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Trash2, Play, Plus, FolderPlus, ImageIcon, Loader2, XCircle } from 'lucide-react';
+import { Trash2, Play, Plus, FolderPlus, ImageIcon, Loader2, XCircle, Scissors, Download } from 'lucide-react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { CONFIG } from '@/lib/config';
 
@@ -14,8 +15,11 @@ interface Task {
   id: string;
   path: string;
   fileName: string;
-  status: '待处理' | '正在转换...' | 'Completed' | 'Failed';
+  status: '待处理' | '正在处理...' | '正在转换...' | 'Completed' | 'Failed';
+  output?: string;
 }
+
+type CropMode = 'fixed' | 'ratio' | 'custom';
 
 export const Route = createFileRoute('/images')({
   component: Images,
@@ -26,6 +30,13 @@ function Images() {
   const [targetFormat, setTargetFormat] = useState(CONFIG.image.formats[0].value);
   const [processing, setProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  
+  // 裁剪模式
+  const [cropMode, setCropMode] = useState<CropMode>('custom');
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0);
+  const [customWidth, setCustomWidth] = useState<number>(800);
+  const [customHeight, setCustomHeight] = useState<number>(800);
+  const [selectedRatio, setSelectedRatio] = useState<number>(0);
 
   useEffect(() => {
     const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
@@ -109,29 +120,81 @@ function Images() {
 
     setProcessing(true);
     toast.info(`开始处理 ${pendingTasks.length} 个图片任务`);
-    
+
     for (const task of tasks) {
       if (task.status === 'Completed') continue;
-      
-      try {
-        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: '正在转换...' } : t));
-        
-        const baseName = task.path.substring(0, task.path.lastIndexOf('.'));
-        const outputPath = `${baseName}_converted.${targetFormat}`;
 
-        await invoke('convert_image', {
-          inputPath: task.path,
-          outputPath,
-        });
+      try {
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: '正在处理...' } : t));
+
+        const baseName = task.path.substring(0, task.path.lastIndexOf('.'));
+        let outputPath: string;
         
-        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Completed' } : t));
+        if (cropMode === 'fixed') {
+          // 固定尺寸裁剪
+          outputPath = `${baseName}_cropped.${targetFormat}`;
+          await invoke('crop_image_fixed', {
+            inputPath: task.path,
+            outputPath,
+            presetIndex: selectedPresetIndex,
+          });
+        } else if (cropMode === 'ratio') {
+          // 按比例裁剪
+          const ratioPreset = CONFIG.image.ratioPresets[selectedRatio];
+          const targetWidth = customWidth;
+          const targetHeight = Math.round(targetWidth / ratioPreset.ratio);
+          outputPath = `${baseName}_${ratioPreset.label.split(' ')[0]}_cropped.${targetFormat}`;
+          await invoke('crop_image_ratio', {
+            inputPath: task.path,
+            outputPath,
+            targetWidth,
+            targetHeight,
+          });
+        } else {
+          // 自定义尺寸裁剪
+          outputPath = `${baseName}_${customWidth}x${customHeight}_cropped.${targetFormat}`;
+          await invoke('crop_image_custom', {
+            inputPath: task.path,
+            outputPath,
+            targetWidth: customWidth,
+            targetHeight: customHeight,
+          });
+        }
+
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Completed', output: outputPath } : t));
       } catch (err) {
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Failed' } : t));
         toast.error(`任务 ${task.fileName} 失败: ${err}`);
       }
     }
     setProcessing(false);
-    toast.success('图片批量转换完成');
+    toast.success('图片批量处理完成');
+  };
+
+  const handleBatchDownload = async () => {
+    const completedTasks = tasks.filter(t => t.status === 'Completed' && t.output);
+    if (completedTasks.length === 0) {
+      toast.error('没有可下载的任务');
+      return;
+    }
+
+    const filePath = await save({
+      filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+      defaultPath: 'images_batch.zip',
+    });
+
+    if (!filePath) return;
+
+    try {
+      toast.loading('正在打包文件...');
+      await invoke('batch_to_zip', {
+        filePaths: completedTasks.map(t => t.output!),
+        outputZipPath: filePath,
+      });
+      toast.success(`文件已保存到: ${filePath}`);
+    } catch (err) {
+      toast.error(`打包失败: ${err}`);
+    }
   };
 
   return (
@@ -168,22 +231,121 @@ function Images() {
 
       <main className="flex-1 overflow-hidden flex flex-col p-6 gap-6">
         <Card className="shrink-0">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium">目标格式:</span>
-              <Select value={targetFormat} onValueChange={setTargetFormat} disabled={processing}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="选择格式" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONFIG.image.formats.map(f => (
-                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <CardContent className="p-4 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">目标格式:</span>
+                <Select value={targetFormat} onValueChange={setTargetFormat} disabled={processing}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="选择格式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONFIG.image.formats.map(f => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleBatchDownload} variant="outline" size="sm" disabled={processing || tasks.filter(t => t.status === 'Completed').length === 0}>
+                  <Download className="w-4 h-4 mr-1" />
+                  批量下载
+                </Button>
+                <div className="text-sm text-muted-foreground font-medium">
+                  队列中: {tasks.length} 个任务
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground font-medium">
-              队列中: {tasks.length} 个任务
+
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">裁剪模式:</span>
+                <Select value={cropMode} onValueChange={(v) => setCropMode(v as CropMode)} disabled={processing}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONFIG.image.cropModes.map(m => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {cropMode === 'fixed' && (
+                <div className="flex items-center gap-4">
+                  <span className="text-sm">预设尺寸:</span>
+                  <Select value={String(selectedPresetIndex)} onValueChange={(v) => setSelectedPresetIndex(Number(v))} disabled={processing}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONFIG.image.sizePresets.map((p, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>
+                          {p.category} - {p.name} ({p.width}x{p.height})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {cropMode === 'ratio' && (
+                <div className="flex items-center gap-4">
+                  <span className="text-sm">比例:</span>
+                  <Select value={String(selectedRatio)} onValueChange={(v) => setSelectedRatio(Number(v))} disabled={processing}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONFIG.image.ratioPresets.map((r, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm">基准宽度:</span>
+                  <Input
+                    type="number"
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(Number(e.target.value))}
+                    className="w-[100px]"
+                    min={100}
+                    max={8000}
+                    disabled={processing}
+                  />
+                </div>
+              )}
+
+              {cropMode === 'custom' && (
+                <div className="flex items-center gap-4">
+                  <span className="text-sm">尺寸:</span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(Number(e.target.value))}
+                      className="w-[100px]"
+                      min={100}
+                      max={8000}
+                      placeholder="宽度"
+                      disabled={processing}
+                    />
+                    <span className="text-sm text-muted-foreground">×</span>
+                    <Input
+                      type="number"
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(Number(e.target.value))}
+                      className="w-[100px]"
+                      min={100}
+                      max={8000}
+                      placeholder="高度"
+                      disabled={processing}
+                    />
+                    <span className="text-sm text-muted-foreground">px</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -214,12 +376,12 @@ function Images() {
                   }`}>
                     {task.status}
                   </span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
                     onClick={() => removeTask(task.id)}
-                    disabled={processing && task.status === '正在转换...'}
+                    disabled={processing && (task.status === '正在处理...' || task.status === '正在转换...')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

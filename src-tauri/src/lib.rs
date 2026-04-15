@@ -12,7 +12,11 @@ pub fn run() {
             media::convert_video,
             media::convert_image,
             media::get_media_info,
-            media::scan_directory
+            media::scan_directory,
+            media::crop_image_fixed,
+            media::crop_image_ratio,
+            media::crop_image_custom,
+            media::batch_to_zip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
