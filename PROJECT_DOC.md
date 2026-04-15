@@ -49,5 +49,5 @@ Main function: Convert images and videos with predefined presets.
 - [x] Phase 2: Rust Backend (FFmpeg command builder, Progress parsing).
 - [x] Phase 3: Frontend (Sidebar Layout, Video Converter UI).
 - [x] Phase 4: Image Processing (Implemented basic format conversion).
-- [ ] Phase 5: Settings & Preferences.
+- [x] Phase 5: Settings & Preferences (Implemented theme switching and info).
 - [ ] Phase 6: Packaging & Auto-Update.

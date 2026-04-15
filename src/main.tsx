@@ -4,9 +4,12 @@ import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route as rootRoute } from './routes/__root';
 import { Route as indexRoute } from './routes/index';
+import { Route as imagesRoute } from './routes/images';
+import { Route as settingsRoute } from './routes/settings';
 import "./index.css";
+import { ThemeProvider } from "next-themes";
 
-const routeTree = rootRoute.addChildren([indexRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, imagesRoute, settingsRoute]);
 
 const router = createRouter({ routeTree });
 
@@ -20,8 +23,10 @@ declare module '@tanstack/react-router' {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );
