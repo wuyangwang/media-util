@@ -25,10 +25,7 @@ import {
 	Download,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { configManager, DEFAULT_CONFIG } from "@/lib/config";
-
-// 使用默认配置（实际配置在组件初始化时异步加载）
-const CONFIG = DEFAULT_CONFIG;
+import { DEFAULT_CONFIG } from "@/lib/config";
 
 interface Task {
 	id: string;
@@ -38,22 +35,18 @@ interface Task {
 	output?: string;
 }
 
-type CropMode = "fixed" | "ratio" | "custom";
-
 export const Route = createFileRoute("/images")({
 	component: Images,
 });
 
 function Images() {
 	const [tasks, setTasks] = useState<Task[]>([]);
-	const [targetFormat, setTargetFormat] = useState(
-		CONFIG.image.formats[0].value,
-	);
+	const [targetFormat, setTargetFormat] = useState<string>(DEFAULT_CONFIG.image_formats[0].value);
 	const [processing, setProcessing] = useState(false);
 	const [isScanning, setIsScanning] = useState(false);
 
 	// 裁剪模式
-	const [cropMode, setCropMode] = useState<CropMode>("custom");
+	const [cropMode, setCropMode] = useState<string>(DEFAULT_CONFIG.crop_modes[0].value);
 	const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0);
 	const [customWidth, setCustomWidth] = useState<number>(800);
 	const [customHeight, setCustomHeight] = useState<number>(800);
@@ -70,7 +63,7 @@ function Images() {
 		return () => {
 			unlistenDrop.then((fn) => fn());
 		};
-	}, [tasks]);
+	}, []);
 
 	const handleAddPaths = async (paths: string[]) => {
 		setIsScanning(true);
@@ -112,7 +105,7 @@ function Images() {
 	const handlePickFiles = async () => {
 		const files = await open({
 			multiple: true,
-			filters: [{ name: "图片", extensions: CONFIG.image.extensions }],
+			filters: [{ name: "图片", extensions: DEFAULT_CONFIG.image_extensions }],
 		});
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
@@ -159,7 +152,6 @@ function Images() {
 				let outputPath: string;
 
 				if (cropMode === "fixed") {
-					// 固定尺寸裁剪
 					outputPath = `${baseName}_cropped.${targetFormat}`;
 					await invoke("crop_image_fixed", {
 						inputPath: task.path,
@@ -167,8 +159,7 @@ function Images() {
 						presetIndex: selectedPresetIndex,
 					});
 				} else if (cropMode === "ratio") {
-					// 按比例裁剪
-					const ratioPreset = CONFIG.image.ratioPresets[selectedRatio];
+					const ratioPreset = DEFAULT_CONFIG.ratio_presets[selectedRatio];
 					const targetWidth = customWidth;
 					const targetHeight = Math.round(targetWidth / ratioPreset.ratio);
 					outputPath = `${baseName}_${ratioPreset.label.split(" ")[0]}_cropped.${targetFormat}`;
@@ -179,7 +170,6 @@ function Images() {
 						targetHeight,
 					});
 				} else {
-					// 自定义尺寸裁剪
 					outputPath = `${baseName}_${customWidth}x${customHeight}_cropped.${targetFormat}`;
 					await invoke("crop_image_custom", {
 						inputPath: task.path,
@@ -312,7 +302,7 @@ function Images() {
 										<SelectValue placeholder="选择格式" />
 									</SelectTrigger>
 									<SelectContent>
-										{CONFIG.image.formats.map((f) => (
+										{DEFAULT_CONFIG.image_formats.map((f) => (
 											<SelectItem key={f.value} value={f.value}>
 												{f.label}
 											</SelectItem>
@@ -327,7 +317,7 @@ function Images() {
 									size="sm"
 									disabled={
 										processing ||
-										tasks.filter((t) => t.status === "Completed").length === 0
+										tasks.filter((t) => t.status === "已完成").length === 0
 									}
 								>
 									<Download className="w-4 h-4 mr-1" />
@@ -345,14 +335,14 @@ function Images() {
 								<span className="text-sm font-medium">裁剪模式:</span>
 								<Select
 									value={cropMode}
-									onValueChange={(v) => setCropMode(v as CropMode)}
+									onValueChange={setCropMode}
 									disabled={processing}
 								>
 									<SelectTrigger className="w-[140px]">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{CONFIG.image.cropModes.map((m) => (
+										{DEFAULT_CONFIG.crop_modes.map((m) => (
 											<SelectItem key={m.value} value={m.value}>
 												{m.label}
 											</SelectItem>
@@ -373,7 +363,7 @@ function Images() {
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{CONFIG.image.sizePresets.map((p, idx) => (
+											{DEFAULT_CONFIG.size_presets.map((p, idx) => (
 												<SelectItem key={idx} value={String(idx)}>
 													{p.category} - {p.name} ({p.width}x{p.height})
 												</SelectItem>
@@ -395,7 +385,7 @@ function Images() {
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{CONFIG.image.ratioPresets.map((r, idx) => (
+											{DEFAULT_CONFIG.ratio_presets.map((r, idx) => (
 												<SelectItem key={idx} value={String(idx)}>
 													{r.label}
 												</SelectItem>
