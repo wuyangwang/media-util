@@ -30,8 +30,9 @@ Main function: Convert images and videos with predefined presets.
 | **2K** | 2560x1440 | 30 | libx264 | 18 |
 
 ### Metadata Extraction
-- **Video**: `ffprobe -v error -show_format -show_streams -of json {input}`
-- **Image**: Basic dimensions and format via `image` crate.
+- **Batch Processing**: Supports processing multiple videos or images sequentially.
+- **Drag-and-Drop**: Users can drag files or folders directly into the application to add them to the task queue.
+- **Recursive Scan**: Automatically finds all supported media files within dropped folders.
 
 ## 4. Implementation Details
 - **FFmpeg Sidecar**:
