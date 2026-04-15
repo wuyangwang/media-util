@@ -1,4 +1,4 @@
-use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS};
+use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, AppConfig};
 use serde::{Deserialize, Serialize};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -379,6 +379,12 @@ pub fn batch_to_zip(
         .map_err(|e| format!("Failed to finish zip file: {}", e))?;
     
     Ok(())
+}
+
+// 获取应用配置
+#[tauri::command]
+pub fn get_app_config() -> Result<AppConfig, String> {
+    Ok(AppConfig::get_config())
 }
 
 #[tauri::command]

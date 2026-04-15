@@ -8,6 +8,7 @@ pub const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "bmp", "ti
 // ============================================
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum CropMode {
     Fixed,    // 固定尺寸
     Ratio,    // 按比例
@@ -64,6 +65,71 @@ pub const IMAGE_RATIO_PRESETS: &[(&str, f32)] = &[
     ("3:2 (照片)", 3.0 / 2.0),
     ("2:3 (竖版照片)", 2.0 / 3.0),
 ];
+
+// 前端配置数据结构
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppConfig {
+    pub video_extensions: Vec<&'static str>,
+    pub image_extensions: Vec<&'static str>,
+    pub video_presets: Vec<VideoPresetConfig>,
+    pub image_formats: Vec<ImageFormatConfig>,
+    pub crop_modes: Vec<CropModeConfig>,
+    pub size_presets: Vec<ImageSizePreset>,
+    pub ratio_presets: Vec<RatioPresetConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VideoPresetConfig {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImageFormatConfig {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CropModeConfig {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RatioPresetConfig {
+    pub label: String,
+    pub ratio: f32,
+}
+
+impl AppConfig {
+    pub fn get_config() -> Self {
+        Self {
+            video_extensions: VIDEO_EXTENSIONS.to_vec(),
+            image_extensions: IMAGE_EXTENSIONS.to_vec(),
+            video_presets: vec![
+                VideoPresetConfig { value: "720p".to_string(), label: "720p (HD)".to_string() },
+                VideoPresetConfig { value: "1080p".to_string(), label: "1080p (Full HD)".to_string() },
+                VideoPresetConfig { value: "2k".to_string(), label: "2K (Quad HD)".to_string() },
+            ],
+            image_formats: vec![
+                ImageFormatConfig { value: "png".to_string(), label: "PNG".to_string() },
+                ImageFormatConfig { value: "jpg".to_string(), label: "JPEG (JPG)".to_string() },
+                ImageFormatConfig { value: "webp".to_string(), label: "WebP".to_string() },
+                ImageFormatConfig { value: "bmp".to_string(), label: "BMP".to_string() },
+            ],
+            crop_modes: vec![
+                CropModeConfig { value: "fixed".to_string(), label: "固定尺寸".to_string() },
+                CropModeConfig { value: "ratio".to_string(), label: "按比例".to_string() },
+                CropModeConfig { value: "custom".to_string(), label: "自定义".to_string() },
+            ],
+            size_presets: IMAGE_SIZE_PRESETS.to_vec(),
+            ratio_presets: IMAGE_RATIO_PRESETS.iter().map(|(label, ratio)| {
+                RatioPresetConfig { label: label.to_string(), ratio: *ratio }
+            }).collect(),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Preset {

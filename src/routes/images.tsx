@@ -25,7 +25,10 @@ import {
 	Download,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { CONFIG } from "@/lib/config";
+import { configManager, DEFAULT_CONFIG } from "@/lib/config";
+
+// 使用默认配置（实际配置在组件初始化时异步加载）
+const CONFIG = DEFAULT_CONFIG;
 
 interface Task {
 	id: string;
