@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Trash2, Play, Plus, FolderPlus, ImageIcon, Loader2, XCircle } from 'lucide-react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { CONFIG } from '@/lib/config';
 
 interface Task {
   id: string;
@@ -22,7 +23,7 @@ export const Route = createFileRoute('/images')({
 
 function Images() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [targetFormat, setTargetFormat] = useState('png');
+  const [targetFormat, setTargetFormat] = useState(CONFIG.image.formats[0].value);
   const [processing, setProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -76,7 +77,7 @@ function Images() {
   const handlePickFiles = async () => {
     const files = await open({
       multiple: true,
-      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'] }]
+      filters: [{ name: 'Images', extensions: CONFIG.image.extensions }]
     });
     if (files) {
       await handleAddPaths(Array.isArray(files) ? files : [files]);
@@ -175,10 +176,9 @@ function Images() {
                   <SelectValue placeholder="选择格式" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="png">PNG</SelectItem>
-                  <SelectItem value="jpg">JPEG (JPG)</SelectItem>
-                  <SelectItem value="webp">WebP</SelectItem>
-                  <SelectItem value="bmp">BMP</SelectItem>
+                  {CONFIG.image.formats.map(f => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

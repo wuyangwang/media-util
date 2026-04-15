@@ -1,29 +1,10 @@
+use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS};
 use serde::{Deserialize, Serialize};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use regex::Regex;
 use tauri::{AppHandle, Emitter};
 use std::path::Path;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum Preset {
-    #[serde(rename = "720p")]
-    P720,
-    #[serde(rename = "1080p")]
-    P1080,
-    #[serde(rename = "2k")]
-    P2K,
-}
-
-impl Preset {
-    fn get_params(&self) -> (&str, &str, u8) {
-        match self {
-            Preset::P720 => ("1280", "720", 22),
-            Preset::P1080 => ("1920", "1080", 20),
-            Preset::P2K => ("2560", "1440", 18),
-        }
-    }
-}
 
 #[derive(Clone, Serialize)]
 struct ProgressPayload {
@@ -63,7 +44,7 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
         .unwrap_or("")
         .to_lowercase();
 
-    if ["jpg", "jpeg", "png", "webp", "bmp"].contains(&ext.as_str()) {
+    if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
         let img = image::image_dimensions(&path).map_err(|e| e.to_string())?;
         return Ok(MediaInfo {
             format: ext,
@@ -131,8 +112,8 @@ pub async fn convert_video(
     let media_info = get_media_info(app.clone(), input_path.clone()).await?;
     let total_duration = media_info.duration;
 
-    let (width, height, crf) = preset.get_params();
-    let scale_vf = format!("scale={}:{}", width, height);
+    let params = preset.get_params();
+    let scale_vf = format!("scale={}:{}", params.width, params.height);
 
     let shell = app.shell();
     let output = shell
@@ -143,7 +124,7 @@ pub async fn convert_video(
             "-vf", &format!("{},fps=30", scale_vf),
             "-c:v", "libx264",
             "-preset", "fast",
-            "-crf", &crf.to_string(),
+            "-crf", &params.crf.to_string(),
             "-y", // Overwrite output
             &output_path,
         ])
@@ -174,7 +155,7 @@ pub async fn convert_video(
                     app.emit("conversion-progress", ProgressPayload {
                         id: id.clone(),
                         progress,
-                        status: format!("Processing... ({:.1}%)", progress),
+                        status: format!("正在处理... ({:.1}%)", progress),
                     }).unwrap();
                 }
             } else if let CommandEvent::Terminated(payload) = event {
@@ -211,9 +192,7 @@ pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, S
     let mut files = Vec::new();
     let mut stack = vec![std::path::PathBuf::from(path)];
 
-    let video_exts = ["mp4", "mkv", "avi", "mov", "webm"];
-    let image_exts = ["jpg", "jpeg", "png", "webp", "bmp", "tiff"];
-    let target_exts = if mode == "video" { &video_exts[..] } else { &image_exts[..] };
+    let target_exts = if mode == "video" { VIDEO_EXTENSIONS } else { IMAGE_EXTENSIONS };
 
     while let Some(current_path) = stack.pop() {
         if current_path.is_dir() {

@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Trash2, Play, Plus, FolderPlus, FileVideo, Loader2, XCircle } from 'lucide-react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { CONFIG } from '@/lib/config';
 
 interface MediaInfo {
   format: string;
@@ -45,7 +46,7 @@ export const Route = createFileRoute('/')({
 
 function Index() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [preset, setPreset] = useState('720p');
+  const [preset, setPreset] = useState(CONFIG.video.presets[0].value);
   const [processing, setProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -109,7 +110,7 @@ function Index() {
   const handlePickFiles = async () => {
     const files = await open({
       multiple: true,
-      filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm'] }]
+      filters: [{ name: 'Video', extensions: CONFIG.video.extensions }]
     });
     if (files) {
       await handleAddPaths(Array.isArray(files) ? files : [files]);
@@ -202,9 +203,9 @@ function Index() {
                   <SelectValue placeholder="选择预设" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="720p">720p (HD)</SelectItem>
-                  <SelectItem value="1080p">1080p (Full HD)</SelectItem>
-                  <SelectItem value="2k">2K (Quad HD)</SelectItem>
+                  {CONFIG.video.presets.map(p => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
