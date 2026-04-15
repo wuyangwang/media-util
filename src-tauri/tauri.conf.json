@@ -19,7 +19,9 @@
 		],
 		"security": {
 			"csp": null
-		},
+		}
+	},
+	"plugins": {
 		"updater": {
 			"endpoints": [
 				"https://example.com/updates/{{target}}-{{arch}}.json"
