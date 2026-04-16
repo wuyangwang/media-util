@@ -72,4 +72,6 @@ Main function: Convert images and videos with predefined presets.
 - [x] Phase 5: Settings & Preferences (Implemented theme switching and info).
 - [x] Phase 6: Batch Operations (Implemented recursive scanning and ZIP export).
 - [x] Phase 7: Packaging & Auto-Update (Configured tauri.conf.json and updater plugin).
-- [x] **Phase 8: Routing Refactor**: Fixed duplicate route ID error by enabling TanStack Router file-based routing and Vite plugin.
+- [x] Phase 8: Routing Refactor: Fixed duplicate route ID error by enabling TanStack Router file-based routing and Vite plugin.
+- [x] Phase 9: Global Configuration Optimization: Refactored `DEFAULT_CONFIG` as a global variable initialized at app startup for direct use across pages.
+

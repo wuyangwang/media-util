@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 import { ThemeProvider } from "next-themes";
-import { configManager } from "./lib/config";
+import { initConfig } from "./lib/config";
 
 const router = createRouter({ routeTree });
 
@@ -18,11 +18,7 @@ declare module "@tanstack/react-router" {
 }
 
 async function initApp() {
-	try {
-		await configManager.init();
-	} catch (err) {
-		console.error("Failed to initialize config:", err);
-	}
+	await initConfig();
 
 	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 		<React.StrictMode>

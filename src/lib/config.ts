@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "@tauri-apps/api/core";
 
 export interface AppConfig {
 	video_extensions: string[];
@@ -10,12 +10,25 @@ export interface AppConfig {
 	ratio_presets: { label: string; ratio: number }[];
 }
 
-export let DEFAULT_CONFIG: AppConfig;
+// 导出全局配置变量，初始化为空对象以防止解构报错
+export const DEFAULT_CONFIG: AppConfig = {
+	video_extensions: [],
+	image_extensions: [],
+	video_presets: [],
+	image_formats: [],
+	crop_modes: [],
+	size_presets: [],
+	ratio_presets: [],
+};
 
-class ConfigManager {
-	async init(): Promise<void> {
-		DEFAULT_CONFIG = await invoke<AppConfig>('get_app_config');
+/**
+ * 初始化配置，从后端获取数据并注入到全局变量中
+ */
+export async function initConfig() {
+	try {
+		const config = await invoke<AppConfig>("get_app_config");
+		Object.assign(DEFAULT_CONFIG, config);
+	} catch (err) {
+		console.error("Failed to initialize config:", err);
 	}
 }
-
-export const configManager = new ConfigManager();
