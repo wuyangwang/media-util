@@ -24,5 +24,4 @@ dist-ssr
 *.sw?
 
 
-src-tauri/binaries
 Cargo.lock
