@@ -17,6 +17,7 @@ Tech stack: Tauri v2 + React 19 + TypeScript + Rust + FFmpeg/FFprobe sidecar.
 - `src/routes/` (overview/videos/images/settings pages)
 - `src/hooks/` (scan/queue and related hooks)
 - `src-tauri/src/media.rs` (media processing core)
+- `src-tauri/capabilities/` (permissions and tray config)
 - `src-tauri/tauri.conf.json` (bundle config + `externalBin`)
 - `.github/workflows/release.yml` (Windows release pipeline)
 

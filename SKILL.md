@@ -80,3 +80,26 @@ await reveal(path);
 ```
 Ensure `opener:default` permission is added to `src-tauri/capabilities/default.json`.
 
+## 10. System Tray Configuration (Tauri v2)
+To implement a system tray with menus:
+1. Enable `tray-icon` feature in `Cargo.toml`.
+2. Configure permissions in `capabilities/default.json` including `tray:default` and `shell:allow-open` for external links.
+3. Build the tray in `src-tauri/src/lib.rs`:
+   ```rust
+   let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+   let menu = Menu::with_items(app, &[&quit_i])?;
+   let _tray = TrayIconBuilder::new()
+       .menu(&menu)
+       .on_menu_event(|app, event| { /* handle events */ })
+       .build(app)?;
+   ```
+4. Intercept the close event to minimize to tray:
+   ```rust
+   .on_window_event(|window, event| {
+       if let WindowEvent::CloseRequested { api, .. } = event {
+           api.prevent_close();
+           window.hide().unwrap();
+       }
+   })
+   ```
+
