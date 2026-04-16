@@ -1,5 +1,0 @@
-{
-  "last_turn_at": "2026-04-16T06:20:11.737Z",
-  "turn_count": 1,
-  "last_agent_output": "已按项目文档完成优化并提交 commit：`0ad6f58`。\n\n1. 安装包格式  \n- 已把 Tauri 打包目标改为 `nsis + msi`，不再用 `all`。  \n- 改动：[tauri."
-}
