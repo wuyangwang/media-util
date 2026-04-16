@@ -1,72 +1,62 @@
-name: Build and Release Windows EXE
+name: Build and Release Windows
 
 on:
   push:
-    branches: [ master ] # 确保这是你当前的主分支名，通常是 'master' 或 'main'
+    branches:
+      - master
+
+permissions:
+  contents: write
 
 jobs:
-  build_and_release:
-    runs-on: windows-latest # 使用 Windows 环境来构建 .exe
+  build:
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout code with LFS
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # 拉取所有 Git 历史记录，如果需要的话
-        lfs: true      # **重要：确保 LFS 文件（如 FFmpeg）被正确拉取**
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20' # 请根据你的项目选择合适的 Node.js 版本，例如 '18', '20'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 'latest' # 使用最新版本的 pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
-    - name: Install project dependencies
-      run: pnpm install # 运行你的包管理器安装依赖
+      - name: Install dependencies
+        run: pnpm install
 
-    - name: Setup Rust toolchain
-      uses: dtolnay/rust-toolchain@stable # 确保 Rust 环境可用
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Build Tauri application for Windows
-      run: |
-        # 确保 Tauri CLI 已安装，如果你的 pnpm install 不会自动安装
-        # 如果你全局安装了 tauri-cli，可以跳过此行
-        pnpm install -g @tauri-apps/cli
-        # 构建 .exe 应用，指定 target 为 windows
-        # 如果你的 Tauri 应用需要特殊签名，你可能需要在这里配置环境变量或 Secrets
-        tauri build --target x86_64-pc-windows-msvc
-      env:
-        # GITHUB_TOKEN 是 GitHub 提供的，用于创建 Release 和上传资产
-        # TAURI_PRIVATE_SIGNING_KEY: ${{ secrets.TAURI_PRIVATE_SIGNING_KEY }} # 如果需要代码签名，请设置你的私钥 Secret
-        # TAURI_PUBLIC_SIGNING_KEY: ${{ secrets.TAURI_PUBLIC_SIGNING_KEY }}   # 如果需要代码签名，请设置你的公钥 Secret
-        CI: true # 很多工具在 CI 环境下有不同的行为，设置此变量有时是必要的
+      - name: Install Tauri CLI
+        run: pnpm add -g @tauri-apps/cli
 
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub Actions 提供的默认 Token
-      with:
-        # 使用 Git commit 的 SHA 或者一个递增的数字作为 tag_name
-        # 这里使用 GitHub Actions 的 run_number，它在每次 workflow run 时是唯一的
-        tag_name: ${{ github.run_number }}
-        release_name: "Release Build ${{ github.run_number }}"
-        draft: false # 设置为 true 则会创建草稿 Release，需要手动发布
-        prerelease: false # 设置为 true 则会标记为预发布版本
+      # 👇 关键：读取 package.json version
+      - name: Get version from package.json
+        id: pkg
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Upload Release Asset (.exe)
-      id: upload_asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # **重要：请根据你的应用名和 Tauri 的 build 输出路径修改这里的名字和路径**
-        # 假设你的产品名称在 tauri.conf.json 中设置为 "Media Utility"
-        asset_path: ./src-tauri/target/release/media-utility.exe # 替换成你的应用名
-        asset_name: media-utility-v${{ github.run_number }}.exe # 替换成你的应用名，并加上版本号
-        asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Build Windows app
+        run: tauri build --target x86_64-pc-windows-msvc
+        env:
+          CI: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: v${{ steps.pkg.outputs.version }}
+          files: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
