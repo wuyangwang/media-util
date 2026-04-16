@@ -22,7 +22,13 @@ async function initApp() {
 
 	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 		<React.StrictMode>
-			<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+			<ThemeProvider
+				attribute="class"
+				defaultTheme="system"
+				enableSystem
+				storageKey="media-util-theme"
+				disableTransitionOnChange
+			>
 				<QueryClientProvider client={queryClient}>
 					<RouterProvider router={router} />
 				</QueryClientProvider>

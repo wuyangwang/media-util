@@ -52,7 +52,7 @@ function RootComponent() {
 				<Outlet />
 			</main>
 
-			<Toaster position="top-right" />
+			<Toaster position="bottom-right" />
 		</div>
 	);
 }

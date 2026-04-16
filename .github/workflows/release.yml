@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'   # ⭐ 自动缓存 pnpm
 
       # ✅ pnpm
@@ -53,7 +53,7 @@ jobs:
 
       # 构建
       - name: Build Windows app
-        run: pnpm tauri build --target x86_64-pc-windows-msvc
+        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
         env:
           CI: true
 
@@ -64,7 +64,8 @@ jobs:
           tag_name: v${{ steps.pkg.outputs.version }}
           name: v${{ steps.pkg.outputs.version }}
           files: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
