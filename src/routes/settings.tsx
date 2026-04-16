@@ -16,7 +16,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Monitor, Moon, Sun, FolderOpen, Info } from "lucide-react";
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 
@@ -27,6 +27,11 @@ export const Route = createFileRoute("/settings")({
 function Settings() {
 	const { theme, setTheme } = useTheme();
 	const containerRef = useRef<HTMLDivElement>(null);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	useGSAP(() => {
 		gsap.from(".settings-animate", {
@@ -63,7 +68,7 @@ function Settings() {
 					<CardContent>
 						<div className="flex items-center gap-4">
 							<span className="text-sm font-medium text-foreground">应用主题:</span>
-							<Select value={theme} onValueChange={handleThemeChange}>
+							<Select value={mounted ? theme : "system"} onValueChange={handleThemeChange}>
 								<SelectTrigger className="w-[200px]">
 									<SelectValue placeholder="选择主题" />
 								</SelectTrigger>

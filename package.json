@@ -8,6 +8,7 @@
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"tauri": "tauri",
+		"pack:win": "pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi",
 		"check": "biome check --apply .",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
