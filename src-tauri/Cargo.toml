@@ -1,5 +1,5 @@
 [package]
-name = "tauri-app"
+name = "media-util"
 version = "1.0.0"
 description = "A Tauri App"
 authors = ["you"]
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "tauri_app_lib"
+name = "media_util_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -31,4 +31,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 chrono = "0.4"
+
+# 构建优化配置
+[profile.dev]
+incremental = true # 开启增量编译，加快开发环境编译速度
+
+[profile.release]
+panic = "abort"   # 发生 panic 时直接终止，减小二进制体积
+codegen-units = 1 # 限制代码生成单元为 1，以获得更好的全局优化
+lto = true        # 开启链接时优化 (Link Time Optimization)
+opt-level = "s"   # 针对体积进行优化 ("s" 或 "z" 通常比 "3" 更适合 Tauri 应用)
+strip = true      # 自动剥离二进制文件中的符号信息，大幅减小体积 (仅限 Rust 1.59+)
+
 
