@@ -97,8 +97,10 @@ impl AppConfig {
             video_extensions: VIDEO_EXTENSIONS.to_vec(),
             image_extensions: IMAGE_EXTENSIONS.to_vec(),
             video_presets: vec![
-                VideoPresetConfig { value: "720p".to_string(), label: "720p (高清)".to_string() },
-                VideoPresetConfig { value: "1080p".to_string(), label: "1080p (全高清)".to_string() },
+                VideoPresetConfig { value: "720p_low".to_string(), label: "720p (低码率)".to_string() },
+                VideoPresetConfig { value: "720p_high".to_string(), label: "720p (高码率)".to_string() },
+                VideoPresetConfig { value: "1080p_low".to_string(), label: "1080p (低码率)".to_string() },
+                VideoPresetConfig { value: "1080p_high".to_string(), label: "1080p (高码率)".to_string() },
                 VideoPresetConfig { value: "2k".to_string(), label: "2K (超清)".to_string() },
             ],
             image_formats: vec![
@@ -122,10 +124,14 @@ impl AppConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Preset {
-    #[serde(rename = "720p")]
-    P720,
-    #[serde(rename = "1080p")]
-    P1080,
+    #[serde(rename = "720p_low")]
+    P720Low,
+    #[serde(rename = "720p_high")]
+    P720High,
+    #[serde(rename = "1080p_low")]
+    P1080Low,
+    #[serde(rename = "1080p_high")]
+    P1080High,
     #[serde(rename = "2k")]
     P2K,
 }
@@ -139,8 +145,10 @@ pub struct PresetParams {
 impl Preset {
     pub fn get_params(&self) -> PresetParams {
         match self {
-            Preset::P720 => PresetParams { width: "1280", height: "720", crf: 22 },
-            Preset::P1080 => PresetParams { width: "1920", height: "1080", crf: 20 },
+            Preset::P720Low => PresetParams { width: "1280", height: "720", crf: 25 },
+            Preset::P720High => PresetParams { width: "1280", height: "720", crf: 22 },
+            Preset::P1080Low => PresetParams { width: "1920", height: "1080", crf: 25 },
+            Preset::P1080High => PresetParams { width: "1920", height: "1080", crf: 22 },
             Preset::P2K => PresetParams { width: "2560", height: "1440", crf: 18 },
         }
     }
