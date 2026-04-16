@@ -6,6 +6,7 @@ import { routeTree } from "./routeTree.gen";
 import "./index.css";
 import { ThemeProvider } from "next-themes";
 import { initConfig } from "./lib/config";
+import { listen } from "@tauri-apps/api/event";
 
 const router = createRouter({ routeTree });
 
@@ -18,7 +19,16 @@ declare module "@tanstack/react-router" {
 }
 
 async function initApp() {
+	// Disable default context menu
+	document.addEventListener("contextmenu", (e) => e.preventDefault(), {
+		capture: true,
+	});
+
 	await initConfig();
+
+	listen<string>("navigate", (event) => {
+		router.navigate({ to: event.payload as any });
+	});
 
 	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 		<React.StrictMode>

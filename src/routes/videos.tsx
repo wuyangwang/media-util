@@ -48,9 +48,8 @@ export const Route = createFileRoute("/videos")({
 });
 
 function Videos() {
-	const { tasks, setTasks, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<VideoTask>("video");
+	const { tasks, setTasks, processing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<VideoTask>("video");
 	const [preset, setPreset] = useState<string>(DEFAULT_CONFIG.video_presets[0].value);
-	const [processing, setProcessing] = useState(false);
 	
 	const containerRef = useRef<HTMLDivElement>(null);
 
@@ -184,19 +183,19 @@ function Videos() {
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || processing}>
+					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加文件" : "添加文件"}>
 						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Plus data-icon="inline-start" />}
 						添加文件
 					</Button>
-					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || processing}>
+					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
 						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <FolderPlus data-icon="inline-start" />}
 						添加文件夹
 					</Button>
-					<Button onClick={startBatch} disabled={processing || tasks.length === 0 || isScanning} size="sm">
+					<Button onClick={startBatch} disabled={processing || tasks.length === 0 || isScanning} size="sm" title={processing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始处理"}>
 						{processing ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Play data-icon="inline-start" />}
 						全部开始
 					</Button>
-					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={processing || isScanning}>
+					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={processing || isScanning} title={processing ? "正在处理中，无法清空" : "清空任务列表"}>
 						<XCircle data-icon="inline-start" /> 清空
 					</Button>
 				</div>
@@ -247,7 +246,16 @@ function Videos() {
 										{task.status === "已完成" && (
 											<Button variant="ghost" size="icon-sm" className="text-primary hover:bg-primary/10" onClick={() => handleOpenFolder(task.outputPath)} title="打开所在文件夹"><FolderOpen /></Button>
 										)}
-										<Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive transition-colors" onClick={() => removeTask(task.id)} disabled={processing && (task.status === "正在处理..." || task.status === "正在转换...")}><Trash2 /></Button>
+										<Button 
+											variant="ghost" 
+											size="icon-sm" 
+											className="text-muted-foreground hover:text-destructive transition-colors" 
+											onClick={() => removeTask(task.id)} 
+											disabled={processing && (task.status === "正在处理..." || task.status === "正在转换...")}
+											title={processing && (task.status === "正在处理..." || task.status === "正在转换...") ? "正在转换中，无法删除" : "删除任务"}
+										>
+											<Trash2 />
+										</Button>
 									</div>
 								</div>
 								{(task.progress! > 0 || task.status !== "待处理") && (

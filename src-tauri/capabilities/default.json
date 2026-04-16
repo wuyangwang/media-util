@@ -9,6 +9,15 @@
 		"shell:default",
 		"shell:allow-execute",
 		"dialog:default",
-		"updater:default"
+		"updater:default",
+		"tray:default",
+		{
+			"identifier": "shell:allow-open",
+			"allow": [
+				{
+					"url": "https://github.com/wuyangwang/media-util"
+				}
+			]
+		}
 	]
 }

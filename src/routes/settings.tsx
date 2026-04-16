@@ -15,7 +15,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Monitor, Moon, Sun, FolderOpen, Info } from "lucide-react";
+import { Monitor, Moon, Sun, FolderOpen, Info, ExternalLink } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -140,6 +141,18 @@ function Settings() {
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground text-sm">核心引擎:</span>
 							<span className="font-medium text-foreground text-sm">FFmpeg 7.x & image 库</span>
+						</div>
+						<div className="flex justify-between items-center text-sm pt-2 border-t border-muted">
+							<span className="text-muted-foreground text-sm">开源地址:</span>
+							<Button 
+								variant="link" 
+								size="sm" 
+								className="h-auto p-0 text-primary font-medium flex items-center gap-1.5"
+								onClick={() => openUrl("https://github.com/wuyangwang/media-util")}
+							>
+								<ExternalLink className="size-3.5" />
+								GitHub Repository
+							</Button>
 						</div>
 					</CardContent>
 				</Card>
