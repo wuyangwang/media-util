@@ -48,7 +48,7 @@ export const Route = createFileRoute("/videos")({
 });
 
 function Videos() {
-	const { tasks, setTasks, processing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<VideoTask>("video");
+	const { tasks, setTasks, processing, isAnyProcessing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<VideoTask>("video");
 	const [preset, setPreset] = useState<string>(DEFAULT_CONFIG.video_presets[0].value);
 	
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -92,7 +92,7 @@ function Videos() {
 	}, [handleAddPaths]);
 
 	const startBatch = useCallback(async () => {
-		if (tasks.length === 0 || processing) return;
+		if (tasks.length === 0 || isAnyProcessing) return;
 		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
@@ -127,7 +127,7 @@ function Videos() {
 			}
 		}
 		setProcessing(false);
-	}, [processing, preset, tasks, setTasks]);
+	}, [isAnyProcessing, preset, tasks, setTasks]);
 
 	const handleOpenFolder = useCallback(async (path?: string) => {
 		if (path) {
@@ -183,19 +183,19 @@ function Videos() {
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加文件" : "添加文件"}>
+					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加文件" : "添加文件"}>
 						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Plus data-icon="inline-start" />}
 						添加文件
 					</Button>
-					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
+					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
 						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <FolderPlus data-icon="inline-start" />}
 						添加文件夹
 					</Button>
-					<Button onClick={startBatch} disabled={processing || tasks.length === 0 || isScanning} size="sm" title={processing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始处理"}>
+					<Button onClick={startBatch} disabled={isAnyProcessing || tasks.length === 0 || isScanning} size="sm" title={isAnyProcessing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始处理"}>
 						{processing ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Play data-icon="inline-start" />}
 						全部开始
 					</Button>
-					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={processing || isScanning} title={processing ? "正在处理中，无法清空" : "清空任务列表"}>
+					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={isAnyProcessing || isScanning} title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}>
 						<XCircle data-icon="inline-start" /> 清空
 					</Button>
 				</div>
@@ -206,7 +206,7 @@ function Videos() {
 					<CardContent className="p-4 flex items-center justify-between">
 						<div className="flex items-center gap-4">
 							<span className="text-sm font-medium">转换预设:</span>
-							<Select value={preset} onValueChange={setPreset} disabled={processing}>
+							<Select value={preset} onValueChange={setPreset} disabled={isAnyProcessing}>
 								<SelectTrigger className="w-[180px]">
 									<SelectValue placeholder="选择预设" />
 								</SelectTrigger>

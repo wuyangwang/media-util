@@ -33,6 +33,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		tasks: T[] | ((prev: T[]) => T[]),
 	) => void;
 	const processing = mode === "image" ? imageProcessing : videoProcessing;
+	const isAnyProcessing = imageProcessing || videoProcessing;
 	const setProcessing = mode === "image" ? setImageProcessing : setVideoProcessing;
 	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (tasks: T[]) => void;
 	const removeTask = mode === "image" ? removeImageTask : removeVideoTask;
@@ -44,6 +45,10 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 
 	const handleAddPaths = useCallback(
 		async (paths: string[]) => {
+			if (isAnyProcessing) {
+				toast.error("有任务正在处理中，请稍后再添加");
+				return;
+			}
 			setIsScanning(true);
 			const toastId = toast.loading(`正在扫描${mode === "video" ? "视频" : "图片"}文件...`);
 			let addedCount = 0;
@@ -87,6 +92,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		tasks,
 		setTasks,
 		processing,
+		isAnyProcessing,
 		setProcessing,
 		isScanning,
 		handleAddPaths,

@@ -37,7 +37,7 @@ export const Route = createFileRoute("/images")({
 });
 
 function Images() {
-	const { tasks, setTasks, processing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<ImageTask>("image");
+	const { tasks, setTasks, processing, isAnyProcessing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<ImageTask>("image");
 	const [targetFormat, setTargetFormat] = useState(DEFAULT_CONFIG.image_formats[0]?.value || "");
 	const [selectedPreset, setSelectedPreset] = useState<string>("0");
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -70,7 +70,7 @@ function Images() {
 	}, [handleAddPaths]);
 
 	const startBatch = useCallback(async () => {
-		if (tasks.length === 0 || processing) return;
+		if (tasks.length === 0 || isAnyProcessing) return;
 		setProcessing(true);
 		
 		for (const task of tasks) {
@@ -90,7 +90,7 @@ function Images() {
 			}
 		}
 		setProcessing(false);
-	}, [processing, tasks, targetFormat, selectedPreset, setTasks]);
+	}, [isAnyProcessing, tasks, targetFormat, selectedPreset, setTasks]);
 
 	const handleBatchDownload = useCallback(async () => {
 		const completedTasks = tasks.filter(t => t.status === "已完成" && t.output);
@@ -115,16 +115,16 @@ function Images() {
 					<p className="text-muted-foreground text-sm">{isScanning ? "正在扫描目录..." : "拖拽图片文件开始。"}</p>
 				</div>
 				<div className="flex gap-2">
-					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加图片" : "添加图片"}>
+					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加图片" : "添加图片"}>
 						<Plus data-icon="inline-start" /> 添加图片
 					</Button>
-					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || processing} title={processing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
+					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
 						<FolderPlus data-icon="inline-start" /> 添加文件夹
 					</Button>
-					<Button onClick={startBatch} disabled={processing || tasks.length === 0 || isScanning} size="sm" title={processing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始转换"}>
+					<Button onClick={startBatch} disabled={isAnyProcessing || tasks.length === 0 || isScanning} size="sm" title={isAnyProcessing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始转换"}>
 						<Play data-icon="inline-start" /> 全部开始
 					</Button>
-					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={processing || isScanning} title={processing ? "正在处理中，无法清空" : "清空任务列表"}>
+					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={isAnyProcessing || isScanning} title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}>
 						<XCircle data-icon="inline-start" /> 清空
 					</Button>
 				</div>
@@ -137,7 +137,7 @@ function Images() {
 							<div className="flex flex-wrap items-center gap-6">
 								<div className="flex items-center gap-3">
 									<span className="text-sm font-medium">尺寸预设:</span>
-									<Select value={selectedPreset} onValueChange={setSelectedPreset} disabled={processing}>
+									<Select value={selectedPreset} onValueChange={setSelectedPreset} disabled={isAnyProcessing}>
 										<SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
 										<SelectContent>
 											{DEFAULT_CONFIG.size_presets.map((p, i) => (
@@ -148,13 +148,13 @@ function Images() {
 								</div>
 								<div className="flex items-center gap-3">
 									<span className="text-sm font-medium">目标格式:</span>
-									<Select value={targetFormat} onValueChange={setTargetFormat} disabled={processing}>
+									<Select value={targetFormat} onValueChange={setTargetFormat} disabled={isAnyProcessing}>
 										<SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
 										<SelectContent>{DEFAULT_CONFIG.image_formats.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
 									</Select>
 								</div>
 							</div>
-							<Button onClick={handleBatchDownload} variant="outline" size="sm" disabled={processing || !tasks.some(t => t.status === "已完成")}><Download data-icon="inline-start" /> 批量下载</Button>
+							<Button onClick={handleBatchDownload} variant="outline" size="sm" disabled={isAnyProcessing || !tasks.some(t => t.status === "已完成")}><Download data-icon="inline-start" /> 批量下载</Button>
 						</div>
 					</CardContent>
 				</Card>
@@ -173,8 +173,8 @@ function Images() {
 									variant="ghost" 
 									size="icon-sm" 
 									onClick={() => removeTask(task.id)} 
-									disabled={processing}
-									title={processing ? "正在处理中，无法删除任务" : "删除任务"}
+									disabled={isAnyProcessing}
+									title={isAnyProcessing ? "正在处理中，无法删除任务" : "删除任务"}
 								>
 									<Trash2 />
 								</Button>
