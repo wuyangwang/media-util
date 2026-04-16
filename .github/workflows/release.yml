@@ -18,26 +18,32 @@ jobs:
         with:
           lfs: true
 
+      # ✅ Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'   # ⭐ 自动缓存 pnpm
 
+      # ✅ pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: latest
 
+      # ✅ 依赖安装（会命中缓存）
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
+      # ✅ Rust
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Tauri CLI
-        run: pnpm add -g @tauri-apps/cli
+      # ⭐⭐⭐ 核心优化：Rust 缓存
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
 
-      # 👇 关键：读取 package.json version
+      # 读取版本号
       - name: Get version from package.json
         id: pkg
         shell: bash
@@ -45,11 +51,13 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      # 构建
       - name: Build Windows app
-        run: tauri build --target x86_64-pc-windows-msvc
+        run: pnpm tauri build --target x86_64-pc-windows-msvc
         env:
           CI: true
 
+      # 发布
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
