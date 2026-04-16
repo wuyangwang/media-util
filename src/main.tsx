@@ -18,6 +18,11 @@ declare module "@tanstack/react-router" {
 }
 
 async function initApp() {
+	// Disable default context menu
+	document.addEventListener("contextmenu", (e) => e.preventDefault(), {
+		capture: true,
+	});
+
 	await initConfig();
 
 	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
