@@ -15,8 +15,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Monitor, Moon, Sun, FolderOpen, Info, Github } from "lucide-react";
-import { open as openUrl } from "@tauri-apps/plugin-opener";
+import { Monitor, Moon, Sun, FolderOpen, Info, ExternalLink } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -150,7 +150,7 @@ function Settings() {
 								className="h-auto p-0 text-primary font-medium flex items-center gap-1.5"
 								onClick={() => openUrl("https://github.com/wuyangwang/media-util")}
 							>
-								<Github className="size-3.5" />
+								<ExternalLink className="size-3.5" />
 								GitHub Repository
 							</Button>
 						</div>
