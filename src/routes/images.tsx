@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { reveal } from "@tauri-apps/plugin-opener";
@@ -54,20 +54,13 @@ function Images() {
 	const [customHeight, setCustomHeight] = useState<number>(800);
 	const [selectedRatio, setSelectedRatio] = useState<number>(0);
 
+	// Use a ref to access the latest tasks in stable callbacks without re-binding effects
+	const tasksRef = useRef<Task[]>(tasks);
 	useEffect(() => {
-		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
-			if (event.payload.type === "drop") {
-				const paths = event.payload.paths;
-				await handleAddPaths(paths);
-			}
-		});
+		tasksRef.current = tasks;
+	}, [tasks]);
 
-		return () => {
-			unlistenDrop.then((fn) => fn());
-		};
-	}, []);
-
-	const handleAddPaths = async (paths: string[]) => {
+	const handleAddPaths = useCallback(async (paths: string[]) => {
 		setIsScanning(true);
 		const toastId = toast.loading("正在扫描图片文件...");
 		let addedCount = 0;
@@ -80,7 +73,7 @@ function Images() {
 					mode: "image",
 				});
 				for (const file of files) {
-					if (tasks.find((t) => t.path === file)) continue;
+					if (tasksRef.current.find((t) => t.path === file)) continue;
 					const fileName = file.split(/[\\/]/).pop() || file;
 					newTasks.push({
 						id: Math.random().toString(36).substring(7),
@@ -102,9 +95,9 @@ function Images() {
 		} finally {
 			setIsScanning(false);
 		}
-	};
+	}, []);
 
-	const handlePickFiles = async () => {
+	const handlePickFiles = useCallback(async () => {
 		const files = await open({
 			multiple: true,
 			filters: [{ name: "图片", extensions: DEFAULT_CONFIG.image_extensions }],
@@ -112,26 +105,26 @@ function Images() {
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
 		}
-	};
+	}, [handleAddPaths]);
 
-	const handlePickDir = async () => {
+	const handlePickDir = useCallback(async () => {
 		const dir = await open({ directory: true });
 		if (dir) {
 			await handleAddPaths([dir as string]);
 		}
-	};
+	}, [handleAddPaths]);
 
-	const removeTask = (id: string) => {
+	const removeTask = useCallback((id: string) => {
 		setTasks((prev) => prev.filter((t) => t.id !== id));
-	};
+	}, []);
 
-	const clearTasks = () => {
+	const clearTasks = useCallback(() => {
 		setTasks([]);
-	};
+	}, []);
 
-	const startBatch = async () => {
-		if (tasks.length === 0 || processing) return;
-		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
+	const startBatch = useCallback(async () => {
+		if (tasksRef.current.length === 0 || processing) return;
+		const pendingTasks = tasksRef.current.filter((t) => t.status !== "已完成");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
 			return;
@@ -140,7 +133,7 @@ function Images() {
 		setProcessing(true);
 		toast.info(`开始处理 ${pendingTasks.length} 个图片任务`);
 
-		for (const task of tasks) {
+		for (const task of tasksRef.current) {
 			if (task.status === "已完成") continue;
 
 			try {
@@ -208,10 +201,10 @@ function Images() {
 		}
 		setProcessing(false);
 		toast.success("图片批量处理完成");
-	};
+	}, [processing, cropMode, targetFormat, selectedPresetIndex, selectedRatio, customWidth, customHeight]);
 
-	const handleBatchDownload = async () => {
-		const completedTasks = tasks.filter(
+	const handleBatchDownload = useCallback(async () => {
+		const completedTasks = tasksRef.current.filter(
 			(t) => t.status === "已完成" && t.output,
 		);
 		if (completedTasks.length === 0) {
@@ -236,9 +229,9 @@ function Images() {
 		} catch (err) {
 			toast.error(`打包失败: ${err}`);
 		}
-	};
+	}, []);
 
-	const handleOpenFolder = async (path?: string) => {
+	const handleOpenFolder = useCallback(async (path?: string) => {
 		if (path) {
 			try {
 				await reveal(path);
@@ -246,7 +239,20 @@ function Images() {
 				toast.error(`打开文件夹失败: ${err}`);
 			}
 		}
-	};
+	}, []);
+
+	useEffect(() => {
+		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
+			if (event.payload.type === "drop") {
+				const paths = event.payload.paths;
+				await handleAddPaths(paths);
+			}
+		});
+
+		return () => {
+			unlistenDrop.then((fn) => fn());
+		};
+	}, [handleAddPaths]);
 
 	return (
 		<div className="flex flex-col h-full bg-background">

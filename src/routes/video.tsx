@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -67,6 +67,123 @@ function Video() {
 	const [processing, setProcessing] = useState(false);
 	const [isScanning, setIsScanning] = useState(false);
 
+	// Use a ref to access the latest tasks in stable callbacks without re-binding effects
+	const tasksRef = useRef<Task[]>(tasks);
+	useEffect(() => {
+		tasksRef.current = tasks;
+	}, [tasks]);
+
+	const handleAddPaths = useCallback(async (paths: string[]) => {
+		setIsScanning(true);
+		const toastId = toast.loading("正在扫描媒体文件...");
+		let addedCount = 0;
+		const newTasks: Task[] = [];
+
+		try {
+			for (const path of paths) {
+				const files = await invoke<string[]>("scan_directory", {
+					path,
+					mode: "video",
+				});
+				for (const file of files) {
+					if (tasksRef.current.find((t) => t.path === file)) continue;
+					const fileName = file.split(/[\\/]/).pop() || file;
+					newTasks.push({
+						id: Math.random().toString(36).substring(7),
+						path: file,
+						fileName,
+						progress: 0,
+						status: "待处理",
+					});
+					addedCount++;
+				}
+			}
+			if (newTasks.length > 0) {
+				setTasks((prev) => [...prev, ...newTasks]);
+				toast.success(`成功添加 ${addedCount} 个视频文件`, { id: toastId });
+			} else {
+				toast.info("未发现新的可处理视频文件", { id: toastId });
+			}
+		} catch (err) {
+			toast.error(`添加失败: ${err}`, { id: toastId });
+		} finally {
+			setIsScanning(false);
+		}
+	}, []);
+
+	const handlePickFiles = useCallback(async () => {
+		const files = await open({
+			multiple: true,
+			filters: [{ name: "视频", extensions: DEFAULT_CONFIG.video_extensions }],
+		});
+		if (files) {
+			await handleAddPaths(Array.isArray(files) ? files : [files]);
+		}
+	}, [handleAddPaths]);
+
+	const handlePickDir = useCallback(async () => {
+		const dir = await open({ directory: true });
+		if (dir) {
+			await handleAddPaths([dir as string]);
+		}
+	}, [handleAddPaths]);
+
+	const removeTask = useCallback((id: string) => {
+		setTasks((prev) => prev.filter((t) => t.id !== id));
+	}, []);
+
+	const clearTasks = useCallback(() => {
+		setTasks([]);
+	}, []);
+
+	const startBatch = useCallback(async () => {
+		if (tasksRef.current.length === 0 || processing) return;
+		const pendingTasks = tasksRef.current.filter((t) => t.status !== "已完成");
+		if (pendingTasks.length === 0) {
+			toast.info("所有任务已完成");
+			return;
+		}
+
+		setProcessing(true);
+		toast.info(`开始批量处理 ${pendingTasks.length} 个任务`);
+
+		for (const task of tasksRef.current) {
+			if (task.status === "已完成") continue;
+
+			try {
+				const outputPath = await invoke<string>("get_formatted_output_path", {
+					inputPath: task.path,
+					operation: "converted",
+					extension: "mp4",
+				});
+
+				setTasks((prev) =>
+					prev.map((t) => (t.id === task.id ? { ...t, outputPath } : t)),
+				);
+
+				await invoke("convert_video", {
+					id: task.id,
+					inputPath: task.path,
+					outputPath,
+					preset,
+				});
+			} catch (err) {
+				toast.error(`任务 ${task.fileName} 失败: ${err}`);
+			}
+		}
+		setProcessing(false);
+	}, [processing, preset]);
+
+	const handleOpenFolder = useCallback(async (path?: string) => {
+		if (path) {
+			try {
+				await reveal(path);
+			} catch (err) {
+				toast.error(`打开文件夹失败: ${err}`);
+			}
+		}
+	}, []);
+
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
 			setTasks((prev) =>
@@ -97,118 +214,7 @@ function Video() {
 			unlisten.then((fn) => fn());
 			unlistenDrop.then((fn) => fn());
 		};
-	}, [tasks]);
-
-	const handleAddPaths = async (paths: string[]) => {
-		setIsScanning(true);
-		const toastId = toast.loading("正在扫描媒体文件...");
-		let addedCount = 0;
-		const newTasks: Task[] = [];
-
-		try {
-			for (const path of paths) {
-				const files = await invoke<string[]>("scan_directory", {
-					path,
-					mode: "video",
-				});
-				for (const file of files) {
-					if (tasks.find((t) => t.path === file)) continue;
-					const fileName = file.split(/[\\/]/).pop() || file;
-					newTasks.push({
-						id: Math.random().toString(36).substring(7),
-						path: file,
-						fileName,
-						progress: 0,
-						status: "待处理",
-					});
-					addedCount++;
-				}
-			}
-			if (newTasks.length > 0) {
-				setTasks((prev) => [...prev, ...newTasks]);
-				toast.success(`成功添加 ${addedCount} 个视频文件`, { id: toastId });
-			} else {
-				toast.info("未发现新的可处理视频文件", { id: toastId });
-			}
-		} catch (err) {
-			toast.error(`添加失败: ${err}`, { id: toastId });
-		} finally {
-			setIsScanning(false);
-		}
-	};
-
-	const handlePickFiles = async () => {
-		const files = await open({
-			multiple: true,
-			filters: [{ name: "视频", extensions: DEFAULT_CONFIG.video_extensions }],
-		});
-		if (files) {
-			await handleAddPaths(Array.isArray(files) ? files : [files]);
-		}
-	};
-
-	const handlePickDir = async () => {
-		const dir = await open({ directory: true });
-		if (dir) {
-			await handleAddPaths([dir as string]);
-		}
-	};
-
-	const removeTask = (id: string) => {
-		setTasks((prev) => prev.filter((t) => t.id !== id));
-	};
-
-	const clearTasks = () => {
-		setTasks([]);
-	};
-
-	const startBatch = async () => {
-		if (tasks.length === 0 || processing) return;
-		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
-		if (pendingTasks.length === 0) {
-			toast.info("所有任务已完成");
-			return;
-		}
-
-		setProcessing(true);
-		toast.info(`开始批量处理 ${pendingTasks.length} 个任务`);
-
-		for (const task of tasks) {
-			if (task.status === "已完成") continue;
-
-			try {
-				const outputPath = await invoke<string>("get_formatted_output_path", {
-					inputPath: task.path,
-					operation: "converted",
-					extension: "mp4",
-				});
-
-				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, outputPath } : t)),
-				);
-
-				await invoke("convert_video", {
-					id: task.id,
-					inputPath: task.path,
-					outputPath,
-					preset,
-				});
-			} catch (err) {
-				toast.error(`任务 ${task.fileName} 失败: ${err}`);
-			}
-		}
-		setProcessing(false);
-	};
-
-	const handleOpenFolder = async (path?: string) => {
-		if (path) {
-			try {
-				await reveal(path);
-			} catch (err) {
-				toast.error(`打开文件夹失败: ${err}`);
-			}
-		}
-	};
+	}, [handleAddPaths]);
 
 	return (
 		<div className="flex flex-col h-full bg-background">
