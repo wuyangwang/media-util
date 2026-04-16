@@ -59,16 +59,24 @@ To localize the application into Chinese:
   filters: [{ name: "视频", extensions: ["mp4", "mkv"] }]
   ```
 
-## 7. TanStack Router File-Based Routing
-To enable file-based routing and automatic route tree generation:
-1. Install `@tanstack/router-plugin`.
-2. Update `vite.config.ts`:
-   ```typescript
-   import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
-   export default defineConfig({
-     plugins: [TanStackRouterVite(), ...],
-   });
-   ```
-3. Use `createFileRoute` in `src/routes/` files.
-4. Import `routeTree` from `./routeTree.gen` in `src/main.tsx`.
+## 8. Smart Output Naming & Directory Management
+To organize processed files:
+- Use a dedicated subfolder (e.g., `media-convert`) in the source directory.
+- Format filenames with original name, operation, and a timestamp to avoid collisions:
+  `{stem}_{operation}_{YYYYMMDD_HHMMSS}.{ext}`.
+- Implement directory creation in Rust to ensure safety:
+  ```rust
+  let output_dir = parent.join("media-convert");
+  if !output_dir.exists() {
+      std::fs::create_dir_all(&output_dir)?;
+  }
+  ```
+
+## 9. Opening Files/Folders (Tauri v2)
+Use `@tauri-apps/plugin-opener` to reveal files in the system file explorer:
+```typescript
+import { reveal } from "@tauri-apps/plugin-opener";
+await reveal(path);
+```
+Ensure `opener:default` permission is added to `src-tauri/capabilities/default.json`.
 

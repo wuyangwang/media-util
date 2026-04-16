@@ -9,6 +9,40 @@ use base64::{Engine as _, engine::general_purpose};
 use std::io::Write;
 use std::fs::File;
 use image::GenericImageView;
+use chrono;
+
+#[tauri::command]
+pub fn get_formatted_output_path(
+    input_path: String,
+    operation: String,
+    extension: Option<String>,
+) -> Result<String, String> {
+    let path = Path::new(&input_path);
+    let parent = path.parent().ok_or("Invalid input path")?;
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or("Invalid filename")?;
+    let ext = extension.unwrap_or_else(|| {
+        path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_string()
+    });
+
+    let now = chrono::Local::now();
+    let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+
+    let output_dir = parent.join("media-convert");
+    if !output_dir.exists() {
+        std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
+    }
+
+    let new_filename = format!("{}_{}_{}.{}", stem, operation, timestamp, ext);
+    let output_path = output_dir.join(new_filename);
+
+    Ok(output_path.to_str().ok_or("Invalid output path")?.to_string())
+}
 
 #[derive(Clone, Serialize)]
 struct ProgressPayload {

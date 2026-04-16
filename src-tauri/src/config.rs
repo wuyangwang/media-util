@@ -97,9 +97,9 @@ impl AppConfig {
             video_extensions: VIDEO_EXTENSIONS.to_vec(),
             image_extensions: IMAGE_EXTENSIONS.to_vec(),
             video_presets: vec![
-                VideoPresetConfig { value: "720p".to_string(), label: "720p (HD)".to_string() },
-                VideoPresetConfig { value: "1080p".to_string(), label: "1080p (Full HD)".to_string() },
-                VideoPresetConfig { value: "2k".to_string(), label: "2K (Quad HD)".to_string() },
+                VideoPresetConfig { value: "720p".to_string(), label: "720p (高清)".to_string() },
+                VideoPresetConfig { value: "1080p".to_string(), label: "1080p (全高清)".to_string() },
+                VideoPresetConfig { value: "2k".to_string(), label: "2K (超清)".to_string() },
             ],
             image_formats: vec![
                 ImageFormatConfig { value: "png".to_string(), label: "PNG".to_string() },

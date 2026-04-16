@@ -17,7 +17,7 @@ function RootComponent() {
 					<h1 className="text-xl font-bold tracking-tight">媒体工具</h1>
 				</div>
 				<nav className="flex-1 p-4 space-y-2">
-					<SidebarLink to="/" label="视频" icon={Video} />
+					<SidebarLink to="/video" label="视频" icon={Video} />
 					<SidebarLink to="/images" label="图片" icon={ImageIcon} />
 					<SidebarLink to="/settings" label="设置" icon={Settings} />
 				</nav>

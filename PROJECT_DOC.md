@@ -74,4 +74,5 @@ Main function: Convert images and videos with predefined presets.
 - [x] Phase 7: Packaging & Auto-Update (Configured tauri.conf.json and updater plugin).
 - [x] Phase 8: Routing Refactor: Fixed duplicate route ID error by enabling TanStack Router file-based routing and Vite plugin.
 - [x] Phase 9: Global Configuration Optimization: Refactored `DEFAULT_CONFIG` as a global variable initialized at app startup for direct use across pages.
+- [x] Phase 10: UI & UX Optimization: Localized presets, implemented smart output naming in `media-convert` subfolder, added "Open Folder" feature, and refactored video routes to `/video`.
 

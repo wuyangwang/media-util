@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { reveal } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -23,6 +24,7 @@ import {
 	XCircle,
 	Scissors,
 	Download,
+	FolderOpen,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { DEFAULT_CONFIG } from "@/lib/config";
@@ -148,11 +150,14 @@ function Images() {
 					),
 				);
 
-				const baseName = task.path.substring(0, task.path.lastIndexOf("."));
 				let outputPath: string;
 
 				if (cropMode === "fixed") {
-					outputPath = `${baseName}_cropped.${targetFormat}`;
+					outputPath = await invoke<string>("get_formatted_output_path", {
+						inputPath: task.path,
+						operation: "fixed",
+						extension: targetFormat,
+					});
 					await invoke("crop_image_fixed", {
 						inputPath: task.path,
 						outputPath,
@@ -162,7 +167,11 @@ function Images() {
 					const ratioPreset = DEFAULT_CONFIG.ratio_presets[selectedRatio];
 					const targetWidth = customWidth;
 					const targetHeight = Math.round(targetWidth / ratioPreset.ratio);
-					outputPath = `${baseName}_${ratioPreset.label.split(" ")[0]}_cropped.${targetFormat}`;
+					outputPath = await invoke<string>("get_formatted_output_path", {
+						inputPath: task.path,
+						operation: `ratio_${ratioPreset.label.split(" ")[0]}`,
+						extension: targetFormat,
+					});
 					await invoke("crop_image_ratio", {
 						inputPath: task.path,
 						outputPath,
@@ -170,7 +179,11 @@ function Images() {
 						targetHeight,
 					});
 				} else {
-					outputPath = `${baseName}_${customWidth}x${customHeight}_cropped.${targetFormat}`;
+					outputPath = await invoke<string>("get_formatted_output_path", {
+						inputPath: task.path,
+						operation: `${customWidth}x${customHeight}`,
+						extension: targetFormat,
+					});
 					await invoke("crop_image_custom", {
 						inputPath: task.path,
 						outputPath,
@@ -222,6 +235,16 @@ function Images() {
 			toast.success(`文件已保存到: ${filePath}`);
 		} catch (err) {
 			toast.error(`打包失败: ${err}`);
+		}
+	};
+
+	const handleOpenFolder = async (path?: string) => {
+		if (path) {
+			try {
+				await reveal(path);
+			} catch (err) {
+				toast.error(`打开文件夹失败: ${err}`);
+			}
 		}
 	};
 
@@ -462,7 +485,7 @@ function Images() {
 										{task.path}
 									</p>
 								</div>
-								<div className="flex items-center gap-4">
+								<div className="flex items-center gap-2">
 									<span
 										className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
 											task.status === "已完成"
@@ -476,6 +499,17 @@ function Images() {
 									>
 										{task.status}
 									</span>
+									{task.status === "已完成" && (
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-8 w-8 text-primary hover:bg-primary/10"
+											onClick={() => handleOpenFolder(task.output)}
+											title="打开所在文件夹"
+										>
+											<FolderOpen className="w-4 h-4" />
+										</Button>
+									)}
 									<Button
 										variant="ghost"
 										size="icon"
