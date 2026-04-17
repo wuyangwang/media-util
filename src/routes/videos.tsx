@@ -7,32 +7,33 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
-import {
-	Trash2,
-	Play,
 	Plus,
 	FolderPlus,
-	FileVideo,
-	Loader2,
+	Play,
 	XCircle,
+	Trash2,
+	FileVideo,
 	FolderOpen,
+	Loader2,
 } from "lucide-react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { Progress } from "@/components/ui/progress";
+import { useTasks } from "@/hooks/useTasks";
 import { DEFAULT_CONFIG } from "@/lib/config";
+import { cn } from "@/lib/utils";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useTasks, Task } from "@/hooks/useTasks";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
-interface VideoTask extends Task {
+export const Route = createFileRoute("/videos")({
+	component: Videos,
+});
+
+interface VideoTask {
+	id: string;
+	path: string;
+	fileName: string;
+	status: "待处理" | "正在处理..." | "正在转换..." | "已完成" | "失败";
 	progress: number;
 	outputPath?: string;
 }
@@ -42,10 +43,6 @@ interface ProgressPayload {
 	progress: number;
 	status: string;
 }
-
-export const Route = createFileRoute("/videos")({
-	component: Videos,
-});
 
 function Videos() {
 	const {
@@ -58,6 +55,7 @@ function Videos() {
 		handleAddPaths,
 		removeTask,
 		clearTasks,
+		checkProcessing,
 	} = useTasks<VideoTask>("video");
 	const [preset, setPreset] = useState<string>(
 		DEFAULT_CONFIG.video_presets[0].value,
@@ -93,6 +91,7 @@ function Videos() {
 	);
 
 	const handlePickFiles = useCallback(async () => {
+		if (checkProcessing()) return;
 		const files = await open({
 			multiple: true,
 			filters: [{ name: "视频", extensions: DEFAULT_CONFIG.video_extensions }],
@@ -100,17 +99,22 @@ function Videos() {
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
 		}
-	}, [handleAddPaths]);
+	}, [handleAddPaths, checkProcessing]);
 
 	const handlePickDir = useCallback(async () => {
+		if (checkProcessing()) return;
 		const dir = await open({ directory: true });
 		if (dir) {
 			await handleAddPaths([dir as string]);
 		}
-	}, [handleAddPaths]);
+	}, [handleAddPaths, checkProcessing]);
 
 	const startBatch = useCallback(async () => {
-		if (tasks.length === 0 || isAnyProcessing) return;
+		if (checkProcessing()) return;
+		if (tasks.length === 0) {
+			toast.info("请先添加视频文件");
+			return;
+		}
 		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
@@ -148,7 +152,20 @@ function Videos() {
 			}
 		}
 		setProcessing(false);
-	}, [isAnyProcessing, preset, tasks, setTasks]);
+	}, [tasks, setTasks, setProcessing, preset, checkProcessing]);
+
+	const handleClearTasks = useCallback(() => {
+		if (checkProcessing()) return;
+		clearTasks();
+	}, [clearTasks, checkProcessing]);
+
+	const handleRemoveTask = useCallback(
+		(id: string) => {
+			if (checkProcessing()) return;
+			removeTask(id);
+		},
+		[removeTask, checkProcessing],
+	);
 
 	const handleOpenFolder = useCallback(async (path?: string) => {
 		if (path) {
@@ -209,8 +226,7 @@ function Videos() {
 						onClick={handlePickFiles}
 						variant="outline"
 						size="sm"
-						disabled={isScanning || isAnyProcessing}
-						title={isAnyProcessing ? "正在处理中，无法添加文件" : "添加文件"}
+						title="添加文件"
 					>
 						{isScanning ? (
 							<Loader2 className="size-4 mr-1 animate-spin" />
@@ -223,10 +239,7 @@ function Videos() {
 						onClick={handlePickDir}
 						variant="outline"
 						size="sm"
-						disabled={isScanning || isAnyProcessing}
-						title={
-							isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"
-						}
+						title="添加文件夹"
 					>
 						{isScanning ? (
 							<Loader2 className="size-4 mr-1 animate-spin" />
@@ -237,7 +250,6 @@ function Videos() {
 					</Button>
 					<Button
 						onClick={startBatch}
-						disabled={isAnyProcessing || tasks.length === 0 || isScanning}
 						size="sm"
 						title={
 							isAnyProcessing
@@ -255,11 +267,10 @@ function Videos() {
 						全部开始
 					</Button>
 					<Button
-						onClick={clearTasks}
+						onClick={handleClearTasks}
 						variant="ghost"
 						size="sm"
 						className="text-destructive"
-						disabled={isAnyProcessing || isScanning}
 						title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
 					>
 						<XCircle data-icon="inline-start" /> 清空
@@ -346,14 +357,9 @@ function Videos() {
 											variant="ghost"
 											size="icon-sm"
 											className="text-muted-foreground hover:text-destructive transition-colors"
-											onClick={() => removeTask(task.id)}
-											disabled={
-												processing &&
-												(task.status === "正在处理..." ||
-													task.status === "正在转换...")
-											}
+											onClick={() => handleRemoveTask(task.id)}
 											title={
-												processing &&
+												isAnyProcessing &&
 												(task.status === "正在处理..." ||
 													task.status === "正在转换...")
 													? "正在转换中，无法删除"
@@ -384,3 +390,11 @@ function Videos() {
 		</div>
 	);
 }
+
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";

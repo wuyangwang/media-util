@@ -52,12 +52,17 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	const tasksRef = useRef<T[]>(tasks);
 	tasksRef.current = tasks;
 
+	const checkProcessing = useCallback(() => {
+		if (isAnyProcessing) {
+			toast.error("任务正在处理中，请稍后再试");
+			return true;
+		}
+		return false;
+	}, [isAnyProcessing]);
+
 	const handleAddPaths = useCallback(
 		async (paths: string[]) => {
-			if (isAnyProcessing) {
-				toast.error("有任务正在处理中，请稍后再添加");
-				return;
-			}
+			if (checkProcessing()) return;
 			setIsScanning(true);
 			const toastId = toast.loading(
 				`正在扫描${mode === "video" ? "视频" : "图片"}文件...`,
@@ -109,5 +114,6 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		handleAddPaths,
 		removeTask,
 		clearTasks,
+		checkProcessing,
 	};
 }
