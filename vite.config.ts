@@ -15,7 +15,7 @@ export default defineConfig(async () => ({
 		"import.meta.env.APP_VERSION": JSON.stringify(pkg.version),
 	},
 	resolve: {
-...
+		alias: {
 			"@": path.resolve(__dirname, "./src"),
 		},
 	},
