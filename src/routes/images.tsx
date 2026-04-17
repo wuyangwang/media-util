@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -12,6 +12,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
 	Trash2,
@@ -40,7 +41,17 @@ function Images() {
 	const { tasks, setTasks, processing, isAnyProcessing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<ImageTask>("image");
 	const [targetFormat, setTargetFormat] = useState(DEFAULT_CONFIG.image_formats[0]?.value || "");
 	const [selectedPreset, setSelectedPreset] = useState<string>("0");
+	const customPreset = useMemo(() => DEFAULT_CONFIG.size_presets.find(p => p.name === "自定义"), []);
+	const [customSize, setCustomSize] = useState({ 
+		width: customPreset?.width || 800, 
+		height: customPreset?.height || 800 
+	});
 	const containerRef = useRef<HTMLDivElement>(null);
+
+	const isCustom = useMemo(() => {
+		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
+		return preset?.name === "自定义";
+	}, [selectedPreset]);
 
 	useGSAP(() => {
 		gsap.from(".header-animate > *", {
@@ -73,6 +84,10 @@ function Images() {
 		if (tasks.length === 0 || isAnyProcessing) return;
 		setProcessing(true);
 		
+		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
+		const width = isCustom ? customSize.width : preset.width;
+		const height = isCustom ? customSize.height : preset.height;
+
 		for (const task of tasks) {
 			if (task.status === "已完成") continue;
 			setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: "正在处理..." } : t));
@@ -82,7 +97,12 @@ function Images() {
                     operation: "fixed", 
                     extension: targetFormat 
                 });
-				await invoke("crop_image_fixed", { inputPath: task.path, outputPath, presetIndex: parseInt(selectedPreset) });
+				await invoke("crop_image_fixed", { 
+                    inputPath: task.path, 
+                    outputPath, 
+                    width, 
+                    height 
+                });
 				setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: "已完成", output: outputPath } : t));
 			} catch (err) {
 				setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: "失败" } : t));
@@ -90,7 +110,8 @@ function Images() {
 			}
 		}
 		setProcessing(false);
-	}, [isAnyProcessing, tasks, targetFormat, selectedPreset, setTasks]);
+	}, [isAnyProcessing, tasks, targetFormat, selectedPreset, setTasks, isCustom, customSize]);
+
 
 	const handleBatchDownload = useCallback(async () => {
 		const completedTasks = tasks.filter(t => t.status === "已完成" && t.output);
@@ -141,10 +162,29 @@ function Images() {
 										<SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
 										<SelectContent>
 											{DEFAULT_CONFIG.size_presets.map((p, i) => (
-												<SelectItem key={i} value={i.toString()}>{p.name} ({p.width}x{p.height})</SelectItem>
+												<SelectItem key={i} value={i.toString()}>{p.name} {p.name !== "自定义" ? `(${p.width}x${p.height})` : ""}</SelectItem>
 											))}
 										</SelectContent>
 									</Select>
+									{isCustom && (
+										<div className="flex items-center gap-2">
+											<Input
+												type="number"
+												value={customSize.width}
+												onChange={(e) => setCustomSize(prev => ({ ...prev, width: parseInt(e.target.value) || 0 }))}
+												className="w-20"
+												placeholder="宽"
+											/>
+											<span>x</span>
+											<Input
+												type="number"
+												value={customSize.height}
+												onChange={(e) => setCustomSize(prev => ({ ...prev, height: parseInt(e.target.value) || 0 }))}
+												className="w-20"
+												placeholder="高"
+											/>
+										</div>
+									)}
 								</div>
 								<div className="flex items-center gap-3">
 									<span className="text-sm font-medium">目标格式:</span>

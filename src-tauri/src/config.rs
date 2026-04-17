@@ -42,6 +42,7 @@ pub const IMAGE_SIZE_PRESETS: &[ImageSizePreset] = &[
     ImageSizePreset { name: "缩略图", width: 256, height: 256, category: "通用" },
     ImageSizePreset { name: "博客封面", width: 1200, height: 630, category: "通用" },
     ImageSizePreset { name: "电商主图", width: 800, height: 800, category: "通用" },
+    ImageSizePreset { name: "自定义", width: 800, height: 800, category: "其他" },
 ];
 
 // 常用比例
