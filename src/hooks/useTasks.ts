@@ -33,7 +33,13 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		tasks: T[] | ((prev: T[]) => T[]),
 	) => void;
 	const processing = mode === "image" ? imageProcessing : videoProcessing;
-	const isAnyProcessing = imageProcessing || videoProcessing;
+	
+	// Better way to determine if anything is processing
+	const hasActiveTasks = [...imageTasks, ...videoTasks].some(
+		(t) => t.status === "正在处理..." || t.status === "正在转换..."
+	);
+	const isAnyProcessing = imageProcessing || videoProcessing || hasActiveTasks;
+	
 	const setProcessing =
 		mode === "image" ? setImageProcessing : setVideoProcessing;
 	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (
@@ -90,7 +96,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				setIsScanning(false);
 			}
 		},
-		[mode, addTasks],
+		[mode, addTasks, isAnyProcessing],
 	);
 
 	return {

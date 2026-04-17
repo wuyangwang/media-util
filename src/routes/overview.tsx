@@ -46,7 +46,7 @@ function OverviewPage() {
 				{/* Hero Section */}
 				<section className="hero-content text-center space-y-6 pt-8">
 					<Badge variant="secondary" className="px-4 py-1 text-sm rounded-full">
-						v0.9.0 Beta
+						v{import.meta.env.APP_VERSION}
 					</Badge>
 					<h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
 						媒体工具箱 <span className="text-primary">Media Utility</span>
