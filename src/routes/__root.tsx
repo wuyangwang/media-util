@@ -61,7 +61,7 @@ function RootComponent() {
 				</nav>
 				{!isSidebarCollapsed && (
 					<div className="p-4 border-t text-[10px] uppercase tracking-wider text-muted-foreground/50 text-center font-medium">
-						v0.9.0
+						v{import.meta.env.APP_VERSION}
 					</div>
 				)}
 			</aside>

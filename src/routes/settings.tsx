@@ -157,7 +157,7 @@ function Settings() {
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground text-sm">当前版本:</span>
 							<span className="font-medium text-foreground text-sm">
-								v0.9.0
+								v{import.meta.env.APP_VERSION}
 							</span>
 						</div>
 						<div className="flex justify-between text-sm">
