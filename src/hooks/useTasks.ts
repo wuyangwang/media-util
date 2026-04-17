@@ -7,8 +7,16 @@ export interface Task {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "待处理" | "正在处理..." | "正在转换..." | "已完成" | "失败";
+	status: "pending" | "processing" | "converting" | "completed" | "failed";
 }
+
+export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
+	pending: "待处理",
+	processing: "正在处理...",
+	converting: "正在转换...",
+	completed: "已完成",
+	failed: "失败",
+};
 
 export function useTasks<T extends Task>(mode: "video" | "image") {
 	const {
@@ -34,11 +42,17 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	) => void;
 	const processing = mode === "image" ? imageProcessing : videoProcessing;
 	
-	// Better way to determine if anything is processing
-	const hasActiveTasks = [...imageTasks, ...videoTasks].some(
-		(t) => t.status === "正在处理..." || t.status === "正在转换..."
-	);
-	const isAnyProcessing = imageProcessing || videoProcessing || hasActiveTasks;
+	const [isScanning, setIsScanning] = useState(false);
+
+	// Accurate check for any processing or scanning activity
+	const isAnyProcessing = 
+		imageProcessing || 
+		videoProcessing || 
+		isScanning || 
+		[...imageTasks, ...videoTasks].some(t => 
+			t.status === "processing" || 
+			t.status === "converting"
+		);
 	
 	const setProcessing =
 		mode === "image" ? setImageProcessing : setVideoProcessing;
@@ -48,7 +62,6 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	const removeTask = mode === "image" ? removeImageTask : removeVideoTask;
 	const clearTasks = mode === "image" ? clearImageTasks : clearVideoTasks;
 
-	const [isScanning, setIsScanning] = useState(false);
 	const tasksRef = useRef<T[]>(tasks);
 	tasksRef.current = tasks;
 
@@ -82,8 +95,8 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 						newTasks.push({
 							id: Math.random().toString(36).substring(7),
 							path: file,
-							fileName,
-							status: "待处理",
+							fileName: fileName,
+							status: "pending",
 							...(mode === "video" ? { progress: 0 } : {}),
 						} as unknown as T);
 						addedCount++;

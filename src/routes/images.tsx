@@ -27,7 +27,7 @@ import {
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useTasks, Task } from "@/hooks/useTasks";
+import { useTasks, Task, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 
 interface ImageTask extends Task {
@@ -124,10 +124,10 @@ function Images() {
 		const height = isCustom ? customSize.height : preset.height;
 
 		for (const task of tasks) {
-			if (task.status === "已完成") continue;
+			if (task.status === "completed") continue;
 			setTasks((prev) =>
 				prev.map((t) =>
-					t.id === task.id ? { ...t, status: "正在处理..." } : t,
+					t.id === task.id ? { ...t, status: "processing" } : t,
 				),
 			);
 			try {
@@ -153,13 +153,13 @@ function Images() {
 				setTasks((prev) =>
 					prev.map((t) =>
 						t.id === task.id
-							? { ...t, status: "已完成", output: outputPath }
+							? { ...t, status: "completed", output: outputPath }
 							: t,
 					),
 				);
 			} catch (err) {
 				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, status: "失败" } : t)),
+					prev.map((t) => (t.id === task.id ? { ...t, status: "failed" } : t)),
 				);
 				toast.error(`任务 ${task.fileName} 失败: ${err}`);
 			}
@@ -192,7 +192,7 @@ function Images() {
 	const handleBatchDownload = useCallback(async () => {
 		if (checkProcessing()) return;
 		const completedTasks = tasks.filter(
-			(t) => t.status === "已完成" && t.output,
+			(t) => t.status === "completed" && t.output,
 		);
 		if (completedTasks.length === 0) {
 			toast.error("没有可下载的任务");
@@ -366,7 +366,7 @@ function Images() {
 								onClick={handleBatchDownload}
 								variant="outline"
 								size="sm"
-								disabled={!tasks.some((t) => t.status === "已完成")}
+								disabled={!tasks.some((t) => t.status === "completed")}
 							>
 								<Download data-icon="inline-start" /> 批量下载
 							</Button>
@@ -380,7 +380,7 @@ function Images() {
 							key={task.id}
 							className={cn(
 								"task-item-animate p-4 border rounded-lg flex justify-between items-center transition-all",
-								task.status === "正在处理..." || task.status === "正在转换..."
+								task.status === "processing" || task.status === "converting"
 									? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]"
 									: "bg-muted/30 border-border",
 							)}
@@ -395,11 +395,11 @@ function Images() {
 							</div>
 							<div className="flex items-center gap-2">
 								<span
-									className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${task.status === "已完成" ? "bg-green-100 text-green-700" : task.status === "失败" ? "bg-red-100 text-red-700" : task.status === "待处理" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
+									className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 								>
-									{task.status}
+									{TASK_STATUS_LABELS[task.status]}
 								</span>
-								{task.status === "已完成" && (
+								{task.status === "completed" && (
 									<Button
 										variant="ghost"
 										size="icon-sm"
@@ -414,8 +414,8 @@ function Images() {
 									onClick={() => handleRemoveTask(task.id)}
 									title={
 										isAnyProcessing &&
-										(task.status === "正在处理..." ||
-											task.status === "正在转换...")
+										(task.status === "processing" ||
+											task.status === "converting")
 											? "正在转换中，无法删除"
 											: "删除任务"
 									}

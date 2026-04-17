@@ -17,7 +17,7 @@ import {
 	Loader2,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { useTasks } from "@/hooks/useTasks";
+import { useTasks, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useGSAP } from "@gsap/react";
@@ -33,7 +33,7 @@ interface VideoTask {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "待处理" | "正在处理..." | "正在转换..." | "已完成" | "失败";
+	status: "pending" | "processing" | "converting" | "completed" | "failed";
 	progress: number;
 	outputPath?: string;
 }
@@ -115,7 +115,7 @@ function Videos() {
 			toast.info("请先添加视频文件");
 			return;
 		}
-		const pendingTasks = tasks.filter((t) => t.status !== "已完成");
+		const pendingTasks = tasks.filter((t) => t.status !== "completed");
 		if (pendingTasks.length === 0) {
 			toast.info("所有任务已完成");
 			return;
@@ -125,7 +125,7 @@ function Videos() {
 		toast.info(`开始批量处理 ${pendingTasks.length} 个任务`);
 
 		for (const task of tasks) {
-			if (task.status === "已完成") continue;
+			if (task.status === "completed") continue;
 
 			try {
 				const outputPath = await invoke<string>("get_formatted_output_path", {
@@ -183,13 +183,13 @@ function Videos() {
 				(prev) =>
 					prev.map((t) => {
 						if (t.id === event.payload.id) {
-							let status = event.payload.status;
-							if (status === "Completed") status = "已完成";
-							if (status === "Failed") status = "失败";
+							let status: VideoTask["status"] = "converting";
+							if (event.payload.status === "Completed") status = "completed";
+							if (event.payload.status === "Failed") status = "failed";
 							return {
 								...t,
 								progress: event.payload.progress,
-								status: status as any,
+								status: status,
 							};
 						}
 						return t;
@@ -319,7 +319,7 @@ function Videos() {
 								key={task.id}
 								className={cn(
 									"task-item-animate p-4 border rounded-lg space-y-3 transition-all",
-									task.status === "正在处理..." || task.status === "正在转换..."
+									task.status === "processing" || task.status === "converting"
 										? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]"
 										: "bg-muted/30 border-border",
 								)}
@@ -328,7 +328,7 @@ function Videos() {
 									<div className="flex-1 min-w-0">
 										<h3 className="text-sm font-semibold truncate flex items-center gap-2">
 											{task.fileName}
-											{task.status === "已完成" && (
+											{task.status === "completed" && (
 												<span className="inline-block size-2 rounded-full bg-green-500" />
 											)}
 										</h3>
@@ -338,11 +338,11 @@ function Videos() {
 									</div>
 									<div className="flex items-center gap-2">
 										<span
-											className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "已完成" ? "bg-green-100 text-green-700" : task.status === "失败" ? "bg-red-100 text-red-700" : task.status === "待处理" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
+											className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 										>
-											{task.status}
+											{TASK_STATUS_LABELS[task.status]}
 										</span>
-										{task.status === "已完成" && (
+										{task.status === "completed" && (
 											<Button
 												variant="ghost"
 												size="icon-sm"
@@ -360,8 +360,8 @@ function Videos() {
 											onClick={() => handleRemoveTask(task.id)}
 											title={
 												isAnyProcessing &&
-												(task.status === "正在处理..." ||
-													task.status === "正在转换...")
+												(task.status === "processing" ||
+													task.status === "converting")
 													? "正在转换中，无法删除"
 													: "删除任务"
 											}
@@ -370,7 +370,7 @@ function Videos() {
 										</Button>
 									</div>
 								</div>
-								{(task.progress! > 0 || task.status !== "待处理") && (
+								{(task.progress! > 0 || task.status !== "pending") && (
 									<div className="space-y-1.5">
 										<div className="flex justify-between text-[10px] font-bold text-muted-foreground">
 											<span>进度</span>
