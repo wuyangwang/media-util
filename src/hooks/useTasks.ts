@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTaskStore } from "./useTaskStore";
@@ -19,48 +19,54 @@ export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
 };
 
 export function useTasks<T extends Task>(mode: "video" | "image") {
-	const {
-		imageTasks,
-		videoTasks,
-		imageProcessing,
-		videoProcessing,
-		setImageProcessing,
-		setVideoProcessing,
-		setImageTasks,
-		setVideoTasks,
-		addImageTasks,
-		addVideoTasks,
-		removeImageTask,
-		removeVideoTask,
-		clearImageTasks,
-		clearVideoTasks,
-	} = useTaskStore();
-
-	const tasks = (mode === "image" ? imageTasks : videoTasks) as T[];
-	const setTasks = (mode === "image" ? setImageTasks : setVideoTasks) as (
-		tasks: T[] | ((prev: T[]) => T[]),
-	) => void;
-	const processing = mode === "image" ? imageProcessing : videoProcessing;
+	// 1. Granular state selection to avoid unnecessary re-renders
+	const tasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.imageTasks : state.videoTasks), [mode])
+	) as T[];
 	
+	const processing = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.imageProcessing : state.videoProcessing), [mode])
+	);
+
+	// 2. Select specific actions
+	const setProcessing = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.setImageProcessing : state.setVideoProcessing), [mode])
+	);
+	
+	const setTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.setImageTasks : state.setVideoTasks), [mode])
+	) as (tasks: T[] | ((prev: T[]) => T[])) => void;
+
+	const addTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.addImageTasks : state.addVideoTasks), [mode])
+	) as (tasks: T[]) => void;
+
+	const removeTask = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.removeImageTask : state.removeVideoTask), [mode])
+	);
+
+	const clearTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.clearImageTasks : state.clearVideoTasks), [mode])
+	);
+
 	const [isScanning, setIsScanning] = useState(false);
 
-	// Accurate check for any processing or scanning activity
-	const isAnyProcessing = 
-		imageProcessing || 
-		videoProcessing || 
-		isScanning || 
-		[...imageTasks, ...videoTasks].some(t => 
-			t.status === "processing" || 
-			t.status === "converting"
-		);
+	// 3. Derived state for overall processing status
+	// Subscribe only to specific flags and task statuses
+	const hasActiveTasks = useTaskStore(
+		useCallback((state) => 
+			[...state.imageTasks, ...state.videoTasks].some(t => 
+				t.status === "processing" || t.status === "converting"
+			), [])
+	);
 	
-	const setProcessing =
-		mode === "image" ? setImageProcessing : setVideoProcessing;
-	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (
-		tasks: T[],
-	) => void;
-	const removeTask = mode === "image" ? removeImageTask : removeVideoTask;
-	const clearTasks = mode === "image" ? clearImageTasks : clearVideoTasks;
+	const imageProcessing = useTaskStore((state) => state.imageProcessing);
+	const videoProcessing = useTaskStore((state) => state.videoProcessing);
+
+	const isAnyProcessing = useMemo(() => 
+		imageProcessing || videoProcessing || isScanning || hasActiveTasks,
+		[imageProcessing, videoProcessing, isScanning, hasActiveTasks]
+	);
 
 	const tasksRef = useRef<T[]>(tasks);
 	tasksRef.current = tasks;
@@ -114,7 +120,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				setIsScanning(false);
 			}
 		},
-		[mode, addTasks, isAnyProcessing],
+		[mode, addTasks, checkProcessing],
 	);
 
 	return {
