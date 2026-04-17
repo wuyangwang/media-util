@@ -17,8 +17,12 @@ interface TaskState {
 	videoProcessing: boolean;
 	setImageProcessing: (processing: boolean) => void;
 	setVideoProcessing: (processing: boolean) => void;
-	setImageTasks: (tasks: ImageTask[] | ((prev: ImageTask[]) => ImageTask[])) => void;
-	setVideoTasks: (tasks: VideoTask[] | ((prev: VideoTask[]) => VideoTask[])) => void;
+	setImageTasks: (
+		tasks: ImageTask[] | ((prev: ImageTask[]) => ImageTask[]),
+	) => void;
+	setVideoTasks: (
+		tasks: VideoTask[] | ((prev: VideoTask[]) => VideoTask[]),
+	) => void;
 	addImageTasks: (tasks: ImageTask[]) => void;
 	addVideoTasks: (tasks: VideoTask[]) => void;
 	removeImageTask: (id: string) => void;

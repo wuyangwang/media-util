@@ -93,20 +93,3 @@ function SidebarLink({
 		</Link>
 	);
 }
-
-			to={to}
-			activeProps={{
-				className: "bg-primary text-primary-foreground shadow-sm",
-			}}
-			inactiveProps={{
-				className: "text-muted-foreground hover:bg-muted hover:text-foreground",
-			}}
-			className={cn(
-				"flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 font-medium",
-			)}
-		>
-			<Icon className="size-5" />
-			<span>{label}</span>
-		</Link>
-	);
-}

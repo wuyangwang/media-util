@@ -34,8 +34,11 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	) => void;
 	const processing = mode === "image" ? imageProcessing : videoProcessing;
 	const isAnyProcessing = imageProcessing || videoProcessing;
-	const setProcessing = mode === "image" ? setImageProcessing : setVideoProcessing;
-	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (tasks: T[]) => void;
+	const setProcessing =
+		mode === "image" ? setImageProcessing : setVideoProcessing;
+	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (
+		tasks: T[],
+	) => void;
 	const removeTask = mode === "image" ? removeImageTask : removeVideoTask;
 	const clearTasks = mode === "image" ? clearImageTasks : clearVideoTasks;
 
@@ -50,7 +53,9 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				return;
 			}
 			setIsScanning(true);
-			const toastId = toast.loading(`正在扫描${mode === "video" ? "视频" : "图片"}文件...`);
+			const toastId = toast.loading(
+				`正在扫描${mode === "video" ? "视频" : "图片"}文件...`,
+			);
 			let addedCount = 0;
 			const newTasks: T[] = [];
 

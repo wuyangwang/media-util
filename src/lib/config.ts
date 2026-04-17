@@ -6,7 +6,12 @@ export interface AppConfig {
 	video_presets: { value: string; label: string }[];
 	image_formats: { value: string; label: string }[];
 	crop_modes: { value: string; label: string }[];
-	size_presets: { category: string; name: string; width: number; height: number }[];
+	size_presets: {
+		category: string;
+		name: string;
+		width: number;
+		height: number;
+	}[];
 	ratio_presets: { label: string; ratio: number }[];
 }
 

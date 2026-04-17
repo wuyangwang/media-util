@@ -15,7 +15,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Monitor, Moon, Sun, FolderOpen, Info, ExternalLink } from "lucide-react";
+import {
+	Monitor,
+	Moon,
+	Sun,
+	FolderOpen,
+	Info,
+	ExternalLink,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
@@ -34,19 +41,25 @@ function Settings() {
 		setMounted(true);
 	}, []);
 
-	useGSAP(() => {
-		gsap.from(".settings-animate", {
-			y: 20,
-			opacity: 0,
-			stagger: 0.1,
-			duration: 0.5,
-			ease: "power2.out"
-		});
-	}, { scope: containerRef });
+	useGSAP(
+		() => {
+			gsap.from(".settings-animate", {
+				y: 20,
+				opacity: 0,
+				stagger: 0.1,
+				duration: 0.5,
+				ease: "power2.out",
+			});
+		},
+		{ scope: containerRef },
+	);
 
-	const handleThemeChange = useCallback((value: string) => {
-		setTheme(value);
-	}, [setTheme]);
+	const handleThemeChange = useCallback(
+		(value: string) => {
+			setTheme(value);
+		},
+		[setTheme],
+	);
 
 	return (
 		<div ref={containerRef} className="flex flex-col h-full bg-background">
@@ -68,8 +81,13 @@ function Settings() {
 					</CardHeader>
 					<CardContent>
 						<div className="flex items-center gap-4">
-							<span className="text-sm font-medium text-foreground">应用主题:</span>
-							<Select value={mounted ? theme : "system"} onValueChange={handleThemeChange}>
+							<span className="text-sm font-medium text-foreground">
+								应用主题:
+							</span>
+							<Select
+								value={mounted ? theme : "system"}
+								onValueChange={handleThemeChange}
+							>
 								<SelectTrigger className="w-[200px]">
 									<SelectValue placeholder="选择主题" />
 								</SelectTrigger>
@@ -132,23 +150,31 @@ function Settings() {
 					<CardContent className="space-y-2">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground text-sm">应用名称:</span>
-							<span className="font-medium text-foreground text-sm">媒体工具箱 (Media Utility)</span>
+							<span className="font-medium text-foreground text-sm">
+								媒体工具箱 (Media Utility)
+							</span>
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground text-sm">当前版本:</span>
-							<span className="font-medium text-foreground text-sm">v0.9.0</span>
+							<span className="font-medium text-foreground text-sm">
+								v0.9.0
+							</span>
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground text-sm">核心引擎:</span>
-							<span className="font-medium text-foreground text-sm">FFmpeg 7.x & image 库</span>
+							<span className="font-medium text-foreground text-sm">
+								FFmpeg 7.x & image 库
+							</span>
 						</div>
 						<div className="flex justify-between items-center text-sm pt-2 border-t border-muted">
 							<span className="text-muted-foreground text-sm">开源地址:</span>
-							<Button 
-								variant="link" 
-								size="sm" 
+							<Button
+								variant="link"
+								size="sm"
 								className="h-auto p-0 text-primary font-medium flex items-center gap-1.5"
-								onClick={() => openUrl("https://github.com/wuyangwang/media-util")}
+								onClick={() =>
+									openUrl("https://github.com/wuyangwang/media-util")
+								}
 							>
 								<ExternalLink className="size-3.5" />
 								GitHub Repository

@@ -48,31 +48,49 @@ export const Route = createFileRoute("/videos")({
 });
 
 function Videos() {
-	const { tasks, setTasks, processing, isAnyProcessing, setProcessing, isScanning, handleAddPaths, removeTask, clearTasks } = useTasks<VideoTask>("video");
-	const [preset, setPreset] = useState<string>(DEFAULT_CONFIG.video_presets[0].value);
-	
+	const {
+		tasks,
+		setTasks,
+		processing,
+		isAnyProcessing,
+		setProcessing,
+		isScanning,
+		handleAddPaths,
+		removeTask,
+		clearTasks,
+	} = useTasks<VideoTask>("video");
+	const [preset, setPreset] = useState<string>(
+		DEFAULT_CONFIG.video_presets[0].value,
+	);
+
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	useGSAP(() => {
-		gsap.from(".header-animate > *", {
-			y: -20,
-			opacity: 0,
-			stagger: 0.1,
-			duration: 0.5,
-			ease: "power2.out"
-		});
-	}, { scope: containerRef });
-
-	useGSAP(() => {
-		if (tasks.length > 0) {
-			gsap.from(".task-item-animate:last-child", {
-				x: 20,
+	useGSAP(
+		() => {
+			gsap.from(".header-animate > *", {
+				y: -20,
 				opacity: 0,
-				duration: 0.4,
-				ease: "power2.out"
+				stagger: 0.1,
+				duration: 0.5,
+				ease: "power2.out",
 			});
-		}
-	}, { dependencies: [tasks.length], scope: containerRef });
+		},
+		{ scope: containerRef },
+	);
+
+	useGSAP(
+		() => {
+			if (tasks.length > 0) {
+				gsap.from(".task-item-animate:last-child", {
+					x: 20,
+					opacity: 0,
+					duration: 0.4,
+					ease: "power2.out",
+				});
+			}
+		},
+		{ dependencies: [tasks.length], scope: containerRef },
+	);
 
 	const handlePickFiles = useCallback(async () => {
 		const files = await open({
@@ -112,8 +130,11 @@ function Videos() {
 					extension: "mp4",
 				});
 
-				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, outputPath } : t)) as VideoTask[]
+				setTasks(
+					(prev) =>
+						prev.map((t) =>
+							t.id === task.id ? { ...t, outputPath } : t,
+						) as VideoTask[],
 				);
 
 				await invoke("convert_video", {
@@ -141,20 +162,21 @@ function Videos() {
 
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
-			setTasks((prev) =>
-				prev.map((t) => {
-					if (t.id === event.payload.id) {
-						let status = event.payload.status;
-						if (status === "Completed") status = "已完成";
-						if (status === "Failed") status = "失败";
-						return {
-							...t,
-							progress: event.payload.progress,
-							status: status as any,
-						};
-					}
-					return t;
-				}) as VideoTask[]
+			setTasks(
+				(prev) =>
+					prev.map((t) => {
+						if (t.id === event.payload.id) {
+							let status = event.payload.status;
+							if (status === "Completed") status = "已完成";
+							if (status === "Failed") status = "失败";
+							return {
+								...t,
+								progress: event.payload.progress,
+								status: status as any,
+							};
+						}
+						return t;
+					}) as VideoTask[],
 			);
 		});
 
@@ -183,19 +205,63 @@ function Videos() {
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<Button onClick={handlePickFiles} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加文件" : "添加文件"}>
-						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Plus data-icon="inline-start" />}
+					<Button
+						onClick={handlePickFiles}
+						variant="outline"
+						size="sm"
+						disabled={isScanning || isAnyProcessing}
+						title={isAnyProcessing ? "正在处理中，无法添加文件" : "添加文件"}
+					>
+						{isScanning ? (
+							<Loader2 className="size-4 mr-1 animate-spin" />
+						) : (
+							<Plus data-icon="inline-start" />
+						)}
 						添加文件
 					</Button>
-					<Button onClick={handlePickDir} variant="outline" size="sm" disabled={isScanning || isAnyProcessing} title={isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"}>
-						{isScanning ? <Loader2 className="size-4 mr-1 animate-spin" /> : <FolderPlus data-icon="inline-start" />}
+					<Button
+						onClick={handlePickDir}
+						variant="outline"
+						size="sm"
+						disabled={isScanning || isAnyProcessing}
+						title={
+							isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"
+						}
+					>
+						{isScanning ? (
+							<Loader2 className="size-4 mr-1 animate-spin" />
+						) : (
+							<FolderPlus data-icon="inline-start" />
+						)}
 						添加文件夹
 					</Button>
-					<Button onClick={startBatch} disabled={isAnyProcessing || tasks.length === 0 || isScanning} size="sm" title={isAnyProcessing ? "正在处理中..." : tasks.length === 0 ? "请先添加文件" : "开始处理"}>
-						{processing ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Play data-icon="inline-start" />}
+					<Button
+						onClick={startBatch}
+						disabled={isAnyProcessing || tasks.length === 0 || isScanning}
+						size="sm"
+						title={
+							isAnyProcessing
+								? "正在处理中..."
+								: tasks.length === 0
+									? "请先添加文件"
+									: "开始处理"
+						}
+					>
+						{processing ? (
+							<Loader2 className="size-4 mr-1 animate-spin" />
+						) : (
+							<Play data-icon="inline-start" />
+						)}
 						全部开始
 					</Button>
-					<Button onClick={clearTasks} variant="ghost" size="sm" className="text-destructive" disabled={isAnyProcessing || isScanning} title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}>
+					<Button
+						onClick={clearTasks}
+						variant="ghost"
+						size="sm"
+						className="text-destructive"
+						disabled={isAnyProcessing || isScanning}
+						title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
+					>
 						<XCircle data-icon="inline-start" /> 清空
 					</Button>
 				</div>
@@ -206,18 +272,26 @@ function Videos() {
 					<CardContent className="p-4 flex items-center justify-between">
 						<div className="flex items-center gap-4">
 							<span className="text-sm font-medium">转换预设:</span>
-							<Select value={preset} onValueChange={setPreset} disabled={isAnyProcessing}>
+							<Select
+								value={preset}
+								onValueChange={setPreset}
+								disabled={isAnyProcessing}
+							>
 								<SelectTrigger className="w-[180px]">
 									<SelectValue placeholder="选择预设" />
 								</SelectTrigger>
 								<SelectContent>
 									{DEFAULT_CONFIG.video_presets.map((p) => (
-										<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+										<SelectItem key={p.value} value={p.value}>
+											{p.label}
+										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
 						</div>
-						<div className="text-sm text-muted-foreground font-medium">队列中: {tasks.length} 个任务</div>
+						<div className="text-sm text-muted-foreground font-medium">
+							队列中: {tasks.length} 个任务
+						</div>
 					</CardContent>
 				</Card>
 
@@ -230,29 +304,61 @@ function Videos() {
 						</div>
 					) : (
 						tasks.map((task) => (
-							<div key={task.id} className={cn("task-item-animate p-4 border rounded-lg space-y-3 transition-all", task.status === "正在处理..." || task.status === "正在转换..." ? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]" : "bg-muted/30 border-border")}>
+							<div
+								key={task.id}
+								className={cn(
+									"task-item-animate p-4 border rounded-lg space-y-3 transition-all",
+									task.status === "正在处理..." || task.status === "正在转换..."
+										? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]"
+										: "bg-muted/30 border-border",
+								)}
+							>
 								<div className="flex justify-between items-start">
 									<div className="flex-1 min-w-0">
 										<h3 className="text-sm font-semibold truncate flex items-center gap-2">
 											{task.fileName}
-											{task.status === "已完成" && <span className="inline-block size-2 rounded-full bg-green-500" />}
+											{task.status === "已完成" && (
+												<span className="inline-block size-2 rounded-full bg-green-500" />
+											)}
 										</h3>
-										<p className="text-xs text-muted-foreground truncate font-mono mt-0.5">{task.path}</p>
+										<p className="text-xs text-muted-foreground truncate font-mono mt-0.5">
+											{task.path}
+										</p>
 									</div>
 									<div className="flex items-center gap-2">
-										<span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "已完成" ? "bg-green-100 text-green-700" : task.status === "失败" ? "bg-red-100 text-red-700" : task.status === "待处理" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}>
+										<span
+											className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "已完成" ? "bg-green-100 text-green-700" : task.status === "失败" ? "bg-red-100 text-red-700" : task.status === "待处理" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
+										>
 											{task.status}
 										</span>
 										{task.status === "已完成" && (
-											<Button variant="ghost" size="icon-sm" className="text-primary hover:bg-primary/10" onClick={() => handleOpenFolder(task.outputPath)} title="打开所在文件夹"><FolderOpen /></Button>
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												className="text-primary hover:bg-primary/10"
+												onClick={() => handleOpenFolder(task.outputPath)}
+												title="打开所在文件夹"
+											>
+												<FolderOpen />
+											</Button>
 										)}
-										<Button 
-											variant="ghost" 
-											size="icon-sm" 
-											className="text-muted-foreground hover:text-destructive transition-colors" 
-											onClick={() => removeTask(task.id)} 
-											disabled={processing && (task.status === "正在处理..." || task.status === "正在转换...")}
-											title={processing && (task.status === "正在处理..." || task.status === "正在转换...") ? "正在转换中，无法删除" : "删除任务"}
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											className="text-muted-foreground hover:text-destructive transition-colors"
+											onClick={() => removeTask(task.id)}
+											disabled={
+												processing &&
+												(task.status === "正在处理..." ||
+													task.status === "正在转换...")
+											}
+											title={
+												processing &&
+												(task.status === "正在处理..." ||
+													task.status === "正在转换...")
+													? "正在转换中，无法删除"
+													: "删除任务"
+											}
 										>
 											<Trash2 />
 										</Button>
@@ -261,9 +367,13 @@ function Videos() {
 								{(task.progress! > 0 || task.status !== "待处理") && (
 									<div className="space-y-1.5">
 										<div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-											<span>进度</span><span>{task.progress!.toFixed(1)}%</span>
+											<span>进度</span>
+											<span>{task.progress!.toFixed(1)}%</span>
 										</div>
-										<Progress value={task.progress} className="h-1.5 shadow-sm" />
+										<Progress
+											value={task.progress}
+											className="h-1.5 shadow-sm"
+										/>
 									</div>
 								)}
 							</div>

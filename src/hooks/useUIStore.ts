@@ -10,11 +10,12 @@ export const useUIStore = create<UIState>()(
 	persist(
 		(set) => ({
 			isSidebarCollapsed: false,
-			toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+			toggleSidebar: () =>
+				set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
 		}),
 		{
 			name: "ui-storage",
 			storage: createJSONStorage(() => localStorage),
-		}
-	)
+		},
+	),
 );
