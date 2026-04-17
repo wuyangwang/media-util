@@ -3,31 +3,45 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { Video, Image as ImageIcon, Zap, Shield, Rocket } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+	Card,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 function OverviewPage() {
 	const container = useRef<HTMLDivElement>(null);
 
-	useGSAP(() => {
-		const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-		
-		tl.from(".hero-content > *", {
-			y: 30,
-			opacity: 0,
-			stagger: 0.2,
-			duration: 0.8
-		})
-		.from(".feature-card", {
-			scale: 0.9,
-			opacity: 0,
-			stagger: 0.1,
-			duration: 0.6
-		}, "-=0.4");
-	}, { scope: container });
+	useGSAP(
+		() => {
+			const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+			tl.from(".hero-content > *", {
+				y: 30,
+				opacity: 0,
+				stagger: 0.2,
+				duration: 0.8,
+			}).from(
+				".feature-card",
+				{
+					scale: 0.9,
+					opacity: 0,
+					stagger: 0.1,
+					duration: 0.6,
+				},
+				"-=0.4",
+			);
+		},
+		{ scope: container },
+	);
 
 	return (
-		<main ref={container} className="min-h-screen bg-background p-8 md:p-12 lg:p-16 overflow-y-auto">
+		<main
+			ref={container}
+			className="min-h-screen bg-background p-8 md:p-12 lg:p-16 overflow-y-auto"
+		>
 			<div className="max-w-5xl mx-auto space-y-16">
 				{/* Hero Section */}
 				<section className="hero-content text-center space-y-6 pt-8">
@@ -44,24 +58,24 @@ function OverviewPage() {
 
 				{/* Features Grid */}
 				<section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-					<FeatureCard 
-						icon={Rocket} 
-						title="高性能" 
+					<FeatureCard
+						icon={Rocket}
+						title="高性能"
 						description="基于 FFmpeg 与 Rust 内核，多线程并行处理，速度飞快。"
 					/>
-					<FeatureCard 
-						icon={Zap} 
-						title="自动化" 
+					<FeatureCard
+						icon={Zap}
+						title="自动化"
 						description="文件夹自动化扫描，拖拽即处理，告别繁琐操作。"
 					/>
-					<FeatureCard 
-						icon={Shield} 
-						title="隐私安全" 
+					<FeatureCard
+						icon={Shield}
+						title="隐私安全"
 						description="本地离线处理，您的媒体文件永远不会离开您的计算机。"
 					/>
-					<FeatureCard 
-						icon={ImageIcon} 
-						title="多格式" 
+					<FeatureCard
+						icon={ImageIcon}
+						title="多格式"
 						description="支持主流音视频及图片格式，覆盖日常所有转换需求。"
 					/>
 				</section>
@@ -101,7 +115,15 @@ function OverviewPage() {
 	);
 }
 
-function FeatureCard({ icon: Icon, title, description }: { icon: any, title: string, description: string }) {
+function FeatureCard({
+	icon: Icon,
+	title,
+	description,
+}: {
+	icon: any;
+	title: string;
+	description: string;
+}) {
 	return (
 		<Card className="feature-card group hover:bg-muted/50 transition-colors border-none bg-transparent shadow-none">
 			<CardHeader className="p-4">

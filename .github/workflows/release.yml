@@ -51,7 +51,7 @@ jobs:
 
       # 构建
       - name: Build Windows app
-        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
+        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis # ,msi
         env:
           CI: true
 
@@ -63,7 +63,7 @@ jobs:
           name: v${{ steps.pkg.outputs.version }}
           files: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            # src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
