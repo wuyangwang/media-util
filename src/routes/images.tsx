@@ -23,16 +23,14 @@ import {
 	Download,
 	FolderOpen,
 	Loader2,
+	Image as ImageIcon,
 } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useTasks, Task, TASK_STATUS_LABELS } from "@/hooks/useTasks";
-import { cn } from "@/lib/utils";
-
-interface ImageTask extends Task {
-	output?: string;
-}
+import { useTasks, ImageTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
+import { cn, formatBytes } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -389,7 +387,29 @@ function Images() {
 								<h3 className="text-sm font-semibold truncate">
 									{task.fileName}
 								</h3>
-								<p className="text-xs text-muted-foreground truncate font-mono">
+								<div className="flex flex-wrap items-center gap-2 mt-1">
+									{task.info ? (
+										<>
+											<Badge variant="secondary" className="text-[10px] h-4 px-1">
+												{task.info.format.toUpperCase()}
+											</Badge>
+											<span className="text-[11px] text-muted-foreground">
+												{task.info.video?.width} x {task.info.video?.height}
+											</span>
+											<span className="text-[11px] text-muted-foreground/60">
+												•
+											</span>
+											<span className="text-[11px] text-muted-foreground">
+												{formatBytes(task.info.size)}
+											</span>
+										</>
+									) : (
+										<span className="text-[11px] text-muted-foreground animate-pulse">
+											正在读取信息...
+										</span>
+									)}
+								</div>
+								<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
 									{task.path}
 								</p>
 							</div>
