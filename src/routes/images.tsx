@@ -22,16 +22,14 @@ import {
 	XCircle,
 	Download,
 	FolderOpen,
+	Loader2,
 } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useTasks, Task } from "@/hooks/useTasks";
-import { cn } from "@/lib/utils";
-
-interface ImageTask extends Task {
-	output?: string;
-}
+import { useTasks, ImageTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
+import { cn, formatBytes } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -47,6 +45,7 @@ function Images() {
 		handleAddPaths,
 		removeTask,
 		clearTasks,
+		checkProcessing,
 	} = useTasks<ImageTask>("image");
 	const [targetFormat, setTargetFormat] = useState(
 		DEFAULT_CONFIG.image_formats[0]?.value || "",
@@ -95,20 +94,26 @@ function Images() {
 	);
 
 	const handlePickFiles = useCallback(async () => {
+		if (checkProcessing()) return;
 		const files = await open({
 			multiple: true,
 			filters: [{ name: "图片", extensions: DEFAULT_CONFIG.image_extensions }],
 		});
 		if (files) await handleAddPaths(Array.isArray(files) ? files : [files]);
-	}, [handleAddPaths]);
+	}, [handleAddPaths, checkProcessing]);
 
 	const handlePickDir = useCallback(async () => {
+		if (checkProcessing()) return;
 		const dir = await open({ directory: true });
 		if (dir) await handleAddPaths([dir as string]);
-	}, [handleAddPaths]);
+	}, [handleAddPaths, checkProcessing]);
 
 	const startBatch = useCallback(async () => {
-		if (tasks.length === 0 || isAnyProcessing) return;
+		if (checkProcessing()) return;
+		if (tasks.length === 0) {
+			toast.info("请先添加图片文件");
+			return;
+		}
 		setProcessing(true);
 
 		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
@@ -116,52 +121,75 @@ function Images() {
 		const height = isCustom ? customSize.height : preset.height;
 
 		for (const task of tasks) {
-			if (task.status === "已完成") continue;
+			if (task.status === "completed") continue;
 			setTasks((prev) =>
 				prev.map((t) =>
-					t.id === task.id ? { ...t, status: "正在处理..." } : t,
+					t.id === task.id ? { ...t, status: "processing" } : t,
 				),
 			);
 			try {
 				const outputPath = await invoke<string>("get_formatted_output_path", {
 					inputPath: task.path,
-					operation: "fixed",
+					operation: isCustom ? "custom" : "fixed",
 					extension: targetFormat,
 				});
-				await invoke("crop_image_fixed", {
-					inputPath: task.path,
-					outputPath,
-					width,
-					height,
-				});
+				if (isCustom) {
+					await invoke("crop_image_custom", {
+						inputPath: task.path,
+						outputPath,
+						targetWidth: width,
+						targetHeight: height,
+					});
+				} else {
+					await invoke("crop_image_fixed", {
+						inputPath: task.path,
+						outputPath,
+						presetIndex: parseInt(selectedPreset),
+					});
+				}
 				setTasks((prev) =>
 					prev.map((t) =>
 						t.id === task.id
-							? { ...t, status: "已完成", output: outputPath }
+							? { ...t, status: "completed", output: outputPath }
 							: t,
 					),
 				);
 			} catch (err) {
 				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, status: "失败" } : t)),
+					prev.map((t) => (t.id === task.id ? { ...t, status: "failed" } : t)),
 				);
 				toast.error(`任务 ${task.fileName} 失败: ${err}`);
 			}
 		}
 		setProcessing(false);
 	}, [
-		isAnyProcessing,
+		checkProcessing,
 		tasks,
 		targetFormat,
 		selectedPreset,
 		setTasks,
 		isCustom,
 		customSize,
+		setProcessing,
 	]);
 
+	const handleClearTasks = useCallback(() => {
+		if (checkProcessing()) return;
+		clearTasks();
+	}, [clearTasks, checkProcessing]);
+
+	const handleRemoveTask = useCallback(
+		(id: string) => {
+			if (checkProcessing()) return;
+			removeTask(id);
+		},
+		[removeTask, checkProcessing],
+	);
+
 	const handleBatchDownload = useCallback(async () => {
+		if (checkProcessing()) return;
 		const completedTasks = tasks.filter(
-			(t) => t.status === "已完成" && t.output,
+			(t) => t.status === "completed" && t.output,
 		);
 		if (completedTasks.length === 0) {
 			toast.error("没有可下载的任务");
@@ -181,7 +209,7 @@ function Images() {
 		} catch (err) {
 			toast.error(`打包失败: ${err}`);
 		}
-	}, [tasks]);
+	}, [tasks, checkProcessing]);
 
 	const handleOpenFolder = useCallback(async (path?: string) => {
 		if (path)
@@ -206,25 +234,32 @@ function Images() {
 						onClick={handlePickFiles}
 						variant="outline"
 						size="sm"
-						disabled={isScanning || isAnyProcessing}
 						title={isAnyProcessing ? "正在处理中，无法添加图片" : "添加图片"}
 					>
-						<Plus data-icon="inline-start" /> 添加图片
+						{isScanning ? (
+							<Loader2 className="size-4 mr-1 animate-spin" />
+						) : (
+							<Plus data-icon="inline-start" />
+						)}
+						添加图片
 					</Button>
 					<Button
 						onClick={handlePickDir}
 						variant="outline"
 						size="sm"
-						disabled={isScanning || isAnyProcessing}
 						title={
 							isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"
 						}
 					>
-						<FolderPlus data-icon="inline-start" /> 添加文件夹
+						{isScanning ? (
+							<Loader2 className="size-4 mr-1 animate-spin" />
+						) : (
+							<FolderPlus data-icon="inline-start" />
+						)}
+						添加文件夹
 					</Button>
 					<Button
 						onClick={startBatch}
-						disabled={isAnyProcessing || tasks.length === 0 || isScanning}
 						size="sm"
 						title={
 							isAnyProcessing
@@ -237,11 +272,10 @@ function Images() {
 						<Play data-icon="inline-start" /> 全部开始
 					</Button>
 					<Button
-						onClick={clearTasks}
+						onClick={handleClearTasks}
 						variant="ghost"
 						size="sm"
 						className="text-destructive"
-						disabled={isAnyProcessing || isScanning}
 						title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
 					>
 						<XCircle data-icon="inline-start" /> 清空
@@ -329,9 +363,7 @@ function Images() {
 								onClick={handleBatchDownload}
 								variant="outline"
 								size="sm"
-								disabled={
-									isAnyProcessing || !tasks.some((t) => t.status === "已完成")
-								}
+								disabled={!tasks.some((t) => t.status === "completed")}
 							>
 								<Download data-icon="inline-start" /> 批量下载
 							</Button>
@@ -345,7 +377,7 @@ function Images() {
 							key={task.id}
 							className={cn(
 								"task-item-animate p-4 border rounded-lg flex justify-between items-center transition-all",
-								task.status === "正在处理..." || task.status === "正在转换..."
+								task.status === "processing" || task.status === "converting"
 									? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]"
 									: "bg-muted/30 border-border",
 							)}
@@ -354,17 +386,39 @@ function Images() {
 								<h3 className="text-sm font-semibold truncate">
 									{task.fileName}
 								</h3>
-								<p className="text-xs text-muted-foreground truncate font-mono">
+								<div className="flex flex-wrap items-center gap-2 mt-1">
+									{task.info ? (
+										<>
+											<Badge variant="secondary" className="text-[10px] h-4 px-1">
+												{task.info.format.toUpperCase()}
+											</Badge>
+											<span className="text-[11px] text-muted-foreground">
+												{task.info.video?.width} x {task.info.video?.height}
+											</span>
+											<span className="text-[11px] text-muted-foreground/60">
+												•
+											</span>
+											<span className="text-[11px] text-muted-foreground">
+												{formatBytes(task.info.size)}
+											</span>
+										</>
+									) : (
+										<span className="text-[11px] text-muted-foreground animate-pulse">
+											正在读取信息...
+										</span>
+									)}
+								</div>
+								<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
 									{task.path}
 								</p>
 							</div>
 							<div className="flex items-center gap-2">
 								<span
-									className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${task.status === "已完成" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}
+									className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 								>
-									{task.status}
+									{TASK_STATUS_LABELS[task.status]}
 								</span>
-								{task.status === "已完成" && (
+								{task.status === "completed" && (
 									<Button
 										variant="ghost"
 										size="icon-sm"
@@ -376,10 +430,13 @@ function Images() {
 								<Button
 									variant="ghost"
 									size="icon-sm"
-									onClick={() => removeTask(task.id)}
-									disabled={isAnyProcessing}
+									onClick={() => handleRemoveTask(task.id)}
 									title={
-										isAnyProcessing ? "正在处理中，无法删除任务" : "删除任务"
+										isAnyProcessing &&
+										(task.status === "processing" ||
+											task.status === "converting")
+											? "正在转换中，无法删除"
+											: "删除任务"
 									}
 								>
 									<Trash2 />

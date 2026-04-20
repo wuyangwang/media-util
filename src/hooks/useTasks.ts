@@ -1,63 +1,151 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTaskStore } from "./useTaskStore";
+
+export interface VideoInfo {
+	width: number;
+	height: number;
+	codec: string;
+	fps: string;
+	bitrate?: string;
+}
+
+export interface MediaInfo {
+	format: string;
+	size: number;
+	duration: number;
+	video?: VideoInfo;
+}
 
 export interface Task {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "待处理" | "正在处理..." | "正在转换..." | "已完成" | "失败";
+	status: "pending" | "processing" | "converting" | "completed" | "failed";
+	info?: MediaInfo;
 }
 
-export function useTasks<T extends Task>(mode: "video" | "image") {
-	const {
-		imageTasks,
-		videoTasks,
-		imageProcessing,
-		videoProcessing,
-		setImageProcessing,
-		setVideoProcessing,
-		setImageTasks,
-		setVideoTasks,
-		addImageTasks,
-		addVideoTasks,
-		removeImageTask,
-		removeVideoTask,
-		clearImageTasks,
-		clearVideoTasks,
-	} = useTaskStore();
+export interface ImageTask extends Task {
+	output?: string;
+}
 
-	const tasks = (mode === "image" ? imageTasks : videoTasks) as T[];
-	const setTasks = (mode === "image" ? setImageTasks : setVideoTasks) as (
-		tasks: T[] | ((prev: T[]) => T[]),
-	) => void;
-	const processing = mode === "image" ? imageProcessing : videoProcessing;
+export interface VideoTask extends Task {
+	progress: number;
+	outputPath?: string;
+}
+
+export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
+	pending: "待处理",
+	processing: "正在处理...",
+	converting: "正在转换...",
+	completed: "已完成",
+	failed: "失败",
+};
+
+export function useTasks<T extends Task>(mode: "video" | "image") {
+	// 1. Granular state selection to avoid unnecessary re-renders
+	const tasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.imageTasks : state.videoTasks), [mode])
+	) as T[];
 	
-	// Better way to determine if anything is processing
-	const hasActiveTasks = [...imageTasks, ...videoTasks].some(
-		(t) => t.status === "正在处理..." || t.status === "正在转换..."
+	const processing = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.imageProcessing : state.videoProcessing), [mode])
 	);
-	const isAnyProcessing = imageProcessing || videoProcessing || hasActiveTasks;
+
+	// 2. Select specific actions
+	const setProcessing = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.setImageProcessing : state.setVideoProcessing), [mode])
+	);
 	
-	const setProcessing =
-		mode === "image" ? setImageProcessing : setVideoProcessing;
-	const addTasks = (mode === "image" ? addImageTasks : addVideoTasks) as (
-		tasks: T[],
-	) => void;
-	const removeTask = mode === "image" ? removeImageTask : removeVideoTask;
-	const clearTasks = mode === "image" ? clearImageTasks : clearVideoTasks;
+	const setTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.setImageTasks : state.setVideoTasks), [mode])
+	) as (tasks: T[] | ((prev: T[]) => T[])) => void;
+
+	const addTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.addImageTasks : state.addVideoTasks), [mode])
+	) as (tasks: T[]) => void;
+
+	const removeTask = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.removeImageTask : state.removeVideoTask), [mode])
+	);
+
+	const clearTasks = useTaskStore(
+		useCallback((state) => (mode === "image" ? state.clearImageTasks : state.clearVideoTasks), [mode])
+	);
 
 	const [isScanning, setIsScanning] = useState(false);
+
+	// 3. Derived state for overall processing status
+	// Subscribe only to specific flags and task statuses
+	const hasActiveTasks = useTaskStore(
+		useCallback((state) => 
+			[...state.imageTasks, ...state.videoTasks].some(t => 
+				t.status === "processing" || t.status === "converting"
+			), [])
+	);
+	
+	const imageProcessing = useTaskStore((state) => state.imageProcessing);
+	const videoProcessing = useTaskStore((state) => state.videoProcessing);
+
+	const isAnyProcessing = useMemo(() => 
+		imageProcessing || videoProcessing || isScanning || hasActiveTasks,
+		[imageProcessing, videoProcessing, isScanning, hasActiveTasks]
+	);
+
 	const tasksRef = useRef<T[]>(tasks);
 	tasksRef.current = tasks;
 
+	const checkProcessing = useCallback(() => {
+		if (isAnyProcessing) {
+			toast.error("任务正在处理中，请稍后再试");
+			return true;
+		}
+		return false;
+	}, [isAnyProcessing]);
+
+	const fetchMetadata = useCallback(
+		async (taskIds: string[]) => {
+			const CONCURRENCY_LIMIT = 3;
+			const queue = [...taskIds];
+			const activeTasks = new Set<string>();
+
+			const runNext = async () => {
+				if (queue.length === 0) return;
+
+				const id = queue.shift()!;
+				activeTasks.add(id);
+
+				try {
+					const currentTask = tasksRef.current.find((t) => t.id === id);
+					if (currentTask && !currentTask.info) {
+						const info = await invoke<MediaInfo>("get_media_info", {
+							path: currentTask.path,
+						});
+						setTasks((prev) =>
+							prev.map((t) => (t.id === id ? { ...t, info } : t)),
+						);
+					}
+				} catch (err) {
+					console.error(`Failed to fetch metadata for task ${id}:`, err);
+				} finally {
+					activeTasks.delete(id);
+					await runNext();
+				}
+			};
+
+			const initialTasks = [];
+			for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, queue.length); i++) {
+				initialTasks.push(runNext());
+			}
+			await Promise.all(initialTasks);
+		},
+		[setTasks],
+	);
+
 	const handleAddPaths = useCallback(
 		async (paths: string[]) => {
-			if (isAnyProcessing) {
-				toast.error("有任务正在处理中，请稍后再添加");
-				return;
-			}
+			if (checkProcessing()) return;
 			setIsScanning(true);
 			const toastId = toast.loading(
 				`正在扫描${mode === "video" ? "视频" : "图片"}文件...`,
@@ -77,8 +165,8 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 						newTasks.push({
 							id: Math.random().toString(36).substring(7),
 							path: file,
-							fileName,
-							status: "待处理",
+							fileName: fileName,
+							status: "pending",
 							...(mode === "video" ? { progress: 0 } : {}),
 						} as unknown as T);
 						addedCount++;
@@ -87,6 +175,8 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				if (newTasks.length > 0) {
 					addTasks(newTasks);
 					toast.success(`成功添加 ${addedCount} 个文件`, { id: toastId });
+					// Start fetching metadata for new tasks
+					fetchMetadata(newTasks.map((t) => t.id));
 				} else {
 					toast.info("未发现新的可处理文件", { id: toastId });
 				}
@@ -96,7 +186,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				setIsScanning(false);
 			}
 		},
-		[mode, addTasks, isAnyProcessing],
+		[mode, addTasks, checkProcessing, fetchMetadata],
 	);
 
 	return {
@@ -109,5 +199,6 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		handleAddPaths,
 		removeTask,
 		clearTasks,
+		checkProcessing,
 	};
 }
