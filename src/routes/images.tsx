@@ -23,7 +23,6 @@ import {
 	Download,
 	FolderOpen,
 	Loader2,
-	Image as ImageIcon,
 } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useGSAP } from "@gsap/react";
