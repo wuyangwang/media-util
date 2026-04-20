@@ -62,8 +62,8 @@ To localize the application into Chinese:
 ## 8. Smart Output Naming & Directory Management
 To organize processed files:
 - Use a dedicated subfolder (e.g., `media-convert`) in the source directory.
-- Format filenames with original name, operation, and a timestamp to avoid collisions:
-  `{stem}_{operation}_{YYYYMMDD_HHMMSS}.{ext}`.
+- Format filenames with original name, operation, and a 13-digit Unix timestamp to avoid collisions:
+  `{stem}_{operation}_{timestamp}.{ext}`.
 - Implement directory creation in Rust to ensure safety:
   ```rust
   let output_dir = parent.join("media-convert");

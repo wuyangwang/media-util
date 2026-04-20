@@ -30,8 +30,8 @@ pub fn get_formatted_output_path(
             .to_string()
     });
 
-    let now = chrono::Local::now();
-    let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+    let now = chrono::Utc::now();
+    let timestamp = now.timestamp_millis().to_string();
 
     let output_dir = parent.join("media-convert");
     if !output_dir.exists() {
