@@ -103,3 +103,31 @@ To implement a system tray with menus:
    })
    ```
 
+## 11. Window Initial State Configuration (Tauri v2)
+To ensure the application window opens in a specific state (e.g., centered) and is correctly identifiable by the backend:
+1. Configure `src-tauri/tauri.conf.json`:
+   ```json
+   {
+     "app": {
+       "windows": [
+         {
+           "label": "main",
+           "title": "Your App Name",
+           "width": 1000,
+           "height": 700,
+           "center": true
+         }
+       ]
+     }
+   }
+   ```
+   - **`label`**: Must match the ID used in `app.get_webview_window("main")` in Rust.
+   - **`center`**: Set to `true` to open the window in the middle of the screen.
+2. (Optional) Force centering in Rust (e.g., when restoring from tray):
+   ```rust
+   if let Some(window) = app.get_webview_window("main") {
+       let _ = window.center();
+       let _ = window.show();
+   }
+   ```
+

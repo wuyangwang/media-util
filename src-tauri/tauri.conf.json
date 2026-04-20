@@ -12,9 +12,11 @@
 	"app": {
 		"windows": [
 			{
+				"label": "main",
 				"title": "媒体助手",
 				"width": 1000,
-				"height": 700
+				"height": 700,
+				"center": true
 			}
 		],
 		"security": {
