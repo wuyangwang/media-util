@@ -131,3 +131,8 @@ To ensure the application window opens in a specific state (e.g., centered) and 
    }
    ```
 
+## 12. 开发工作流规范 (Development Workflow)
+- **即时提交**：每当完成一个功能点、修复一个 Bug 或对配置文件进行有效修改后，**必须立即执行 Git 提交**。
+- **原子化提交**：保持提交的粒度适中，确保每个 Commit 描述清晰且只包含相关的改动。
+- **文档同步**：如果改动涉及新的配置项或开发技巧，需同步更新 `SKILL.md` 或 `README.md`。
+
