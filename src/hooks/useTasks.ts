@@ -3,11 +3,36 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTaskStore } from "./useTaskStore";
 
+export interface VideoInfo {
+	width: number;
+	height: number;
+	codec: string;
+	fps: string;
+	bitrate?: string;
+}
+
+export interface MediaInfo {
+	format: string;
+	size: number;
+	duration: number;
+	video?: VideoInfo;
+}
+
 export interface Task {
 	id: string;
 	path: string;
 	fileName: string;
 	status: "pending" | "processing" | "converting" | "completed" | "failed";
+	info?: MediaInfo;
+}
+
+export interface ImageTask extends Task {
+	output?: string;
+}
+
+export interface VideoTask extends Task {
+	progress: number;
+	outputPath?: string;
 }
 
 export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
@@ -79,6 +104,45 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 		return false;
 	}, [isAnyProcessing]);
 
+	const fetchMetadata = useCallback(
+		async (taskIds: string[]) => {
+			const CONCURRENCY_LIMIT = 3;
+			const queue = [...taskIds];
+			const activeTasks = new Set<string>();
+
+			const runNext = async () => {
+				if (queue.length === 0) return;
+
+				const id = queue.shift()!;
+				activeTasks.add(id);
+
+				try {
+					const currentTask = tasksRef.current.find((t) => t.id === id);
+					if (currentTask && !currentTask.info) {
+						const info = await invoke<MediaInfo>("get_media_info", {
+							path: currentTask.path,
+						});
+						setTasks((prev) =>
+							prev.map((t) => (t.id === id ? { ...t, info } : t)),
+						);
+					}
+				} catch (err) {
+					console.error(`Failed to fetch metadata for task ${id}:`, err);
+				} finally {
+					activeTasks.delete(id);
+					await runNext();
+				}
+			};
+
+			const initialTasks = [];
+			for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, queue.length); i++) {
+				initialTasks.push(runNext());
+			}
+			await Promise.all(initialTasks);
+		},
+		[setTasks],
+	);
+
 	const handleAddPaths = useCallback(
 		async (paths: string[]) => {
 			if (checkProcessing()) return;
@@ -111,6 +175,8 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				if (newTasks.length > 0) {
 					addTasks(newTasks);
 					toast.success(`成功添加 ${addedCount} 个文件`, { id: toastId });
+					// Start fetching metadata for new tasks
+					fetchMetadata(newTasks.map((t) => t.id));
 				} else {
 					toast.info("未发现新的可处理文件", { id: toastId });
 				}
@@ -120,7 +186,7 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				setIsScanning(false);
 			}
 		},
-		[mode, addTasks, checkProcessing],
+		[mode, addTasks, checkProcessing, fetchMetadata],
 	);
 
 	return {
