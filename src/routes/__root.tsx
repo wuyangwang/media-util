@@ -10,10 +10,11 @@ import {
 	PanelLeftOpen 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useUIStore } from "@/hooks/useUIStore";
+import { invoke } from "@tauri-apps/api/core";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -23,6 +24,21 @@ function RootComponent() {
 	const sidebarRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLElement>(null);
 	const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+
+	useEffect(() => {
+		const handleKeyDown = async (e: KeyboardEvent) => {
+			if (e.key === "F12" || (e.ctrlKey && e.shiftKey && e.key === "I")) {
+				e.preventDefault();
+				try {
+					await invoke("open_devtools");
+				} catch (err) {
+					console.error("Failed to open devtools:", err);
+				}
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, []);
 
 	useGSAP(() => {
 		const tl = gsap.timeline({ defaults: { ease: "power2.out" } });

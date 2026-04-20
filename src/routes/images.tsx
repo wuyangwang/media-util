@@ -388,20 +388,26 @@ function Images() {
 								</h3>
 								<div className="flex flex-wrap items-center gap-2 mt-1">
 									{task.info ? (
-										<>
-											<Badge variant="secondary" className="text-[10px] h-4 px-1">
-												{task.info.format.toUpperCase()}
-											</Badge>
+										task.info.format !== "unknown" ? (
+											<>
+												<Badge variant="secondary" className="text-[10px] h-4 px-1">
+													{task.info.format.toUpperCase()}
+												</Badge>
+												<span className="text-[11px] text-muted-foreground">
+													{task.info.video?.width} x {task.info.video?.height}
+												</span>
+												<span className="text-[11px] text-muted-foreground/60">
+													•
+												</span>
+												<span className="text-[11px] text-muted-foreground">
+													{formatBytes(task.info.size)}
+												</span>
+											</>
+										) : (
 											<span className="text-[11px] text-muted-foreground">
-												{task.info.video?.width} x {task.info.video?.height}
+												未知格式
 											</span>
-											<span className="text-[11px] text-muted-foreground/60">
-												•
-											</span>
-											<span className="text-[11px] text-muted-foreground">
-												{formatBytes(task.info.size)}
-											</span>
-										</>
+										)
 									) : (
 										<span className="text-[11px] text-muted-foreground animate-pulse">
 											正在读取信息...

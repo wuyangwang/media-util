@@ -19,6 +19,7 @@ pub fn run() {
             media::convert_video,
             media::convert_image,
             media::get_media_info,
+            media::open_devtools,
             media::scan_directory,
             media::crop_image_fixed,
             media::crop_image_ratio,

@@ -72,6 +72,16 @@ pub struct VideoInfo {
 }
 
 #[tauri::command]
+pub async fn open_devtools(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.open_devtools();
+        Ok(())
+    } else {
+        Err("Main window not found".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, String> {
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     let size = metadata.len();

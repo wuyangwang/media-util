@@ -326,46 +326,52 @@ function Videos() {
 										</h3>
 										<div className="flex flex-wrap items-center gap-2 mt-1">
 											{task.info ? (
-												<>
-													<Badge variant="secondary" className="text-[10px] h-4 px-1">
-														{task.info.format.toUpperCase()}
-													</Badge>
-													{task.info.video && (
-														<>
-															<span className="text-[11px] text-muted-foreground">
-																{task.info.video.width} x {task.info.video.height}
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-															{task.info.duration > 0 && (
-																<>
-																	<span className="text-[11px] text-muted-foreground">
-																		{formatDuration(task.info.duration)}
-																	</span>
-																	<span className="text-[11px] text-muted-foreground/60">
-																		•
-																	</span>
-																</>
-															)}
-															<span className="text-[11px] text-muted-foreground">
-																{parseFloat(task.info.video.fps).toFixed(0)} fps
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-															<span className="text-[11px] text-muted-foreground">
-																{formatBitrate(task.info.video.bitrate)}
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-														</>
-													)}
+												task.info.format !== "unknown" ? (
+													<>
+														<Badge variant="secondary" className="text-[10px] h-4 px-1">
+															{task.info.format.toUpperCase()}
+														</Badge>
+														{task.info.video && (
+															<>
+																<span className="text-[11px] text-muted-foreground">
+																	{task.info.video.width} x {task.info.video.height}
+																</span>
+																<span className="text-[11px] text-muted-foreground/60">
+																	•
+																</span>
+																{task.info.duration > 0 && (
+																	<>
+																		<span className="text-[11px] text-muted-foreground">
+																			{formatDuration(task.info.duration)}
+																		</span>
+																		<span className="text-[11px] text-muted-foreground/60">
+																			•
+																		</span>
+																	</>
+																)}
+																<span className="text-[11px] text-muted-foreground">
+																	{parseFloat(task.info.video.fps).toFixed(0)} fps
+																</span>
+																<span className="text-[11px] text-muted-foreground/60">
+																	•
+																</span>
+																<span className="text-[11px] text-muted-foreground">
+																	{formatBitrate(task.info.video.bitrate)}
+																</span>
+																<span className="text-[11px] text-muted-foreground/60">
+																	•
+																</span>
+															</>
+														)}
+														<span className="text-[11px] text-muted-foreground">
+															{formatBytes(task.info.size)}
+														</span>
+													</>
+												) : (
 													<span className="text-[11px] text-muted-foreground">
-														{formatBytes(task.info.size)}
+														未知媒体信息
 													</span>
-												</>
+												)
 											) : (
 												<span className="text-[11px] text-muted-foreground animate-pulse">
 													正在读取信息...
