@@ -17,26 +17,18 @@ import {
 	Loader2,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { useTasks, TASK_STATUS_LABELS } from "@/hooks/useTasks";
+import { useTasks, VideoTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { DEFAULT_CONFIG } from "@/lib/config";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes, formatDuration, formatBitrate } from "@/lib/utils";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { toast } from "sonner";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
 });
-
-interface VideoTask {
-	id: string;
-	path: string;
-	fileName: string;
-	status: "pending" | "processing" | "converting" | "completed" | "failed";
-	progress: number;
-	outputPath?: string;
-}
 
 interface ProgressPayload {
 	id: string;
@@ -332,7 +324,55 @@ function Videos() {
 												<span className="inline-block size-2 rounded-full bg-green-500" />
 											)}
 										</h3>
-										<p className="text-xs text-muted-foreground truncate font-mono mt-0.5">
+										<div className="flex flex-wrap items-center gap-2 mt-1">
+											{task.info ? (
+												<>
+													<Badge variant="secondary" className="text-[10px] h-4 px-1">
+														{task.info.format.toUpperCase()}
+													</Badge>
+													{task.info.video && (
+														<>
+															<span className="text-[11px] text-muted-foreground">
+																{task.info.video.width} x {task.info.video.height}
+															</span>
+															<span className="text-[11px] text-muted-foreground/60">
+																•
+															</span>
+															{task.info.duration > 0 && (
+																<>
+																	<span className="text-[11px] text-muted-foreground">
+																		{formatDuration(task.info.duration)}
+																	</span>
+																	<span className="text-[11px] text-muted-foreground/60">
+																		•
+																	</span>
+																</>
+															)}
+															<span className="text-[11px] text-muted-foreground">
+																{parseFloat(task.info.video.fps).toFixed(0)} fps
+															</span>
+															<span className="text-[11px] text-muted-foreground/60">
+																•
+															</span>
+															<span className="text-[11px] text-muted-foreground">
+																{formatBitrate(task.info.video.bitrate)}
+															</span>
+															<span className="text-[11px] text-muted-foreground/60">
+																•
+															</span>
+														</>
+													)}
+													<span className="text-[11px] text-muted-foreground">
+														{formatBytes(task.info.size)}
+													</span>
+												</>
+											) : (
+												<span className="text-[11px] text-muted-foreground animate-pulse">
+													正在读取信息...
+												</span>
+											)}
+										</div>
+										<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
 											{task.path}
 										</p>
 									</div>
