@@ -50,6 +50,7 @@ struct ProgressPayload {
     progress: f64,
     status: String,
     output_info: Option<MediaInfo>, // 任务完成后返回新文件信息
+    log: Option<String>,           // 用于存储错误详情或日志
 }
 
 use serde_json::Value;
@@ -174,6 +175,46 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String,
     }
 }
 
+use tokio::sync::{Semaphore, RwLock};
+use std::sync::Arc;
+
+pub struct AppQueue {
+    pub semaphore: Arc<RwLock<Semaphore>>,
+}
+
+impl AppQueue {
+    pub fn new(max_concurrent: usize) -> Self {
+        Self {
+            semaphore: Arc::new(RwLock::new(Semaphore::new(max_concurrent))),
+        }
+    }
+
+    pub async fn update_limit(&self, new_limit: usize) {
+        *self.semaphore.write().await = Semaphore::new(new_limit);
+    }
+}
+
+#[tauri::command]
+pub async fn convert_video_queued(
+    app: AppHandle,
+    queue: tauri::State<'_, AppQueue>,
+    id: String,
+    input_path: String,
+    output_path: String,
+    preset: Preset,
+) -> Result<(), String> {
+    let permit = queue.semaphore.read().await.acquire().await.map_err(|e| e.to_string())?;
+    let result = convert_video(app, id, input_path, output_path, preset).await;
+    drop(permit);
+    result
+}
+
+#[tauri::command]
+pub async fn update_concurrency(queue: tauri::State<'_, AppQueue>, limit: usize) -> Result<(), String> {
+    queue.update_limit(limit).await;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn convert_video(
     app: AppHandle,
@@ -207,11 +248,14 @@ pub async fn convert_video(
     let (mut rx, _child) = output;
     let re = Regex::new(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})").unwrap();
     let output_path_clone = output_path.clone();
+    let mut accumulated_log = String::new();
 
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Stderr(line) = event {
-                let line_str = String::from_utf8_lossy(&line);
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stderr(line) => {
+                let line_str = String::from_utf8_lossy(&line).to_string();
+                accumulated_log.push_str(&line_str);
+                
                 if let Some(caps) = re.captures(&line_str) {
                     let h: f64 = caps.get(1).unwrap().as_str().parse().unwrap_or(0.0);
                     let m: f64 = caps.get(2).unwrap().as_str().parse().unwrap_or(0.0);
@@ -230,9 +274,11 @@ pub async fn convert_video(
                         progress,
                         status: format!("正在处理... ({:.1}%)", progress),
                         output_info: None,
+                        log: None,
                     }).unwrap();
                 }
-            } else if let CommandEvent::Terminated(payload) = event {
+            }
+            CommandEvent::Terminated(payload) => {
                 let (status, progress) = if payload.code == Some(0) {
                     ("Completed", 100.0)
                 } else {
@@ -251,11 +297,13 @@ pub async fn convert_video(
                     progress,
                     status: status.to_string(),
                     output_info,
+                    log: if status == "Failed" { Some(accumulated_log) } else { None },
                 }).unwrap();
                 break;
             }
+            _ => {}
         }
-    });
+    }
 
     Ok(())
 }
