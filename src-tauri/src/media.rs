@@ -83,22 +83,25 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
         .to_lowercase();
 
     if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-        let img = image::image_dimensions(&path).map_err(|e| e.to_string())?;
-        return Ok(MediaInfo {
-            format: ext,
-            size,
-            duration: 0.0,
-            video: Some(VideoInfo {
-                width: img.0 as i32,
-                height: img.1 as i32,
-                codec: "image".to_string(),
-                fps: "0".to_string(),
-                bitrate: None,
-            }),
-        });
+        if let Ok(img) = image::image_dimensions(&path) {
+            return Ok(MediaInfo {
+                format: ext,
+                size,
+                duration: 0.0,
+                video: Some(VideoInfo {
+                    width: img.0 as i32,
+                    height: img.1 as i32,
+                    codec: "image".to_string(),
+                    fps: "0".to_string(),
+                    bitrate: None,
+                }),
+            });
+        }
+        // If image crate fails (e.g. HEIC), fall through to ffprobe
     }
 
-    let output = app.shell()
+    let shell = app.shell();
+    let output = shell
         .sidecar("ffprobe")
         .map_err(|e| e.to_string())?
         .args([
@@ -247,12 +250,41 @@ pub async fn convert_video(
     Ok(())
 }
 
+async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, String> {
+    // Try image crate first
+    if let Ok(img) = image::open(path) {
+        return Ok(img);
+    }
+
+    // Fallback to ffmpeg for HEIC/HEIF or other formats image crate doesn't support
+    let output = app.shell()
+        .sidecar("ffmpeg")
+        .map_err(|e| e.to_string())?
+        .args([
+            "-i", path,
+            "-f", "image2pipe",
+            "-vcodec", "png",
+            "pipe:1",
+        ])
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        image::load_from_memory(&output.stdout).map_err(|e| e.to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to load image via FFmpeg: {}", stderr))
+    }
+}
+
 #[tauri::command]
-pub fn convert_image(
+pub async fn convert_image(
+    app: AppHandle,
     input_path: String,
     output_path: String,
 ) -> Result<(), String> {
-    let img = image::open(&input_path).map_err(|e| e.to_string())?;
+    let img = load_image(&app, &input_path).await?;
     img.save(&output_path).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -268,7 +300,8 @@ pub struct ImageProcessParams {
 
 // 固定尺寸裁剪
 #[tauri::command]
-pub fn crop_image_fixed(
+pub async fn crop_image_fixed(
+    app: AppHandle,
     input_path: String,
     output_path: String,
     preset_index: usize,
@@ -281,7 +314,7 @@ pub fn crop_image_fixed(
     let target_width = preset.width;
     let target_height = preset.height;
     
-    let img = image::open(&input_path).map_err(|e| e.to_string())?;
+    let img = load_image(&app, &input_path).await?;
     let (img_width, img_height) = img.dimensions();
     
     // 计算缩放比例，使图片至少达到目标尺寸
@@ -305,7 +338,8 @@ pub fn crop_image_fixed(
 
 // 按比例裁剪（居中）
 #[tauri::command]
-pub fn crop_image_ratio(
+pub async fn crop_image_ratio(
+    app: AppHandle,
     input_path: String,
     output_path: String,
     target_width: u32,
@@ -317,7 +351,7 @@ pub fn crop_image_ratio(
     
     let target_ratio = target_width as f64 / target_height as f64;
     
-    let img = image::open(&input_path).map_err(|e| e.to_string())?;
+    let img = load_image(&app, &input_path).await?;
     let (img_width, img_height) = img.dimensions();
     let img_ratio = img_width as f64 / img_height as f64;
     
@@ -345,7 +379,8 @@ pub fn crop_image_ratio(
 
 // 自定义尺寸裁剪
 #[tauri::command]
-pub fn crop_image_custom(
+pub async fn crop_image_custom(
+    app: AppHandle,
     input_path: String,
     output_path: String,
     target_width: u32,
@@ -355,7 +390,7 @@ pub fn crop_image_custom(
         return Err("Invalid target dimensions".to_string());
     }
     
-    let img = image::open(&input_path).map_err(|e| e.to_string())?;
+    let img = load_image(&app, &input_path).await?;
     let (img_width, img_height) = img.dimensions();
     
     // 计算缩放比例
