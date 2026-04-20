@@ -25,6 +25,7 @@ export interface Task {
 	fileName: string;
 	status: "pending" | "processing" | "converting" | "completed" | "failed" | "info_failed";
 	info?: MediaInfo;
+	thumbnail?: string; // Base64 thumbnail for video or small preview for image
 }
 
 export interface ImageTask extends Task {
@@ -34,6 +35,7 @@ export interface ImageTask extends Task {
 export interface VideoTask extends Task {
 	progress: number;
 	outputPath?: string;
+	log?: string; // Capture FFmpeg error logs
 }
 
 export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
@@ -125,8 +127,20 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 							const info = await invoke<MediaInfo>("get_media_info", {
 								path: currentTask.path,
 							});
+							
+							let thumbnail: string | undefined;
+							if (mode === "video") {
+								try {
+									thumbnail = await invoke<string>("get_video_thumbnail", {
+										path: currentTask.path,
+									});
+								} catch (e) {
+									console.error("Failed to get thumbnail:", e);
+								}
+							}
+
 							setTasks((prev) =>
-								prev.map((t) => (t.id === id ? { ...t, info, status: t.status === "info_failed" ? "pending" : t.status } : t)),
+								prev.map((t) => (t.id === id ? { ...t, info, thumbnail, status: t.status === "info_failed" ? "pending" : t.status } : t)),
 							);
 						} catch (err) {
 							console.error(`Failed to fetch metadata for task ${id}:`, err);
