@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use regex::Regex;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use std::path::Path;
 use base64::{Engine as _, engine::general_purpose};
 use std::io::Write;
