@@ -138,6 +138,21 @@ impl AppConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoTaskAction {
+    Convert,
+    ExtractAudio,
+    Compress,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum AudioFormat {
+    Mp3,
+    Wav,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Preset {
     #[serde(rename = "720p_low")]
     P720Low,
@@ -149,22 +164,34 @@ pub enum Preset {
     P1080High,
     #[serde(rename = "2k")]
     P2K,
+    #[serde(rename = "extract_audio")]
+    ExtractAudio { format: AudioFormat },
+    #[serde(rename = "compress")]
+    Compress,
 }
 
 pub struct PresetParams {
-    pub width: &'static str,
-    pub height: &'static str,
+    pub width: Option<&'static str>,
+    pub height: Option<&'static str>,
     pub crf: u8,
+    pub vcodec: &'static str,
+    pub acodec: &'static str,
+    pub extra_args: Vec<&'static str>,
 }
 
 impl Preset {
     pub fn get_params(&self) -> PresetParams {
         match self {
-            Preset::P720Low => PresetParams { width: "1280", height: "720", crf: 25 },
-            Preset::P720High => PresetParams { width: "1280", height: "720", crf: 22 },
-            Preset::P1080Low => PresetParams { width: "1920", height: "1080", crf: 25 },
-            Preset::P1080High => PresetParams { width: "1920", height: "1080", crf: 22 },
-            Preset::P2K => PresetParams { width: "2560", height: "1440", crf: 18 },
+            Preset::P720Low => PresetParams { width: Some("1280"), height: Some("720"), crf: 25, vcodec: "libx264", acodec: "aac", extra_args: vec![] },
+            Preset::P720High => PresetParams { width: Some("1280"), height: Some("720"), crf: 22, vcodec: "libx264", acodec: "aac", extra_args: vec![] },
+            Preset::P1080Low => PresetParams { width: Some("1920"), height: Some("1080"), crf: 25, vcodec: "libx264", acodec: "aac", extra_args: vec![] },
+            Preset::P1080High => PresetParams { width: Some("1920"), height: Some("1080"), crf: 22, vcodec: "libx264", acodec: "aac", extra_args: vec![] },
+            Preset::P2K => PresetParams { width: Some("2560"), height: Some("1440"), crf: 18, vcodec: "libx264", acodec: "aac", extra_args: vec![] },
+            Preset::ExtractAudio { format } => match format {
+                AudioFormat::Mp3 => PresetParams { width: None, height: None, crf: 0, vcodec: "none", acodec: "libmp3lame", extra_args: vec!["-q:a", "2"] },
+                AudioFormat::Wav => PresetParams { width: None, height: None, crf: 0, vcodec: "none", acodec: "pcm_s16le", extra_args: vec![] },
+            },
+            Preset::Compress => PresetParams { width: None, height: None, crf: 28, vcodec: "libx264", acodec: "aac", extra_args: vec!["-preset", "slow"] },
         }
     }
 }

@@ -231,21 +231,46 @@ pub async fn convert_video(
     let total_duration = media_info.duration;
 
     let params = preset.get_params();
-    let scale_vf = format!("scale={}:{}", params.width, params.height);
+    let mut args = vec!["-i".to_string(), input_path.clone()];
+
+    // 线程控制：使用所有可用核心，保留 1 个核心给 UI
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+    let worker_threads = if threads > 1 { threads - 1 } else { 1 };
+    args.push("-threads".to_string());
+    args.push(worker_threads.to_string());
+
+    if params.vcodec == "none" {
+        args.push("-vn".to_string());
+    } else {
+        if let (Some(w), Some(h)) = (params.width, params.height) {
+            args.push("-vf".to_string());
+            args.push(format!("scale={}:{},fps=30", w, h));
+        }
+        args.push("-c:v".to_string());
+        args.push(params.vcodec.to_string());
+        if params.crf > 0 {
+            args.push("-crf".to_string());
+            args.push(params.crf.to_string());
+        }
+    }
+
+    args.push("-c:a".to_string());
+    args.push(params.acodec.to_string());
+
+    for extra in params.extra_args {
+        args.push(extra.to_string());
+    }
+
+    args.push("-y".to_string());
+    args.push(output_path.clone());
 
     let shell = app.shell();
     let output = shell
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
-        .args([
-            "-i", &input_path,
-            "-vf", &format!("{},fps=30", scale_vf),
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", &params.crf.to_string(),
-            "-y",
-            &output_path,
-        ])
+        .args(args)
         .spawn()
         .map_err(|e| e.to_string())?;
 
