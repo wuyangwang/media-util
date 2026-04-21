@@ -6,6 +6,7 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_shell::ShellExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -50,8 +51,8 @@ pub fn run() {
                     }
                     "about" => {
                         let _ = app
-                            .shell()
-                            .open("https://github.com/wuyangwang/media-util", None);
+                            .opener()
+                            .open_url("https://github.com/wuyangwang/media-util", None);
                     }
                     "open" => {
                         if let Some(window) = app.get_webview_window("main") {
