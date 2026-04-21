@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useMemo } from "react";
+import { useRef, useCallback, useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTaskStore } from "./useTaskStore";
@@ -100,6 +100,8 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	const tasksRef = useRef<T[]>(tasks);
 	tasksRef.current = tasks;
 
+	const fetchingIds = useRef(new Set<string>());
+
 	const checkProcessing = useCallback(() => {
 		if (isAnyProcessing) {
 			toast.error("任务正在处理中，请稍后再试");
@@ -109,38 +111,59 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	}, [isAnyProcessing]);
 
 	const fetchMetadata = useCallback(
-		async (taskIds: string[]) => {
+		async (taskIds: string[], initialTasks?: T[]) => {
+			const toFetch = taskIds.filter((id) => !fetchingIds.current.has(id));
+			if (toFetch.length === 0) return;
+
+			toFetch.forEach((id) => fetchingIds.current.add(id));
+
 			const CONCURRENCY_LIMIT = 3;
-			const queue = [...taskIds];
-			const activeTasks = new Set<string>();
+			const queue = [...toFetch];
 
 			const runNext = async () => {
 				if (queue.length === 0) return;
 
 				const id = queue.shift()!;
-				activeTasks.add(id);
 
 				try {
-					const currentTask = tasksRef.current.find((t) => t.id === id);
+					let currentTask = initialTasks?.find((t) => t.id === id);
+					if (!currentTask) {
+						currentTask = tasksRef.current.find((t) => t.id === id);
+					}
+
 					if (currentTask && !currentTask.info) {
 						try {
 							const info = await invoke<MediaInfo>("get_media_info", {
 								path: currentTask.path,
 							});
-							
+
 							let thumbnail: string | undefined;
 							if (mode === "video") {
 								try {
-									thumbnail = await invoke<string>("get_video_thumbnail", {
+									const thumbPath = await invoke<string>("get_video_thumbnail", {
 										path: currentTask.path,
 									});
+									// If it's a file path (doesn't start with data:), convert it
+									thumbnail = thumbPath.startsWith("data:") 
+										? thumbPath 
+										: convertFileSrc(thumbPath);
 								} catch (e) {
 									console.error("Failed to get thumbnail:", e);
 								}
 							}
 
 							setTasks((prev) =>
-								prev.map((t) => (t.id === id ? { ...t, info, thumbnail, status: t.status === "info_failed" ? "pending" : t.status } : t)),
+								prev.map((t) =>
+									t.id === id
+										? {
+												...t,
+												info,
+												thumbnail,
+												status:
+													t.status === "info_failed" ? "pending" : t.status,
+											}
+										: t,
+								),
 							);
 						} catch (err) {
 							console.error(`Failed to fetch metadata for task ${id}:`, err);
@@ -163,19 +186,32 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 						}
 					}
 				} finally {
-					activeTasks.delete(id);
+					fetchingIds.current.delete(id);
 					await runNext();
 				}
 			};
 
-			const initialTasks = [];
+			const initialRunners = [];
 			for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, queue.length); i++) {
-				initialTasks.push(runNext());
+				initialRunners.push(runNext());
 			}
-			await Promise.all(initialTasks);
+			await Promise.all(initialRunners);
 		},
-		[setTasks],
+		[mode, setTasks],
 	);
+
+	useEffect(() => {
+		const pendingIds = tasks
+			.filter(
+				(t) =>
+					t.status === "pending" && !t.info && !fetchingIds.current.has(t.id),
+			)
+			.map((t) => t.id);
+
+		if (pendingIds.length > 0) {
+			fetchMetadata(pendingIds);
+		}
+	}, [tasks, fetchMetadata]);
 
 	const handleAddPaths = useCallback(
 		async (paths: string[]) => {
@@ -209,8 +245,11 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				if (newTasks.length > 0) {
 					addTasks(newTasks);
 					toast.success(`成功添加 ${addedCount} 个文件`, { id: toastId });
-					// Start fetching metadata for new tasks
-					fetchMetadata(newTasks.map((t) => t.id));
+					// Start fetching metadata for new tasks, pass newTasks to avoid sync issues
+					fetchMetadata(
+						newTasks.map((t) => t.id),
+						newTasks,
+					);
 				} else {
 					toast.info("未发现新的可处理文件", { id: toastId });
 				}
