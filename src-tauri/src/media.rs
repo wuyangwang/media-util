@@ -154,8 +154,39 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
     })
 }
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use tauri::path::BaseDirectory;
+
 #[tauri::command]
 pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String, String> {
+    // 1. 获取缓存目录
+    let cache_dir = app.path()
+        .resolve("thumbnails", BaseDirectory::AppCache)
+        .map_err(|e| e.to_string())?;
+
+    if !cache_dir.exists() {
+        std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+    }
+
+    // 2. 生成基于路径和修改时间的唯一文件名
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let modified = metadata.modified().map_err(|e| e.to_string())?;
+
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    modified.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    let thumb_path = cache_dir.join(format!("{:x}.jpg", hash));
+    let thumb_path_str = thumb_path.to_str().ok_or("Invalid thumb path")?.to_string();
+
+    // 3. 如果缓存已存在，直接返回路径
+    if thumb_path.exists() {
+        return Ok(thumb_path_str);
+    }
+
+    // 4. 调用 ffmpeg 生成缩略图到文件
     let output = app.shell()
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
@@ -164,17 +195,18 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String,
             "-i", &path,
             "-vframes", "1",
             "-f", "image2",
-            "-s", "320x180", // 缩放为预览图大小
-            "pipe:1",
+            "-s", "320x180",
+            "-y", // 覆盖现有文件
+            &thumb_path_str,
         ])
         .output()
         .await
         .map_err(|e| e.to_string())?;
 
     if output.status.success() {
-        Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(output.stdout)))
+        Ok(thumb_path_str)
     } else {
-        Err("Failed to extract thumbnail".to_string())
+        Err("Failed to extract thumbnail to disk".to_string())
     }
 }
 
