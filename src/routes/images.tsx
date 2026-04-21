@@ -48,9 +48,12 @@ function Images() {
 		checkProcessing,
 	} = useTasks<ImageTask>("image");
 	const [targetFormat, setTargetFormat] = useState(
-		DEFAULT_CONFIG.image_formats[0]?.value || "",
+		DEFAULT_CONFIG.image_formats[0]?.value || "original",
 	);
 	const [selectedPreset, setSelectedPreset] = useState<string>("0");
+	const [selectedQuality, setSelectedQuality] = useState<string>(
+		DEFAULT_CONFIG.compression_presets[0]?.value.toString() || "80",
+	);
 	const customPreset = useMemo(
 		() => DEFAULT_CONFIG.size_presets.find((p) => p.name === "自定义"),
 		[],
@@ -119,6 +122,7 @@ function Images() {
 		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
 		const width = isCustom ? customSize.width : preset.width;
 		const height = isCustom ? customSize.height : preset.height;
+		const quality = parseInt(selectedQuality);
 
 		for (const task of tasks) {
 			if (task.status === "completed") continue;
@@ -128,23 +132,32 @@ function Images() {
 				),
 			);
 			try {
+				const operation = isCustom
+					? "custom"
+					: preset.name === "原图尺寸"
+						? "compress"
+						: "fixed";
+
 				const outputPath = await invoke<string>("get_formatted_output_path", {
 					inputPath: task.path,
-					operation: isCustom ? "custom" : "fixed",
-					extension: targetFormat,
+					operation,
+					extension: targetFormat === "original" ? null : targetFormat,
 				});
+
 				if (isCustom) {
 					await invoke("crop_image_custom", {
 						inputPath: task.path,
 						outputPath,
 						targetWidth: width,
 						targetHeight: height,
+						quality,
 					});
 				} else {
 					await invoke("crop_image_fixed", {
 						inputPath: task.path,
 						outputPath,
 						presetIndex: parseInt(selectedPreset),
+						quality,
 					});
 				}
 				setTasks((prev) =>
@@ -167,6 +180,7 @@ function Images() {
 		tasks,
 		targetFormat,
 		selectedPreset,
+		selectedQuality,
 		setTasks,
 		isCustom,
 		customSize,
@@ -358,6 +372,25 @@ function Images() {
 										</SelectContent>
 									</Select>
 								</div>
+								<div className="flex items-center gap-3">
+									<span className="text-sm font-medium">压缩质量:</span>
+									<Select
+										value={selectedQuality}
+										onValueChange={setSelectedQuality}
+										disabled={isAnyProcessing}
+									>
+										<SelectTrigger className="w-[180px]">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{DEFAULT_CONFIG.compression_presets.map((p) => (
+												<SelectItem key={p.value} value={p.value.toString()}>
+													{p.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
 							</div>
 							<Button
 								onClick={handleBatchDownload}
@@ -388,20 +421,26 @@ function Images() {
 								</h3>
 								<div className="flex flex-wrap items-center gap-2 mt-1">
 									{task.info ? (
-										<>
-											<Badge variant="secondary" className="text-[10px] h-4 px-1">
-												{task.info.format.toUpperCase()}
-											</Badge>
+										task.info.format !== "unknown" ? (
+											<>
+												<Badge variant="secondary" className="text-[10px] h-4 px-1">
+													{task.info.format.toUpperCase()}
+												</Badge>
+												<span className="text-[11px] text-muted-foreground">
+													{task.info.video?.width} x {task.info.video?.height}
+												</span>
+												<span className="text-[11px] text-muted-foreground/60">
+													•
+												</span>
+												<span className="text-[11px] text-muted-foreground">
+													{formatBytes(task.info.size)}
+												</span>
+											</>
+										) : (
 											<span className="text-[11px] text-muted-foreground">
-												{task.info.video?.width} x {task.info.video?.height}
+												未知格式
 											</span>
-											<span className="text-[11px] text-muted-foreground/60">
-												•
-											</span>
-											<span className="text-[11px] text-muted-foreground">
-												{formatBytes(task.info.size)}
-											</span>
-										</>
+										)
 									) : (
 										<span className="text-[11px] text-muted-foreground animate-pulse">
 											正在读取信息...

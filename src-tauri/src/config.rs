@@ -25,6 +25,7 @@ pub struct ImageSizePreset {
 
 // 预设尺寸列表
 pub const IMAGE_SIZE_PRESETS: &[ImageSizePreset] = &[
+    ImageSizePreset { name: "原图尺寸", width: 0, height: 0, category: "通用" },
     // 证件照
     ImageSizePreset { name: "一寸", width: 295, height: 413, category: "证件照" },
     ImageSizePreset { name: "二寸", width: 413, height: 579, category: "证件照" },
@@ -63,6 +64,7 @@ pub struct AppConfig {
     pub image_extensions: Vec<&'static str>,
     pub video_presets: Vec<VideoPresetConfig>,
     pub image_formats: Vec<ImageFormatConfig>,
+    pub compression_presets: Vec<CompressionPresetConfig>,
     pub crop_modes: Vec<CropModeConfig>,
     pub size_presets: Vec<ImageSizePreset>,
     pub ratio_presets: Vec<RatioPresetConfig>,
@@ -77,6 +79,12 @@ pub struct VideoPresetConfig {
 #[derive(Debug, Serialize, Clone)]
 pub struct ImageFormatConfig {
     pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CompressionPresetConfig {
+    pub value: u8,
     pub label: String,
 }
 
@@ -105,10 +113,16 @@ impl AppConfig {
                 VideoPresetConfig { value: "2k".to_string(), label: "2K (超清)".to_string() },
             ],
             image_formats: vec![
+                ImageFormatConfig { value: "original".to_string(), label: "原图格式".to_string() },
                 ImageFormatConfig { value: "png".to_string(), label: "PNG".to_string() },
                 ImageFormatConfig { value: "jpg".to_string(), label: "JPEG (JPG)".to_string() },
                 ImageFormatConfig { value: "webp".to_string(), label: "WebP".to_string() },
                 ImageFormatConfig { value: "bmp".to_string(), label: "BMP".to_string() },
+            ],
+            compression_presets: vec![
+                CompressionPresetConfig { value: 80, label: "最佳 (平衡质量与体积)".to_string() },
+                CompressionPresetConfig { value: 95, label: "高质量 (大体积)".to_string() },
+                CompressionPresetConfig { value: 60, label: "高压缩 (小体积)".to_string() },
             ],
             crop_modes: vec![
                 CropModeConfig { value: "fixed".to_string(), label: "固定尺寸".to_string() },

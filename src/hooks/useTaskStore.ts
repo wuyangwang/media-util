@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { Task } from "./useTasks";
 
 interface ImageTask extends Task {
@@ -8,6 +9,7 @@ interface ImageTask extends Task {
 interface VideoTask extends Task {
 	progress: number;
 	outputPath?: string;
+	log?: string;
 }
 
 interface TaskState {
@@ -31,37 +33,66 @@ interface TaskState {
 	clearVideoTasks: () => void;
 }
 
-export const useTaskStore = create<TaskState>((set) => ({
-	imageTasks: [],
-	videoTasks: [],
-	imageProcessing: false,
-	videoProcessing: false,
-	setImageProcessing: (imageProcessing) => set({ imageProcessing }),
-	setVideoProcessing: (videoProcessing) => set({ videoProcessing }),
-	setImageTasks: (tasks) =>
-		set((state) => ({
-			imageTasks: typeof tasks === "function" ? tasks(state.imageTasks) : tasks,
-		})),
-	setVideoTasks: (tasks) =>
-		set((state) => ({
-			videoTasks: typeof tasks === "function" ? tasks(state.videoTasks) : tasks,
-		})),
-	addImageTasks: (tasks) =>
-		set((state) => ({
-			imageTasks: [...state.imageTasks, ...tasks],
-		})),
-	addVideoTasks: (tasks) =>
-		set((state) => ({
-			videoTasks: [...state.videoTasks, ...tasks],
-		})),
-	removeImageTask: (id) =>
-		set((state) => ({
-			imageTasks: state.imageTasks.filter((t) => t.id !== id),
-		})),
-	removeVideoTask: (id) =>
-		set((state) => ({
-			videoTasks: state.videoTasks.filter((t) => t.id !== id),
-		})),
-	clearImageTasks: () => set({ imageTasks: [] }),
-	clearVideoTasks: () => set({ videoTasks: [] }),
-}));
+export const useTaskStore = create<TaskState>()(
+	persist(
+		(set) => ({
+			imageTasks: [],
+			videoTasks: [],
+			imageProcessing: false,
+			videoProcessing: false,
+			setImageProcessing: (imageProcessing) => set({ imageProcessing }),
+			setVideoProcessing: (videoProcessing) => set({ videoProcessing }),
+			setImageTasks: (tasks) =>
+				set((state) => ({
+					imageTasks: typeof tasks === "function" ? tasks(state.imageTasks) : tasks,
+				})),
+			setVideoTasks: (tasks) =>
+				set((state) => ({
+					videoTasks: typeof tasks === "function" ? tasks(state.videoTasks) : tasks,
+				})),
+			addImageTasks: (tasks) =>
+				set((state) => ({
+					imageTasks: [...state.imageTasks, ...tasks],
+				})),
+			addVideoTasks: (tasks) =>
+				set((state) => ({
+					videoTasks: [...state.videoTasks, ...tasks],
+				})),
+			removeImageTask: (id) =>
+				set((state) => ({
+					imageTasks: state.imageTasks.filter((t) => t.id !== id),
+				})),
+			removeVideoTask: (id) =>
+				set((state) => ({
+					videoTasks: state.videoTasks.filter((t) => t.id !== id),
+				})),
+			clearImageTasks: () => set({ imageTasks: [] }),
+			clearVideoTasks: () => set({ videoTasks: [] }),
+		}),
+		{
+			name: "task-storage",
+			onRehydrateStorage: () => (state) => {
+				if (state) {
+					// 自动重置启动时卡在中间状态的任务
+					state.setVideoTasks((prev) =>
+						prev.map((t) =>
+							t.status === "converting" || t.status === "processing"
+								? { ...t, status: "pending", progress: 0 }
+								: t,
+						),
+					);
+					state.setImageTasks((prev) =>
+						prev.map((t) =>
+							t.status === "processing"
+								? { ...t, status: "pending" }
+								: t,
+						),
+					);
+					// 确保应用启动时处理状态为 false
+					state.setVideoProcessing(false);
+					state.setImageProcessing(false);
+				}
+			},
+		},
+	),
+);

@@ -16,14 +16,17 @@ export interface MediaInfo {
 	size: number;
 	duration: number;
 	video?: VideoInfo;
+	error?: string;
 }
 
 export interface Task {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "pending" | "processing" | "converting" | "completed" | "failed";
+	status: "pending" | "processing" | "converting" | "completed" | "failed" | "info_failed";
 	info?: MediaInfo;
+	thumbnail?: string; // Base64 thumbnail for video or small preview for image
+	log?: string; // Capture error logs or details
 }
 
 export interface ImageTask extends Task {
@@ -41,6 +44,7 @@ export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
 	converting: "正在转换...",
 	completed: "已完成",
 	failed: "失败",
+	info_failed: "读取信息失败",
 };
 
 export function useTasks<T extends Task>(mode: "video" | "image") {
@@ -119,15 +123,45 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 				try {
 					const currentTask = tasksRef.current.find((t) => t.id === id);
 					if (currentTask && !currentTask.info) {
-						const info = await invoke<MediaInfo>("get_media_info", {
-							path: currentTask.path,
-						});
-						setTasks((prev) =>
-							prev.map((t) => (t.id === id ? { ...t, info } : t)),
-						);
+						try {
+							const info = await invoke<MediaInfo>("get_media_info", {
+								path: currentTask.path,
+							});
+							
+							let thumbnail: string | undefined;
+							if (mode === "video") {
+								try {
+									thumbnail = await invoke<string>("get_video_thumbnail", {
+										path: currentTask.path,
+									});
+								} catch (e) {
+									console.error("Failed to get thumbnail:", e);
+								}
+							}
+
+							setTasks((prev) =>
+								prev.map((t) => (t.id === id ? { ...t, info, thumbnail, status: t.status === "info_failed" ? "pending" : t.status } : t)),
+							);
+						} catch (err) {
+							console.error(`Failed to fetch metadata for task ${id}:`, err);
+							setTasks((prev) =>
+								prev.map((t) =>
+									t.id === id
+										? {
+												...t,
+												status: "pending",
+												info: {
+													format: "unknown",
+													size: 0,
+													duration: 0,
+													error: String(err),
+												},
+											}
+										: t,
+								),
+							);
+						}
 					}
-				} catch (err) {
-					console.error(`Failed to fetch metadata for task ${id}:`, err);
 				} finally {
 					activeTasks.delete(id);
 					await runNext();

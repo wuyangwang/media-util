@@ -15,7 +15,15 @@ import {
 	FileVideo,
 	FolderOpen,
 	Loader2,
+	FileText,
 } from "lucide-react";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useTasks, VideoTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { DEFAULT_CONFIG } from "@/lib/config";
@@ -34,6 +42,7 @@ interface ProgressPayload {
 	id: string;
 	progress: number;
 	status: string;
+	log?: string;
 }
 
 function Videos() {
@@ -114,11 +123,10 @@ function Videos() {
 		}
 
 		setProcessing(true);
-		toast.info(`开始批量处理 ${pendingTasks.length} 个任务`);
+		toast.info(`已将 ${pendingTasks.length} 个任务加入队列`);
 
-		for (const task of tasks) {
-			if (task.status === "completed") continue;
-
+		// 并发触发所有任务，由后端 Semaphore 控制实际运行数
+		const promises = pendingTasks.map(async (task) => {
 			try {
 				const outputPath = await invoke<string>("get_formatted_output_path", {
 					inputPath: task.path,
@@ -129,21 +137,29 @@ function Videos() {
 				setTasks(
 					(prev) =>
 						prev.map((t) =>
-							t.id === task.id ? { ...t, outputPath } : t,
+							t.id === task.id ? { ...t, outputPath, status: "pending" } : t,
 						) as VideoTask[],
 				);
 
-				await invoke("convert_video", {
+				await invoke("convert_video_queued", {
 					id: task.id,
 					inputPath: task.path,
 					outputPath,
 					preset,
 				});
 			} catch (err) {
-				toast.error(`任务 ${task.fileName} 失败: ${err}`);
+				console.error(`Task ${task.id} failed to start:`, err);
+				setTasks(
+					(prev) =>
+						prev.map((t) =>
+							t.id === task.id ? { ...t, status: "failed", log: String(err) } : t,
+						) as VideoTask[],
+				);
 			}
-		}
-		setProcessing(false);
+		});
+
+		// 等待所有请求发送完毕，具体的转换完成由事件通知
+		await Promise.allSettled(promises);
 	}, [tasks, setTasks, setProcessing, preset, checkProcessing]);
 
 	const handleClearTasks = useCallback(() => {
@@ -172,8 +188,8 @@ function Videos() {
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
 			setTasks(
-				(prev) =>
-					prev.map((t) => {
+				(prev) => {
+					const newTasks = prev.map((t) => {
 						if (t.id === event.payload.id) {
 							let status: VideoTask["status"] = "converting";
 							if (event.payload.status === "Completed") status = "completed";
@@ -182,10 +198,20 @@ function Videos() {
 								...t,
 								progress: event.payload.progress,
 								status: status,
+								log: event.payload.log || t.log,
 							};
 						}
 						return t;
-					}) as VideoTask[],
+					}) as VideoTask[];
+
+					// 如果没有正在进行的任务，重置处理状态
+					const hasActive = newTasks.some(t => t.status === "converting" || t.status === "processing");
+					if (!hasActive) {
+						setProcessing(false);
+					}
+
+					return newTasks;
+				}
 			);
 		});
 
@@ -310,118 +336,167 @@ function Videos() {
 							<div
 								key={task.id}
 								className={cn(
-									"task-item-animate p-4 border rounded-lg space-y-3 transition-all",
+									"task-item-animate p-4 border rounded-lg transition-all",
 									task.status === "processing" || task.status === "converting"
 										? "bg-primary/5 border-primary/20 shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)]"
 										: "bg-muted/30 border-border",
 								)}
 							>
-								<div className="flex justify-between items-start">
-									<div className="flex-1 min-w-0">
-										<h3 className="text-sm font-semibold truncate flex items-center gap-2">
-											{task.fileName}
-											{task.status === "completed" && (
-												<span className="inline-block size-2 rounded-full bg-green-500" />
-											)}
-										</h3>
-										<div className="flex flex-wrap items-center gap-2 mt-1">
-											{task.info ? (
-												<>
-													<Badge variant="secondary" className="text-[10px] h-4 px-1">
-														{task.info.format.toUpperCase()}
-													</Badge>
-													{task.info.video && (
-														<>
-															<span className="text-[11px] text-muted-foreground">
-																{task.info.video.width} x {task.info.video.height}
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-															{task.info.duration > 0 && (
-																<>
-																	<span className="text-[11px] text-muted-foreground">
-																		{formatDuration(task.info.duration)}
-																	</span>
-																	<span className="text-[11px] text-muted-foreground/60">
-																		•
-																	</span>
-																</>
-															)}
-															<span className="text-[11px] text-muted-foreground">
-																{parseFloat(task.info.video.fps).toFixed(0)} fps
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-															<span className="text-[11px] text-muted-foreground">
-																{formatBitrate(task.info.video.bitrate)}
-															</span>
-															<span className="text-[11px] text-muted-foreground/60">
-																•
-															</span>
-														</>
-													)}
-													<span className="text-[11px] text-muted-foreground">
-														{formatBytes(task.info.size)}
-													</span>
-												</>
-											) : (
-												<span className="text-[11px] text-muted-foreground animate-pulse">
-													正在读取信息...
-												</span>
-											)}
-										</div>
-										<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
-											{task.path}
-										</p>
-									</div>
-									<div className="flex items-center gap-2">
-										<span
-											className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
-										>
-											{TASK_STATUS_LABELS[task.status]}
-										</span>
-										{task.status === "completed" && (
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												className="text-primary hover:bg-primary/10"
-												onClick={() => handleOpenFolder(task.outputPath)}
-												title="打开所在文件夹"
-											>
-												<FolderOpen />
-											</Button>
+								<div className="flex gap-4">
+									{/* Thumbnail */}
+									<div className="size-20 bg-muted rounded flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
+										{task.thumbnail ? (
+											<img
+												src={task.thumbnail}
+												alt="预览"
+												className="w-full h-full object-cover"
+											/>
+										) : (
+											<FileVideo className="size-8 text-muted-foreground/20" />
 										)}
-										<Button
-											variant="ghost"
-											size="icon-sm"
-											className="text-muted-foreground hover:text-destructive transition-colors"
-											onClick={() => handleRemoveTask(task.id)}
-											title={
-												isAnyProcessing &&
-												(task.status === "processing" ||
-													task.status === "converting")
-													? "正在转换中，无法删除"
-													: "删除任务"
-											}
-										>
-											<Trash2 />
-										</Button>
+									</div>
+
+									<div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+										<div className="flex justify-between items-start">
+											<div className="flex-1 min-w-0">
+												<h3 className="text-sm font-semibold truncate flex items-center gap-2">
+													{task.fileName}
+													{task.status === "completed" && (
+														<span className="inline-block size-2 rounded-full bg-green-500" />
+													)}
+												</h3>
+												<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+													{task.info ? (
+														task.info.format !== "unknown" ? (
+															<>
+																<Badge variant="secondary" className="text-[10px] h-4 px-1">
+																	{task.info.format.toUpperCase()}
+																</Badge>
+																{task.info.video && (
+																	<>
+																		<span className="text-[11px] text-muted-foreground">
+																			{task.info.video.width} x {task.info.video.height}
+																		</span>
+																		<span className="text-[11px] text-muted-foreground/60">
+																			•
+																		</span>
+																		{task.info.duration > 0 && (
+																			<>
+																				<span className="text-[11px] text-muted-foreground">
+																					{formatDuration(task.info.duration)}
+																				</span>
+																				<span className="text-[11px] text-muted-foreground/60">
+																					•
+																				</span>
+																			</>
+																		)}
+																		<span className="text-[11px] text-muted-foreground">
+																			{parseFloat(task.info.video.fps).toFixed(0)} fps
+																		</span>
+																		<span className="text-[11px] text-muted-foreground/60">
+																			•
+																		</span>
+																		<span className="text-[11px] text-muted-foreground">
+																			{formatBitrate(task.info.video.bitrate)}
+																		</span>
+																		<span className="text-[11px] text-muted-foreground/60">
+																			•
+																		</span>
+																	</>
+																)}
+																<span className="text-[11px] text-muted-foreground">
+																	{formatBytes(task.info.size)}
+																</span>
+															</>
+														) : (
+															<span className="text-[11px] text-muted-foreground">
+																未知媒体信息
+															</span>
+														)
+													) : (
+														<span className="text-[11px] text-muted-foreground animate-pulse">
+															正在读取信息...
+														</span>
+													)}
+												</div>
+												<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
+													{task.path}
+												</p>
+											</div>
+											<div className="flex items-center gap-2">
+												<span
+													className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
+												>
+													{TASK_STATUS_LABELS[task.status]}
+												</span>
+
+												{task.log && (
+													<Dialog>
+														<DialogTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon-sm"
+																className="text-red-500 hover:bg-red-50 h-8 w-8"
+																title="查看错误日志"
+															>
+																<FileText className="size-4" />
+															</Button>
+														</DialogTrigger>
+														<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+															<DialogHeader>
+																<DialogTitle>错误日志: {task.fileName}</DialogTitle>
+															</DialogHeader>
+															<div className="mt-4 flex-1 overflow-y-auto bg-muted rounded-md p-4">
+																<pre className="text-xs font-mono whitespace-pre-wrap break-all leading-relaxed text-muted-foreground">
+																	{task.log}
+																</pre>
+															</div>
+														</DialogContent>
+													</Dialog>
+												)}
+
+												{task.status === "completed" && (
+													<Button
+														variant="ghost"
+														size="icon-sm"
+														className="text-primary hover:bg-primary/10 h-8 w-8"
+														onClick={() => handleOpenFolder(task.outputPath)}
+														title="打开所在文件夹"
+													>
+														<FolderOpen className="size-4" />
+													</Button>
+												)}
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													className="text-muted-foreground hover:text-destructive transition-colors h-8 w-8"
+													onClick={() => handleRemoveTask(task.id)}
+													title={
+														isAnyProcessing &&
+														(task.status === "processing" ||
+															task.status === "converting")
+															? "正在转换中，无法删除"
+															: "删除任务"
+													}
+												>
+													<Trash2 className="size-4" />
+												</Button>
+											</div>
+										</div>
+										{(task.progress! > 0 || task.status !== "pending") && (
+											<div className="space-y-1 mt-2">
+												<div className="flex justify-between text-[10px] font-bold text-muted-foreground">
+													<span>进度</span>
+													<span>{task.progress!.toFixed(1)}%</span>
+												</div>
+												<Progress
+													value={task.progress}
+													className="h-1.5 shadow-sm"
+												/>
+											</div>
+										)}
 									</div>
 								</div>
-								{(task.progress! > 0 || task.status !== "pending") && (
-									<div className="space-y-1.5">
-										<div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-											<span>进度</span>
-											<span>{task.progress!.toFixed(1)}%</span>
-										</div>
-										<Progress
-											value={task.progress}
-											className="h-1.5 shadow-sm"
-										/>
-									</div>
-								)}
 							</div>
 						))
 					)}
