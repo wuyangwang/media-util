@@ -389,7 +389,7 @@ fn save_image_with_quality(img: &image::DynamicImage, output_path: &str, quality
             // PNG compression: Best compression level
             // Note: PNG is lossless, "quality" here doesn't apply the same as JPEG
             // But we use the best compression level to minimize size
-            let encoder = image::codecs::png::PngEncoder::new_with_config(
+            let encoder = image::codecs::png::PngEncoder::new_with_quality(
                 &mut writer,
                 image::codecs::png::CompressionType::Best,
                 image::codecs::png::FilterType::Adaptive,
