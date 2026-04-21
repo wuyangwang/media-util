@@ -26,6 +26,7 @@ export interface Task {
 	status: "pending" | "processing" | "converting" | "completed" | "failed" | "info_failed";
 	info?: MediaInfo;
 	thumbnail?: string; // Base64 thumbnail for video or small preview for image
+	log?: string; // Capture error logs or details
 }
 
 export interface ImageTask extends Task {
@@ -35,7 +36,6 @@ export interface ImageTask extends Task {
 export interface VideoTask extends Task {
 	progress: number;
 	outputPath?: string;
-	log?: string; // Capture FFmpeg error logs
 }
 
 export const TASK_STATUS_LABELS: Record<Task["status"], string> = {

@@ -42,6 +42,7 @@ interface ProgressPayload {
 	id: string;
 	progress: number;
 	status: string;
+	log?: string;
 }
 
 function Videos() {

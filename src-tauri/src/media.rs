@@ -23,12 +23,16 @@ pub fn get_formatted_output_path(
         .file_stem()
         .and_then(|s| s.to_str())
         .ok_or("Invalid filename")?;
-    let ext = extension.unwrap_or_else(|| {
-        path.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_string()
-    });
+
+    let input_ext = path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let ext = match extension.as_deref() {
+        Some("original") | None => input_ext,
+        Some(e) => e.to_string(),
+    };
 
     let now = chrono::Utc::now();
     let timestamp = now.timestamp_millis().to_string();
@@ -336,14 +340,44 @@ async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, 
     }
 }
 
+fn save_image_with_quality(img: &image::DynamicImage, output_path: &str, quality: u8) -> Result<(), String> {
+    let path = Path::new(output_path);
+    let ext = path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let file = File::create(path).map_err(|e| e.to_string())?;
+    let mut writer = std::io::BufWriter::new(file);
+
+    match ext.as_str() {
+        "jpg" | "jpeg" => {
+            let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, quality);
+            img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
+        }
+        "webp" => {
+            // Use write_to which supports WebP
+            img.write_to(&mut writer, image::ImageFormat::WebP).map_err(|e| e.to_string())?;
+        }
+        "png" => {
+            img.write_to(&mut writer, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+        }
+        _ => {
+            img.save(output_path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn convert_image(
     app: AppHandle,
     input_path: String,
     output_path: String,
+    quality: u8,
 ) -> Result<(), String> {
     let img = load_image(&app, &input_path).await?;
-    img.save(&output_path).map_err(|e| e.to_string())?;
+    save_image_with_quality(&img, &output_path, quality)?;
     Ok(())
 }
 
@@ -354,6 +388,7 @@ pub struct ImageProcessParams {
     pub width: u32,
     pub height: u32,
     pub preset_index: Option<usize>,  // 预设尺寸索引
+    pub quality: u8,
 }
 
 // 固定尺寸裁剪
@@ -363,6 +398,7 @@ pub async fn crop_image_fixed(
     input_path: String,
     output_path: String,
     preset_index: usize,
+    quality: u8,
 ) -> Result<(), String> {
     if preset_index >= IMAGE_SIZE_PRESETS.len() {
         return Err("Invalid preset index".to_string());
@@ -373,6 +409,13 @@ pub async fn crop_image_fixed(
     let target_height = preset.height;
     
     let img = load_image(&app, &input_path).await?;
+
+    if target_width == 0 || target_height == 0 {
+        // Original size
+        save_image_with_quality(&img, &output_path, quality)?;
+        return Ok(());
+    }
+
     let (img_width, img_height) = img.dimensions();
     
     // 计算缩放比例，使图片至少达到目标尺寸
@@ -390,7 +433,7 @@ pub async fn crop_image_fixed(
     let y = (new_height - target_height) / 2;
     let cropped = resized.crop_imm(x, y, target_width, target_height);
     
-    cropped.save(&output_path).map_err(|e| e.to_string())?;
+    save_image_with_quality(&cropped, &output_path, quality)?;
     Ok(())
 }
 
@@ -402,6 +445,7 @@ pub async fn crop_image_ratio(
     output_path: String,
     target_width: u32,
     target_height: u32,
+    quality: u8,
 ) -> Result<(), String> {
     if target_width == 0 || target_height == 0 {
         return Err("Invalid target dimensions".to_string());
@@ -431,7 +475,7 @@ pub async fn crop_image_ratio(
     
     // 缩放到目标尺寸
     let resized = cropped.resize(target_width, target_height, image::imageops::FilterType::Lanczos3);
-    resized.save(&output_path).map_err(|e| e.to_string())?;
+    save_image_with_quality(&resized, &output_path, quality)?;
     Ok(())
 }
 
@@ -443,12 +487,15 @@ pub async fn crop_image_custom(
     output_path: String,
     target_width: u32,
     target_height: u32,
+    quality: u8,
 ) -> Result<(), String> {
+    let img = load_image(&app, &input_path).await?;
+
     if target_width == 0 || target_height == 0 {
-        return Err("Invalid target dimensions".to_string());
+        save_image_with_quality(&img, &output_path, quality)?;
+        return Ok(());
     }
     
-    let img = load_image(&app, &input_path).await?;
     let (img_width, img_height) = img.dimensions();
     
     // 计算缩放比例
@@ -466,7 +513,7 @@ pub async fn crop_image_custom(
     let y = (new_height - target_height) / 2;
     let cropped = resized.crop_imm(x, y, target_width, target_height);
     
-    cropped.save(&output_path).map_err(|e| e.to_string())?;
+    save_image_with_quality(&cropped, &output_path, quality)?;
     Ok(())
 }
 

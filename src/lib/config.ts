@@ -5,6 +5,7 @@ export interface AppConfig {
 	image_extensions: string[];
 	video_presets: { value: string; label: string }[];
 	image_formats: { value: string; label: string }[];
+	compression_presets: { value: number; label: string }[];
 	crop_modes: { value: string; label: string }[];
 	size_presets: {
 		category: string;
@@ -21,6 +22,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 	image_extensions: [],
 	video_presets: [],
 	image_formats: [],
+	compression_presets: [],
 	crop_modes: [],
 	size_presets: [],
 	ratio_presets: [],
