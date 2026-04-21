@@ -381,11 +381,20 @@ fn save_image_with_quality(img: &image::DynamicImage, output_path: &str, quality
             img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
         }
         "webp" => {
-            // Use write_to which supports WebP
+            // image-webp crate (used by image) doesn't easily expose quality through write_to
+            // For now we use the default which is lossless in many cases or default lossy
             img.write_to(&mut writer, image::ImageFormat::WebP).map_err(|e| e.to_string())?;
         }
         "png" => {
-            img.write_to(&mut writer, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+            // PNG compression: Best compression level
+            // Note: PNG is lossless, "quality" here doesn't apply the same as JPEG
+            // But we use the best compression level to minimize size
+            let encoder = image::codecs::png::PngEncoder::new_with_config(
+                &mut writer,
+                image::codecs::png::CompressionType::Best,
+                image::codecs::png::FilterType::Adaptive,
+            );
+            img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
         }
         _ => {
             img.save(output_path).map_err(|e| e.to_string())?;

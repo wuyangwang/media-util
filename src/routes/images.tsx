@@ -51,6 +51,7 @@ function Images() {
 		DEFAULT_CONFIG.image_formats[0]?.value || "original",
 	);
 	const [selectedPreset, setSelectedPreset] = useState<string>("0");
+	const [compressEnabled, setCompressEnabled] = useState(false);
 	const [selectedQuality, setSelectedQuality] = useState<string>(
 		DEFAULT_CONFIG.compression_presets[0]?.value.toString() || "80",
 	);
@@ -122,7 +123,7 @@ function Images() {
 		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
 		const width = isCustom ? customSize.width : preset.width;
 		const height = isCustom ? customSize.height : preset.height;
-		const quality = parseInt(selectedQuality);
+		const quality = compressEnabled ? parseInt(selectedQuality) : 100;
 
 		for (const task of tasks) {
 			if (task.status === "completed") continue;
@@ -135,7 +136,7 @@ function Images() {
 				const operation = isCustom
 					? "custom"
 					: preset.name === "原图尺寸"
-						? "compress"
+						? "convert"
 						: "fixed";
 
 				const outputPath = await invoke<string>("get_formatted_output_path", {
@@ -180,6 +181,7 @@ function Images() {
 		tasks,
 		targetFormat,
 		selectedPreset,
+		compressEnabled,
 		selectedQuality,
 		setTasks,
 		isCustom,
@@ -238,7 +240,7 @@ function Images() {
 		<div ref={containerRef} className="flex flex-col h-full bg-background">
 			<header className="p-6 border-b flex justify-between items-center header-animate">
 				<div>
-					<h2 className="text-2xl font-bold tracking-tight">批量图片转换</h2>
+					<h2 className="text-2xl font-bold tracking-tight">批量图片处理</h2>
 					<p className="text-muted-foreground text-sm">
 						{isScanning ? "正在扫描目录..." : "拖拽图片文件开始。"}
 					</p>
@@ -280,7 +282,7 @@ function Images() {
 								? "正在处理中..."
 								: tasks.length === 0
 									? "请先添加文件"
-									: "开始转换"
+									: "开始执行"
 						}
 					>
 						<Play data-icon="inline-start" /> 全部开始
@@ -299,106 +301,146 @@ function Images() {
 
 			<main className="flex-1 overflow-hidden flex flex-col p-6 gap-6">
 				<Card className="shrink-0 header-animate">
-					<CardContent className="p-4 flex flex-col gap-4">
-						<div className="flex items-center justify-between gap-4">
-							<div className="flex flex-wrap items-center gap-6">
-								<div className="flex items-center gap-3">
-									<span className="text-sm font-medium">尺寸预设:</span>
-									<Select
-										value={selectedPreset}
-										onValueChange={setSelectedPreset}
-										disabled={isAnyProcessing}
-									>
-										<SelectTrigger className="w-[200px]">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{DEFAULT_CONFIG.size_presets.map((p, i) => (
-												<SelectItem key={i} value={i.toString()}>
-													{p.name}{" "}
-													{p.name !== "自定义"
-														? `(${p.width}x${p.height})`
-														: ""}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									{isCustom && (
+					<CardContent className="p-4 flex flex-col gap-6">
+						<div className="flex items-start justify-between gap-4">
+							<div className="flex flex-col gap-6 flex-1">
+								{/* 转换与尺寸设置 */}
+								<div className="flex items-center gap-6">
+									<div className="flex items-center gap-2 min-w-[80px]">
+										<div className="w-1 h-4 bg-primary rounded-full" />
+										<span className="text-sm font-bold">转换设置</span>
+									</div>
+									<div className="flex flex-wrap items-center gap-4">
 										<div className="flex items-center gap-2">
-											<Input
-												type="number"
-												value={customSize.width}
-												onChange={(e) =>
-													setCustomSize((prev) => ({
-														...prev,
-														width: parseInt(e.target.value) || 0,
-													}))
-												}
-												className="w-20"
-												placeholder="宽"
-											/>
-											<span>x</span>
-											<Input
-												type="number"
-												value={customSize.height}
-												onChange={(e) =>
-													setCustomSize((prev) => ({
-														...prev,
-														height: parseInt(e.target.value) || 0,
-													}))
-												}
-												className="w-20"
-												placeholder="高"
-											/>
+											<span className="text-xs text-muted-foreground">尺寸预设:</span>
+											<Select
+												value={selectedPreset}
+												onValueChange={setSelectedPreset}
+												disabled={isAnyProcessing}
+											>
+												<SelectTrigger className="w-[180px] h-8 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{DEFAULT_CONFIG.size_presets.map((p, i) => (
+														<SelectItem key={i} value={i.toString()}>
+															{p.name}{" "}
+															{p.name !== "自定义" && p.width !== 0
+																? `(${p.width}x${p.height})`
+																: ""}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
 										</div>
-									)}
+
+										{isCustom && (
+											<div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+												<Input
+													type="number"
+													value={customSize.width}
+													onChange={(e) =>
+														setCustomSize((prev) => ({
+															...prev,
+															width: parseInt(e.target.value) || 0,
+														}))
+													}
+													className="w-16 h-8 text-xs"
+													placeholder="宽"
+												/>
+												<span className="text-xs text-muted-foreground">x</span>
+												<Input
+													type="number"
+													value={customSize.height}
+													onChange={(e) =>
+														setCustomSize((prev) => ({
+															...prev,
+															height: parseInt(e.target.value) || 0,
+														}))
+													}
+													className="w-16 h-8 text-xs"
+													placeholder="高"
+												/>
+											</div>
+										)}
+
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-muted-foreground">目标格式:</span>
+											<Select
+												value={targetFormat}
+												onValueChange={setTargetFormat}
+												disabled={isAnyProcessing}
+											>
+												<SelectTrigger className="w-[120px] h-8 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{DEFAULT_CONFIG.image_formats.map((f) => (
+														<SelectItem key={f.value} value={f.value}>
+															{f.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+									</div>
 								</div>
-								<div className="flex items-center gap-3">
-									<span className="text-sm font-medium">目标格式:</span>
-									<Select
-										value={targetFormat}
-										onValueChange={setTargetFormat}
-										disabled={isAnyProcessing}
-									>
-										<SelectTrigger className="w-[120px]">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{DEFAULT_CONFIG.image_formats.map((f) => (
-												<SelectItem key={f.value} value={f.value}>
-													{f.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="flex items-center gap-3">
-									<span className="text-sm font-medium">压缩质量:</span>
-									<Select
-										value={selectedQuality}
-										onValueChange={setSelectedQuality}
-										disabled={isAnyProcessing}
-									>
-										<SelectTrigger className="w-[180px]">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{DEFAULT_CONFIG.compression_presets.map((p) => (
-												<SelectItem key={p.value} value={p.value.toString()}>
-													{p.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+
+								<div className="h-px bg-border/60" />
+
+								{/* 压缩设置 */}
+								<div className="flex items-center gap-6">
+									<div className="flex items-center gap-2 min-w-[80px]">
+										<div className="w-1 h-4 bg-orange-500 rounded-full" />
+										<span className="text-sm font-bold">压缩设置</span>
+									</div>
+									<div className="flex items-center gap-4">
+										<Button
+											variant={compressEnabled ? "default" : "outline"}
+											size="sm"
+											className={cn(
+												"h-8 text-xs px-4 transition-all",
+												compressEnabled ? "bg-orange-500 hover:bg-orange-600" : ""
+											)}
+											onClick={() => setCompressEnabled(!compressEnabled)}
+											disabled={isAnyProcessing}
+										>
+											{compressEnabled ? "已启用压缩" : "未启用压缩"}
+										</Button>
+
+										{compressEnabled && (
+											<div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+												<span className="text-xs text-muted-foreground">质量预设:</span>
+												<Select
+													value={selectedQuality}
+													onValueChange={setSelectedQuality}
+													disabled={isAnyProcessing}
+												>
+													<SelectTrigger className="w-[180px] h-8 text-xs">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{DEFAULT_CONFIG.compression_presets.map((p) => (
+															<SelectItem key={p.value} value={p.value.toString()}>
+																{p.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
+										)}
+									</div>
 								</div>
 							</div>
+
 							<Button
 								onClick={handleBatchDownload}
 								variant="outline"
 								size="sm"
 								disabled={!tasks.some((t) => t.status === "completed")}
+								className="shrink-0"
 							>
-								<Download data-icon="inline-start" /> 批量下载
+								<Download data-icon="inline-start" /> 批量导出
 							</Button>
 						</div>
 					</CardContent>
