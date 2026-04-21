@@ -1,6 +1,5 @@
 use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, AppConfig};
 use serde::{Deserialize, Serialize};
-use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use regex::Regex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -207,7 +206,8 @@ pub async fn convert_video_queued(
     output_path: String,
     preset: Preset,
 ) -> Result<(), String> {
-    let permit = queue.semaphore.read().await.acquire().await.map_err(|e| e.to_string())?;
+    let semaphore = queue.semaphore.read().await;
+    let permit = semaphore.acquire().await.map_err(|e| e.to_string())?;
     let result = convert_video(app, id, input_path, output_path, preset).await;
     drop(permit);
     result
