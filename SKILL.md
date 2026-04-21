@@ -136,3 +136,35 @@ To ensure the application window opens in a specific state (e.g., centered) and 
 - **原子化提交**：保持提交的粒度适中，确保每个 Commit 描述清晰且只包含相关的改动。
 - **文档同步**：如果改动涉及新的配置项或开发技巧，需同步更新 `SKILL.md` 或 `README.md`。
 
+## 13. 自动 CPU 资源限制与性能均衡
+在 Rust 后端进行耗时计算（如 FFmpeg 调用）时，应自动控制并发线程数，避免导致系统 UI 卡死：
+```rust
+use std::thread::available_parallelism;
+
+let threads = available_parallelism().map(|n| n.get()).unwrap_or(1);
+// 动态分配线程：总核心数 - 1，保留一个核心给 UI 响应
+let worker_threads = if threads > 1 { threads - 1 } else { 1 };
+args.push("-threads".to_string());
+args.push(worker_threads.to_string());
+```
+
+## 14. 全局拖拽文件分流 (Tauri v2)
+在根路由或全局布局中监听文件拖入事件，根据后缀名自动跳转并分发任务：
+```typescript
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+
+useEffect(() => {
+  const unlisten = getCurrentWebview().onDragDropEvent((event) => {
+    const payload = event.payload as any; // 适配 Tauri v2 内部 Event 结构
+    if (payload.type === 'drop') {
+      const paths = payload.paths;
+      // 1. 解析后缀并分流 (视频/图片)
+      // 2. 调用 useNavigate 跳转
+      // 3. 调用 Store 添加任务
+    }
+  });
+  return () => { unlisten.then(fn => fn()); };
+}, []);
+```
+注意：Tauri v2 的 `onDragDropEvent` 回调参数是 `Event<DragDropEvent>`，需要通过 `event.payload` 访问具体信息。
+

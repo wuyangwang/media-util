@@ -128,10 +128,28 @@ function Videos() {
 		// 并发触发所有任务，由后端 Semaphore 控制实际运行数
 		const promises = pendingTasks.map(async (task) => {
 			try {
+				let operation = "converted";
+				let extension = "mp4";
+				let presetParam: any = preset;
+
+				if (preset === "extract_audio_mp3") {
+					operation = "audio";
+					extension = "mp3";
+					presetParam = { extract_audio: { format: "mp3" } };
+				} else if (preset === "extract_audio_wav") {
+					operation = "audio";
+					extension = "wav";
+					presetParam = { extract_audio: { format: "wav" } };
+				} else if (preset === "compress") {
+					operation = "compressed";
+					extension = "mp4";
+					presetParam = "compress";
+				}
+
 				const outputPath = await invoke<string>("get_formatted_output_path", {
 					inputPath: task.path,
-					operation: "converted",
-					extension: "mp4",
+					operation,
+					extension,
 				});
 
 				setTasks(
@@ -145,7 +163,7 @@ function Videos() {
 					id: task.id,
 					inputPath: task.path,
 					outputPath,
-					preset,
+					preset: presetParam,
 				});
 			} catch (err) {
 				console.error(`Task ${task.id} failed to start:`, err);
@@ -216,8 +234,9 @@ function Videos() {
 		});
 
 		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
-			if (event.payload.type === "drop") {
-				const paths = event.payload.paths;
+			const payload = event.payload as any;
+			if (payload.type === "drop") {
+				const paths = payload.paths as string[];
 				await handleAddPaths(paths);
 			}
 		});
@@ -315,6 +334,16 @@ function Videos() {
 											{p.label}
 										</SelectItem>
 									))}
+									<div className="h-px bg-muted my-1" />
+									<SelectItem value="compress">
+										一键压缩 (保持清晰)
+									</SelectItem>
+									<SelectItem value="extract_audio_mp3">
+										提取音频 (MP3)
+									</SelectItem>
+									<SelectItem value="extract_audio_wav">
+										提取音频 (WAV)
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>

@@ -1,4 +1,4 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { 
 	Play, 
@@ -15,6 +15,10 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useUIStore } from "@/hooks/useUIStore";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { useTaskStore } from "@/hooks/useTaskStore";
+import { DEFAULT_CONFIG } from "@/lib/config";
+import { toast } from "sonner";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -24,6 +28,9 @@ function RootComponent() {
 	const sidebarRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLElement>(null);
 	const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+	const navigate = useNavigate();
+	const addVideoTasks = useTaskStore((s) => s.addVideoTasks);
+	const addImageTasks = useTaskStore((s) => s.addImageTasks);
 
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
@@ -39,6 +46,57 @@ function RootComponent() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
+
+	useEffect(() => {
+		const unlisten = getCurrentWebview().onDragDropEvent((event) => {
+			const payload = event.payload as any;
+			if (payload.type === "drop") {
+				const paths = payload.paths as string[];
+				const videoFiles: string[] = [];
+				const imageFiles: string[] = [];
+
+				for (const path of paths) {
+					const ext = path.split(".").pop()?.toLowerCase() || "";
+					if (DEFAULT_CONFIG.video_extensions.includes(ext)) {
+						videoFiles.push(path);
+					} else if (DEFAULT_CONFIG.image_extensions.includes(ext)) {
+						imageFiles.push(path);
+					}
+				}
+
+				if (videoFiles.length > 0) {
+					const newTasks = videoFiles.map((path) => ({
+						id: Math.random().toString(36).substring(7),
+						path,
+						fileName: path.split(/[\\/]/).pop() || path,
+						status: "pending" as const,
+						progress: 0,
+					}));
+					addVideoTasks(newTasks);
+					navigate({ to: "/videos" });
+					toast.success(`已添加 ${videoFiles.length} 个视频任务`);
+				}
+
+				if (imageFiles.length > 0) {
+					const newTasks = imageFiles.map((path) => ({
+						id: Math.random().toString(36).substring(7),
+						path,
+						fileName: path.split(/[\\/]/).pop() || path,
+						status: "pending" as const,
+					}));
+					addImageTasks(newTasks);
+					if (videoFiles.length === 0) {
+						navigate({ to: "/images" });
+					}
+					toast.success(`已添加 ${imageFiles.length} 个图片任务`);
+				}
+			}
+		});
+
+		return () => {
+			unlisten.then((fn: any) => typeof fn === "function" && fn());
+		};
+	}, [navigate, addVideoTasks, addImageTasks]);
 
 	useGSAP(() => {
 		const tl = gsap.timeline({ defaults: { ease: "power2.out" } });

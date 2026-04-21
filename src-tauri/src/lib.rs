@@ -51,7 +51,7 @@ pub fn run() {
                     "about" => {
                         let _ = app
                             .opener()
-                            .open_url("https://github.com/wuyangwang/media-util", None);
+                            .open_url("https://github.com/wuyangwang/media-util", None::<&str>);
                     }
                     "open" => {
                         if let Some(window) = app.get_webview_window("main") {
