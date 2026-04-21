@@ -1,6 +1,6 @@
 use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, AppConfig};
 use serde::{Deserialize, Serialize};
-use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 use regex::Regex;
 use tauri::{AppHandle, Emitter, Manager};
 use std::path::Path;
