@@ -1,3 +1,4 @@
+use log::{error, info};
 use crate::config::{AppConfig, Preset, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, VIDEO_EXTENSIONS};
 use base64::{engine::general_purpose, Engine as _};
 use chrono;
