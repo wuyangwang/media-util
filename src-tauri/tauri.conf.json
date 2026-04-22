@@ -12,6 +12,7 @@
 	"app": {
 		"windows": [
 			{
+				"capabilities": ["default", "desktop-capability"],
 				"label": "main",
 				"title": "媒体助手",
 				"width": 1000,
@@ -31,7 +32,8 @@
 		"updater": {
 			"endpoints": ["https://example.com/updates/{{target}}-{{arch}}.json"],
 			"pubkey": "SET_YOUR_PUBLIC_KEY_HERE"
-		}
+		},
+		"single-instance": {}
 	},
 	"bundle": {
 		"active": true,
