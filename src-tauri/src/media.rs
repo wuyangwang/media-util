@@ -1,14 +1,14 @@
-use crate::config::{Preset, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, AppConfig};
-use serde::{Deserialize, Serialize};
-use tauri_plugin_shell::{process::CommandEvent, ShellExt};
-use regex::Regex;
-use tauri::{AppHandle, Emitter, Manager};
-use std::path::Path;
-use base64::{Engine as _, engine::general_purpose};
-use std::io::Write;
-use std::fs::File;
-use image::GenericImageView;
+use crate::config::{AppConfig, Preset, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, VIDEO_EXTENSIONS};
+use base64::{engine::general_purpose, Engine as _};
 use chrono;
+use image::GenericImageView;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
 #[tauri::command]
 pub fn get_formatted_output_path(
@@ -23,7 +23,8 @@ pub fn get_formatted_output_path(
         .and_then(|s| s.to_str())
         .ok_or("Invalid filename")?;
 
-    let input_ext = path.extension()
+    let input_ext = path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_string();
@@ -44,7 +45,10 @@ pub fn get_formatted_output_path(
     let new_filename = format!("{}_{}_{}.{}", stem, operation, timestamp, ext);
     let output_path = output_dir.join(new_filename);
 
-    Ok(output_path.to_str().ok_or("Invalid output path")?.to_string())
+    Ok(output_path
+        .to_str()
+        .ok_or("Invalid output path")?
+        .to_string())
 }
 
 #[derive(Clone, Serialize)]
@@ -53,7 +57,7 @@ struct ProgressPayload {
     progress: f64,
     status: String,
     output_info: Option<MediaInfo>, // 任务完成后返回新文件信息
-    log: Option<String>,           // 用于存储错误详情或日志
+    log: Option<String>,            // 用于存储错误详情或日志
 }
 
 use serde_json::Value;
@@ -119,10 +123,12 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
         .sidecar("ffprobe")
         .map_err(|e| e.to_string())?
         .args([
-            "-v", "error",
+            "-v",
+            "error",
             "-show_format",
             "-show_streams",
-            "-of", "json",
+            "-of",
+            "json",
             &path,
         ])
         .output()
@@ -188,7 +194,8 @@ use tauri::path::BaseDirectory;
 #[tauri::command]
 pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String, String> {
     // 1. 获取缓存目录
-    let cache_dir = app.path()
+    let cache_dir = app
+        .path()
         .resolve("thumbnails", BaseDirectory::AppCache)
         .map_err(|e| e.to_string())?;
 
@@ -214,15 +221,21 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String,
     }
 
     // 4. 调用 ffmpeg 生成缩略图到文件
-    let output = app.shell()
+    let output = app
+        .shell()
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
         .args([
-            "-ss", "00:00:01",
-            "-i", &path,
-            "-vframes", "1",
-            "-f", "image2",
-            "-s", "320x180",
+            "-ss",
+            "00:00:01",
+            "-i",
+            &path,
+            "-vframes",
+            "1",
+            "-f",
+            "image2",
+            "-s",
+            "320x180",
             "-y", // 覆盖现有文件
             &thumb_path_str,
         ])
@@ -237,8 +250,8 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String,
     }
 }
 
-use tokio::sync::{Semaphore, RwLock};
 use std::sync::Arc;
+use tokio::sync::{RwLock, Semaphore};
 
 pub struct AppQueue {
     pub semaphore: Arc<RwLock<Semaphore>>,
@@ -273,7 +286,10 @@ pub async fn convert_video_queued(
 }
 
 #[tauri::command]
-pub async fn update_concurrency(queue: tauri::State<'_, AppQueue>, limit: usize) -> Result<(), String> {
+pub async fn update_concurrency(
+    queue: tauri::State<'_, AppQueue>,
+    limit: usize,
+) -> Result<(), String> {
     queue.update_limit(limit).await;
     Ok(())
 }
@@ -343,13 +359,13 @@ pub async fn convert_video(
             CommandEvent::Stderr(line) => {
                 let line_str = String::from_utf8_lossy(&line).to_string();
                 accumulated_log.push_str(&line_str);
-                
+
                 if let Some(caps) = re.captures(&line_str) {
                     let h: f64 = caps.get(1).unwrap().as_str().parse().unwrap_or(0.0);
                     let m: f64 = caps.get(2).unwrap().as_str().parse().unwrap_or(0.0);
                     let s: f64 = caps.get(3).unwrap().as_str().parse().unwrap_or(0.0);
                     let ms: f64 = caps.get(4).unwrap().as_str().parse().unwrap_or(0.0);
-                    
+
                     let current_seconds = h * 3600.0 + m * 60.0 + s + ms / 100.0;
                     let progress = if total_duration > 0.0 {
                         (current_seconds / total_duration * 100.0).min(99.9)
@@ -357,22 +373,28 @@ pub async fn convert_video(
                         0.0
                     };
 
-                    app.emit("conversion-progress", ProgressPayload {
-                        id: id.clone(),
-                        progress,
-                        status: format!("正在处理... ({:.1}%)", progress),
-                        output_info: None,
-                        log: None,
-                    }).unwrap();
+                    app.emit(
+                        "conversion-progress",
+                        ProgressPayload {
+                            id: id.clone(),
+                            progress,
+                            status: format!("正在处理... ({:.1}%)", progress),
+                            output_info: None,
+                            log: None,
+                        },
+                    )
+                    .unwrap();
                 }
             }
             CommandEvent::Terminated(payload) => {
                 let (status, progress) = if payload.code == Some(0) {
+                    info!("Video conversion completed successfully [ID: {}]", id);
                     ("Completed", 100.0)
                 } else {
+                    error!("Video conversion failed [ID: {}]. Output path: {}", id, output_path_clone);
                     ("Failed", 0.0)
                 };
-                
+
                 let mut output_info = None;
                 if status == "Completed" {
                     if let Ok(info) = get_media_info(app.clone(), output_path_clone.clone()).await {
@@ -380,13 +402,21 @@ pub async fn convert_video(
                     }
                 }
 
-                app.emit("conversion-progress", ProgressPayload {
-                    id: id.clone(),
-                    progress,
-                    status: status.to_string(),
-                    output_info,
-                    log: if status == "Failed" { Some(accumulated_log) } else { None },
-                }).unwrap();
+                app.emit(
+                    "conversion-progress",
+                    ProgressPayload {
+                        id: id.clone(),
+                        progress,
+                        status: status.to_string(),
+                        output_info,
+                        log: if status == "Failed" {
+                            Some(accumulated_log)
+                        } else {
+                            None
+                        },
+                    },
+                )
+                .unwrap();
                 break;
             }
             _ => {}
@@ -403,15 +433,11 @@ async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, 
     }
 
     // Fallback to ffmpeg for HEIC/HEIF or other formats image crate doesn't support
-    let output = app.shell()
+    let output = app
+        .shell()
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
-        .args([
-            "-i", path,
-            "-f", "image2pipe",
-            "-vcodec", "png",
-            "pipe:1",
-        ])
+        .args(["-i", path, "-f", "image2pipe", "-vcodec", "png", "pipe:1"])
         .output()
         .await
         .map_err(|e| e.to_string())?;
@@ -424,9 +450,14 @@ async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, 
     }
 }
 
-fn save_image_with_quality(img: &image::DynamicImage, output_path: &str, quality: u8) -> Result<(), String> {
+fn save_image_with_quality(
+    img: &image::DynamicImage,
+    output_path: &str,
+    quality: u8,
+) -> Result<(), String> {
     let path = Path::new(output_path);
-    let ext = path.extension()
+    let ext = path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
@@ -442,7 +473,8 @@ fn save_image_with_quality(img: &image::DynamicImage, output_path: &str, quality
         "webp" => {
             // image-webp crate (used by image) doesn't easily expose quality through write_to
             // For now we use the default which is lossless in many cases or default lossy
-            img.write_to(&mut writer, image::ImageFormat::WebP).map_err(|e| e.to_string())?;
+            img.write_to(&mut writer, image::ImageFormat::WebP)
+                .map_err(|e| e.to_string())?;
         }
         "png" => {
             // PNG compression: Best compression level
@@ -477,10 +509,10 @@ pub async fn convert_image(
 // 图像处理参数
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImageProcessParams {
-    pub mode: String,      // "fixed", "ratio", "custom"
+    pub mode: String, // "fixed", "ratio", "custom"
     pub width: u32,
     pub height: u32,
-    pub preset_index: Option<usize>,  // 预设尺寸索引
+    pub preset_index: Option<usize>, // 预设尺寸索引
     pub quality: u8,
 }
 
@@ -496,11 +528,11 @@ pub async fn crop_image_fixed(
     if preset_index >= IMAGE_SIZE_PRESETS.len() {
         return Err("Invalid preset index".to_string());
     }
-    
+
     let preset = &IMAGE_SIZE_PRESETS[preset_index];
     let target_width = preset.width;
     let target_height = preset.height;
-    
+
     let img = load_image(&app, &input_path).await?;
 
     if target_width == 0 || target_height == 0 {
@@ -510,22 +542,22 @@ pub async fn crop_image_fixed(
     }
 
     let (img_width, img_height) = img.dimensions();
-    
+
     // 计算缩放比例，使图片至少达到目标尺寸
     let scale_w = target_width as f64 / img_width as f64;
     let scale_h = target_height as f64 / img_height as f64;
     let scale = scale_w.max(scale_h);
-    
+
     // 缩放图片
     let new_width = (img_width as f64 * scale).round() as u32;
     let new_height = (img_height as f64 * scale).round() as u32;
     let resized = img.resize(new_width, new_height, image::imageops::FilterType::Lanczos3);
-    
+
     // 居中裁剪
     let x = (new_width - target_width) / 2;
     let y = (new_height - target_height) / 2;
     let cropped = resized.crop_imm(x, y, target_width, target_height);
-    
+
     save_image_with_quality(&cropped, &output_path, quality)?;
     Ok(())
 }
@@ -543,13 +575,13 @@ pub async fn crop_image_ratio(
     if target_width == 0 || target_height == 0 {
         return Err("Invalid target dimensions".to_string());
     }
-    
+
     let target_ratio = target_width as f64 / target_height as f64;
-    
+
     let img = load_image(&app, &input_path).await?;
     let (img_width, img_height) = img.dimensions();
     let img_ratio = img_width as f64 / img_height as f64;
-    
+
     // 计算裁剪区域
     let (crop_width, crop_height) = if img_ratio > target_ratio {
         // 图片更宽，按高度裁剪
@@ -560,14 +592,18 @@ pub async fn crop_image_ratio(
         let h = (img_width as f64 / target_ratio).round() as u32;
         (img_width, h)
     };
-    
+
     // 居中裁剪
     let x = (img_width - crop_width) / 2;
     let y = (img_height - crop_height) / 2;
     let cropped = img.crop_imm(x, y, crop_width, crop_height);
-    
+
     // 缩放到目标尺寸
-    let resized = cropped.resize(target_width, target_height, image::imageops::FilterType::Lanczos3);
+    let resized = cropped.resize(
+        target_width,
+        target_height,
+        image::imageops::FilterType::Lanczos3,
+    );
     save_image_with_quality(&resized, &output_path, quality)?;
     Ok(())
 }
@@ -588,64 +624,62 @@ pub async fn crop_image_custom(
         save_image_with_quality(&img, &output_path, quality)?;
         return Ok(());
     }
-    
+
     let (img_width, img_height) = img.dimensions();
-    
+
     // 计算缩放比例
     let scale_w = target_width as f64 / img_width as f64;
     let scale_h = target_height as f64 / img_height as f64;
     let scale = scale_w.max(scale_h);
-    
+
     // 缩放图片
     let new_width = (img_width as f64 * scale).round() as u32;
     let new_height = (img_height as f64 * scale).round() as u32;
     let resized = img.resize(new_width, new_height, image::imageops::FilterType::Lanczos3);
-    
+
     // 居中裁剪
     let x = (new_width - target_width) / 2;
     let y = (new_height - target_height) / 2;
     let cropped = resized.crop_imm(x, y, target_width, target_height);
-    
+
     save_image_with_quality(&cropped, &output_path, quality)?;
     Ok(())
 }
 
 // 批量打包为 ZIP
 #[tauri::command]
-pub fn batch_to_zip(
-    file_paths: Vec<String>,
-    output_zip_path: String,
-) -> Result<(), String> {
+pub fn batch_to_zip(file_paths: Vec<String>, output_zip_path: String) -> Result<(), String> {
     if file_paths.is_empty() {
         return Err("No files to zip".to_string());
     }
-    
+
     let zip_file = File::create(&output_zip_path).map_err(|e| e.to_string())?;
     let mut zip = zip::ZipWriter::new(zip_file);
-    
+
     let options = zip::write::FileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o755);
-    
+
     for file_path in file_paths {
         let path = Path::new(&file_path);
-        let file_name = path.file_name()
+        let file_name = path
+            .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| format!("Invalid file name: {}", file_path))?;
-        
+
         zip.start_file(file_name, options)
             .map_err(|e| format!("Failed to add file to zip: {}", e))?;
-        
+
         let file_content = std::fs::read(&file_path)
             .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
-        
+
         zip.write_all(&file_content)
             .map_err(|e| format!("Failed to write file to zip: {}", e))?;
     }
-    
+
     zip.finish()
         .map_err(|e| format!("Failed to finish zip file: {}", e))?;
-    
+
     Ok(())
 }
 
@@ -660,7 +694,11 @@ pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, S
     let mut files = Vec::new();
     let mut stack = vec![std::path::PathBuf::from(path)];
 
-    let target_exts = if mode == "video" { VIDEO_EXTENSIONS } else { IMAGE_EXTENSIONS };
+    let target_exts = if mode == "video" {
+        VIDEO_EXTENSIONS
+    } else {
+        IMAGE_EXTENSIONS
+    };
 
     while let Some(current_path) = stack.pop() {
         if current_path.is_dir() {

@@ -32,6 +32,10 @@ serde_json = "1"
 base64 = "0.22"
 chrono = "0.4"
 tokio = { version = "1", features = ["sync"] }
+tauri-plugin-store = "2"
+tauri-plugin-log = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-os = "2"
 
 # 构建优化配置
 [profile.dev]
@@ -43,5 +47,9 @@ codegen-units = 1 # 限制代码生成单元为 1，以获得更好的全局优�
 lto = true        # 开启链接时优化 (Link Time Optimization)
 opt-level = "s"   # 针对体积进行优化 ("s" 或 "z" 通常比 "3" 更适合 Tauri 应用)
 strip = true      # 自动剥离二进制文件中的符号信息，大幅减小体积 (仅限 Rust 1.59+)
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
 
 

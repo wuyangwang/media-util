@@ -1,5 +1,5 @@
-mod media;
 pub mod config;
+mod media;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -7,11 +7,26 @@ use tauri::{
     Emitter, Manager,
 };
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_store::StoreExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(media::AppQueue::new(2)) // 默认 2 个并发任务
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = app
+                .get_webview_window("main")
+                .map(|w| {
+                    let _ = w.show();
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                });
+        }))
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .manage(media::AppQueue::new(2)) // 初始默认值
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -33,6 +48,19 @@ pub fn run() {
             media::get_formatted_output_path
         ])
         .setup(|app| {
+            // 从 Store 加载并发配置
+            let store = app.store("settings.json")?;
+            let concurrency = store
+                .get("concurrency")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(2) as usize;
+            
+            let queue = app.state::<media::AppQueue>();
+            let handle = app.handle().clone();
+            tauri::async_runtime::block_on(async move {
+                queue.update_limit(concurrency).await;
+            });
+
             let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let about_i = MenuItem::with_id(app, "about", "关于", true, None::<&str>)?;
             let open_i = MenuItem::with_id(app, "open", "打开", true, None::<&str>)?;
