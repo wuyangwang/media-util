@@ -30,7 +30,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useAppSettings } from "@/lib/store";
-import { type, version, arch, kernelVersion, totalMemory } from "@tauri-apps/plugin-os";
+import { type, version, arch, hostname } from "@tauri-apps/plugin-os";
 
 export const Route = createFileRoute("/settings")({
 	component: Settings,
@@ -45,8 +45,7 @@ function Settings() {
 		osType: "加载中...",
 		osVersion: "",
 		arch: "",
-		kernel: "",
-		memory: "",
+		host: "",
 	});
 
 	useEffect(() => {
@@ -56,16 +55,13 @@ function Settings() {
 				const osType = await type();
 				const osVersion = await version();
 				const cpuArch = await arch();
-				const kernel = await kernelVersion();
-				const mem = await totalMemory();
-				const memGB = (Number(mem) / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+				const hostName = await hostname();
 				
 				setSysInfo({
 					osType: osType.charAt(0).toUpperCase() + osType.slice(1),
 					osVersion,
 					arch: cpuArch,
-					kernel,
-					memory: memGB,
+					host: hostName || "Unknown",
 				});
 			} catch (e) {
 				console.error("Failed to fetch system info:", e);
@@ -197,12 +193,12 @@ function Settings() {
 								<p className="text-sm font-medium">{sysInfo.osType} {sysInfo.osVersion}</p>
 							</div>
 							<div className="space-y-1">
-								<p className="text-[11px] text-muted-foreground uppercase">内核版本</p>
-								<p className="text-sm font-medium truncate" title={sysInfo.kernel}>{sysInfo.kernel}</p>
+								<p className="text-[11px] text-muted-foreground uppercase">主机名称</p>
+								<p className="text-sm font-medium truncate" title={sysInfo.host}>{sysInfo.host}</p>
 							</div>
 							<div className="space-y-1">
-								<p className="text-[11px] text-muted-foreground uppercase">架构 / 内存</p>
-								<p className="text-sm font-medium">{sysInfo.arch.toUpperCase()} / {sysInfo.memory}</p>
+								<p className="text-[11px] text-muted-foreground uppercase">架构类型</p>
+								<p className="text-sm font-medium">{sysInfo.arch.toUpperCase()}</p>
 							</div>
 						</div>
 					</CardContent>
