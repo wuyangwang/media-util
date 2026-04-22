@@ -116,17 +116,12 @@ function Videos() {
 			toast.info("请先添加视频文件");
 			return;
 		}
-		const pendingTasks = tasks.filter((t) => t.status !== "completed");
-		if (pendingTasks.length === 0) {
-			toast.info("所有任务已完成");
-			return;
-		}
 
 		setProcessing(true);
-		toast.info(`已将 ${pendingTasks.length} 个任务加入队列`);
+		toast.info(`已将 ${tasks.length} 个任务加入队列`);
 
 		// 并发触发所有任务，由后端 Semaphore 控制实际运行数
-		const promises = pendingTasks.map(async (task) => {
+		const promises = tasks.map(async (task) => {
 			try {
 				let operation = "converted";
 				let extension = "mp4";

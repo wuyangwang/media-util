@@ -47,10 +47,8 @@ function Images() {
 		clearTasks,
 		checkProcessing,
 	} = useTasks<ImageTask>("image");
-	const [targetFormat, setTargetFormat] = useState(
-		DEFAULT_CONFIG.image_formats[0]?.value || "original",
-	);
-	const [selectedPreset, setSelectedPreset] = useState<string>("0");
+	const [targetFormat, setTargetFormat] = useState("png");
+	const [selectedPreset, setSelectedPreset] = useState<string>("1");
 	const [compressEnabled, setCompressEnabled] = useState(false);
 	const [selectedQuality, setSelectedQuality] = useState<string>(
 		DEFAULT_CONFIG.compression_presets[0]?.value.toString() || "80",
@@ -126,7 +124,6 @@ function Images() {
 		const quality = compressEnabled ? parseInt(selectedQuality) : 100;
 
 		for (const task of tasks) {
-			if (task.status === "completed") continue;
 			setTasks((prev) =>
 				prev.map((t) =>
 					t.id === task.id ? { ...t, status: "processing" } : t,
