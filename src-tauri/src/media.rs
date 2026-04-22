@@ -115,7 +115,7 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
     }
 
     let shell = app.shell();
-    let output = shell
+    let output_result = shell
         .sidecar("ffprobe")
         .map_err(|e| e.to_string())?
         .args([
@@ -126,57 +126,55 @@ pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, S
             &path,
         ])
         .output()
-        .await
-        .map_err(|e| e.to_string())?;
+        .await;
 
-    let json: Value = serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
-    
-    let mut format = json["format"]["format_name"].as_str().unwrap_or("unknown").to_string();
-    // 简化 MP4 格式名称
-    if format == "mov,mp4,m4a,3gp,3g2,mj2" {
-        format = "mp4".to_string();
+    let mut duration = 0.0;
+    let mut video = None;
+
+    if let Ok(output) = output_result {
+        if let Ok(json) = serde_json::from_slice::<Value>(&output.stdout) {
+            duration = json["format"]["duration"]
+                .as_str()
+                .unwrap_or("0")
+                .parse::<f64>()
+                .unwrap_or(0.0);
+
+            let video_stream = json["streams"]
+                .as_array()
+                .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
+
+            video = video_stream.map(|s| {
+                let fps_raw = s["avg_frame_rate"].as_str().unwrap_or("0");
+                let fps = if fps_raw.contains('/') {
+                    let parts: Vec<&str> = fps_raw.split('/').collect();
+                    if parts.len() == 2 {
+                        let num: f64 = parts[0].parse().unwrap_or(0.0);
+                        let den: f64 = parts[1].parse().unwrap_or(1.0);
+                        if den > 0.0 {
+                            (num / den).to_string()
+                        } else {
+                            num.to_string()
+                        }
+                    } else {
+                        fps_raw.to_string()
+                    }
+                } else {
+                    fps_raw.to_string()
+                };
+
+                VideoInfo {
+                    width: s["width"].as_i64().unwrap_or(0) as i32,
+                    height: s["height"].as_i64().unwrap_or(0) as i32,
+                    codec: s["codec_name"].as_str().unwrap_or("unknown").to_string(),
+                    fps,
+                    bitrate: s["bit_rate"].as_str().map(|s| s.to_string()),
+                }
+            });
+        }
     }
 
-    let duration = json["format"]["duration"]
-        .as_str()
-        .unwrap_or("0")
-        .parse::<f64>()
-        .unwrap_or(0.0);
-
-    let video_stream = json["streams"]
-        .as_array()
-        .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
-
-    let video = video_stream.map(|s| {
-        let fps_raw = s["avg_frame_rate"].as_str().unwrap_or("0");
-        let fps = if fps_raw.contains('/') {
-            let parts: Vec<&str> = fps_raw.split('/').collect();
-            if parts.len() == 2 {
-                let num: f64 = parts[0].parse().unwrap_or(0.0);
-                let den: f64 = parts[1].parse().unwrap_or(1.0);
-                if den > 0.0 {
-                    (num / den).to_string()
-                } else {
-                    num.to_string()
-                }
-            } else {
-                fps_raw.to_string()
-            }
-        } else {
-            fps_raw.to_string()
-        };
-
-        VideoInfo {
-            width: s["width"].as_i64().unwrap_or(0) as i32,
-            height: s["height"].as_i64().unwrap_or(0) as i32,
-            codec: s["codec_name"].as_str().unwrap_or("unknown").to_string(),
-            fps,
-            bitrate: s["bit_rate"].as_str().map(|s| s.to_string()),
-        }
-    });
-
     Ok(MediaInfo {
-        format,
+        format: ext,
         size,
         duration,
         video,

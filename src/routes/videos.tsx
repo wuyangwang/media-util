@@ -110,18 +110,8 @@ function Videos() {
 		}
 	}, [handleAddPaths, checkProcessing]);
 
-	const startBatch = useCallback(async () => {
-		if (checkProcessing()) return;
-		if (tasks.length === 0) {
-			toast.info("请先添加视频文件");
-			return;
-		}
-
-		setProcessing(true);
-		toast.info(`已将 ${tasks.length} 个任务加入队列`);
-
-		// 并发触发所有任务，由后端 Semaphore 控制实际运行数
-		const promises = tasks.map(async (task) => {
+	const handleStartTask = useCallback(
+		async (task: VideoTask) => {
 			try {
 				let operation = "converted";
 				let extension = "mp4";
@@ -170,12 +160,28 @@ function Videos() {
 								: t,
 						) as VideoTask[],
 				);
+				throw err;
 			}
-		});
+		},
+		[preset, setTasks],
+	);
+
+	const startBatch = useCallback(async () => {
+		if (checkProcessing()) return;
+		if (tasks.length === 0) {
+			toast.info("请先添加视频文件");
+			return;
+		}
+
+		setProcessing(true);
+		toast.info(`已将 ${tasks.length} 个任务加入队列`);
+
+		// 触发所有任务，允许用户更改预设后重新处理
+		const promises = tasks.map((task) => handleStartTask(task));
 
 		// 等待所有请求发送完毕，具体的转换完成由事件通知
 		await Promise.allSettled(promises);
-	}, [tasks, setTasks, setProcessing, preset, checkProcessing]);
+	}, [tasks, handleStartTask, setProcessing, checkProcessing]);
 
 	const handleClearTasks = useCallback(() => {
 		if (checkProcessing()) return;
@@ -470,12 +476,35 @@ function Videos() {
 													{task.path}
 												</p>
 											</div>
-											<div className="flex items-center gap-2">
+											<div className="flex items-center gap-1.5">
 												<span
 													className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 												>
 													{TASK_STATUS_LABELS[task.status]}
 												</span>
+
+												{task.status !== "processing" &&
+													task.status !== "converting" && (
+														<Button
+															variant="ghost"
+															size="icon-sm"
+															className="text-primary hover:bg-primary/10 h-8 w-8"
+															onClick={() => handleStartTask(task)}
+															title={
+																task.status === "failed"
+																	? "重新处理"
+																	: task.status === "completed"
+																		? "再次处理"
+																		: "开始处理"
+															}
+														>
+															{task.status === "pending" && task.progress === 0 ? (
+																<Play className="size-4" />
+															) : (
+																<Loader2 className="size-4 animate-spin" />
+															)}
+														</Button>
+													)}
 
 												{task.log && (
 													<Dialog>
