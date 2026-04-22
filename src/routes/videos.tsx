@@ -165,7 +165,9 @@ function Videos() {
 				setTasks(
 					(prev) =>
 						prev.map((t) =>
-							t.id === task.id ? { ...t, status: "failed", log: String(err) } : t,
+							t.id === task.id
+								? { ...t, status: "failed", log: String(err) }
+								: t,
 						) as VideoTask[],
 				);
 			}
@@ -200,32 +202,32 @@ function Videos() {
 
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
-			setTasks(
-				(prev) => {
-					const newTasks = prev.map((t) => {
-						if (t.id === event.payload.id) {
-							let status: VideoTask["status"] = "converting";
-							if (event.payload.status === "Completed") status = "completed";
-							if (event.payload.status === "Failed") status = "failed";
-							return {
-								...t,
-								progress: event.payload.progress,
-								status: status,
-								log: event.payload.log || t.log,
-							};
-						}
-						return t;
-					}) as VideoTask[];
-
-					// 如果没有正在进行的任务，重置处理状态
-					const hasActive = newTasks.some(t => t.status === "converting" || t.status === "processing");
-					if (!hasActive) {
-						setProcessing(false);
+			setTasks((prev) => {
+				const newTasks = prev.map((t) => {
+					if (t.id === event.payload.id) {
+						let status: VideoTask["status"] = "converting";
+						if (event.payload.status === "Completed") status = "completed";
+						if (event.payload.status === "Failed") status = "failed";
+						return {
+							...t,
+							progress: event.payload.progress,
+							status: status,
+							log: event.payload.log || t.log,
+						};
 					}
+					return t;
+				}) as VideoTask[];
 
-					return newTasks;
+				// 如果没有正在进行的任务，重置处理状态
+				const hasActive = newTasks.some(
+					(t) => t.status === "converting" || t.status === "processing",
+				);
+				if (!hasActive) {
+					setProcessing(false);
 				}
-			);
+
+				return newTasks;
+			});
 		});
 
 		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
@@ -330,9 +332,7 @@ function Videos() {
 										</SelectItem>
 									))}
 									<div className="h-px bg-muted my-1" />
-									<SelectItem value="compress">
-										一键压缩 (保持清晰)
-									</SelectItem>
+									<SelectItem value="compress">一键压缩 (保持清晰)</SelectItem>
 									<SelectItem value="extract_audio_mp3">
 										提取音频 (MP3)
 									</SelectItem>
@@ -393,20 +393,31 @@ function Videos() {
 													{task.info ? (
 														task.info.format !== "unknown" ? (
 															<>
-																<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
+																<Badge
+																	variant="secondary"
+																	className="text-[10px] h-4 px-1"
+																	title="格式"
+																>
 																	{task.info.format.toUpperCase()}
 																</Badge>
 																{task.info.video && (
 																	<>
-																		<span className="text-[11px] text-muted-foreground" title="分辨率">
-																			{task.info.video.width} x {task.info.video.height}
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="分辨率"
+																		>
+																			{task.info.video.width} x{" "}
+																			{task.info.video.height}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
 																			•
 																		</span>
 																		{task.info.duration > 0 && (
 																			<>
-																				<span className="text-[11px] text-muted-foreground" title="时长">
+																				<span
+																					className="text-[11px] text-muted-foreground"
+																					title="时长"
+																				>
 																					{formatDuration(task.info.duration)}
 																				</span>
 																				<span className="text-[11px] text-muted-foreground/60">
@@ -414,13 +425,22 @@ function Videos() {
 																				</span>
 																			</>
 																		)}
-																		<span className="text-[11px] text-muted-foreground" title="帧率">
-																			{parseFloat(task.info.video.fps).toFixed(0)} fps
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="帧率"
+																		>
+																			{parseFloat(task.info.video.fps).toFixed(
+																				0,
+																			)}{" "}
+																			fps
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
 																			•
 																		</span>
-																		<span className="text-[11px] text-muted-foreground" title="码率">
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="码率"
+																		>
 																			{formatBitrate(task.info.video.bitrate)}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
@@ -428,7 +448,10 @@ function Videos() {
 																		</span>
 																	</>
 																)}
-																<span className="text-[11px] text-muted-foreground" title="文件大小">
+																<span
+																	className="text-[11px] text-muted-foreground"
+																	title="文件大小"
+																>
 																	{formatBytes(task.info.size)}
 																</span>
 															</>
@@ -468,7 +491,9 @@ function Videos() {
 														</DialogTrigger>
 														<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
 															<DialogHeader>
-																<DialogTitle>错误日志: {task.fileName}</DialogTitle>
+																<DialogTitle>
+																	错误日志: {task.fileName}
+																</DialogTitle>
 															</DialogHeader>
 															<div className="mt-4 flex-1 overflow-y-auto bg-muted rounded-md p-4">
 																<pre className="text-xs font-mono whitespace-pre-wrap break-all leading-relaxed text-muted-foreground">

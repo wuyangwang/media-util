@@ -23,7 +23,13 @@ export interface Task {
 	id: string;
 	path: string;
 	fileName: string;
-	status: "pending" | "processing" | "converting" | "completed" | "failed" | "info_failed";
+	status:
+		| "pending"
+		| "processing"
+		| "converting"
+		| "completed"
+		| "failed"
+		| "info_failed";
 	info?: MediaInfo;
 	thumbnail?: string; // Base64 thumbnail for video or small preview for image
 	log?: string; // Capture error logs or details
@@ -50,32 +56,57 @@ export const TASK_STATUS_LABELS: Record<Task["status"], string> = {
 export function useTasks<T extends Task>(mode: "video" | "image") {
 	// 1. Granular state selection to avoid unnecessary re-renders
 	const tasks = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.imageTasks : state.videoTasks), [mode])
+		useCallback(
+			(state) => (mode === "image" ? state.imageTasks : state.videoTasks),
+			[mode],
+		),
 	) as T[];
-	
+
 	const processing = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.imageProcessing : state.videoProcessing), [mode])
+		useCallback(
+			(state) =>
+				mode === "image" ? state.imageProcessing : state.videoProcessing,
+			[mode],
+		),
 	);
 
 	// 2. Select specific actions
 	const setProcessing = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.setImageProcessing : state.setVideoProcessing), [mode])
+		useCallback(
+			(state) =>
+				mode === "image" ? state.setImageProcessing : state.setVideoProcessing,
+			[mode],
+		),
 	);
-	
+
 	const setTasks = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.setImageTasks : state.setVideoTasks), [mode])
+		useCallback(
+			(state) => (mode === "image" ? state.setImageTasks : state.setVideoTasks),
+			[mode],
+		),
 	) as (tasks: T[] | ((prev: T[]) => T[])) => void;
 
 	const addTasks = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.addImageTasks : state.addVideoTasks), [mode])
+		useCallback(
+			(state) => (mode === "image" ? state.addImageTasks : state.addVideoTasks),
+			[mode],
+		),
 	) as (tasks: T[]) => void;
 
 	const removeTask = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.removeImageTask : state.removeVideoTask), [mode])
+		useCallback(
+			(state) =>
+				mode === "image" ? state.removeImageTask : state.removeVideoTask,
+			[mode],
+		),
 	);
 
 	const clearTasks = useTaskStore(
-		useCallback((state) => (mode === "image" ? state.clearImageTasks : state.clearVideoTasks), [mode])
+		useCallback(
+			(state) =>
+				mode === "image" ? state.clearImageTasks : state.clearVideoTasks,
+			[mode],
+		),
 	);
 
 	const [isScanning, setIsScanning] = useState(false);
@@ -83,18 +114,21 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 	// 3. Derived state for overall processing status
 	// Subscribe only to specific flags and task statuses
 	const hasActiveTasks = useTaskStore(
-		useCallback((state) => 
-			[...state.imageTasks, ...state.videoTasks].some(t => 
-				t.status === "processing" || t.status === "converting"
-			), [])
+		useCallback(
+			(state) =>
+				[...state.imageTasks, ...state.videoTasks].some(
+					(t) => t.status === "processing" || t.status === "converting",
+				),
+			[],
+		),
 	);
-	
+
 	const imageProcessing = useTaskStore((state) => state.imageProcessing);
 	const videoProcessing = useTaskStore((state) => state.videoProcessing);
 
-	const isAnyProcessing = useMemo(() => 
-		imageProcessing || videoProcessing || isScanning || hasActiveTasks,
-		[imageProcessing, videoProcessing, isScanning, hasActiveTasks]
+	const isAnyProcessing = useMemo(
+		() => imageProcessing || videoProcessing || isScanning || hasActiveTasks,
+		[imageProcessing, videoProcessing, isScanning, hasActiveTasks],
 	);
 
 	const tasksRef = useRef<T[]>(tasks);
@@ -140,12 +174,15 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 							let thumbnail: string | undefined;
 							if (mode === "video") {
 								try {
-									const thumbPath = await invoke<string>("get_video_thumbnail", {
-										path: currentTask.path,
-									});
+									const thumbPath = await invoke<string>(
+										"get_video_thumbnail",
+										{
+											path: currentTask.path,
+										},
+									);
 									// If it's a file path (doesn't start with data:), convert it
-									thumbnail = thumbPath.startsWith("data:") 
-										? thumbPath 
+									thumbnail = thumbPath.startsWith("data:")
+										? thumbPath
 										: convertFileSrc(thumbPath);
 								} catch (e) {
 									console.error("Failed to get thumbnail:", e);

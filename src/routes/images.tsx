@@ -309,7 +309,9 @@ function Images() {
 									</div>
 									<div className="flex flex-wrap items-center gap-4">
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">尺寸预设:</span>
+											<span className="text-xs text-muted-foreground">
+												尺寸预设:
+											</span>
 											<Select
 												value={selectedPreset}
 												onValueChange={setSelectedPreset}
@@ -362,7 +364,9 @@ function Images() {
 										)}
 
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">目标格式:</span>
+											<span className="text-xs text-muted-foreground">
+												目标格式:
+											</span>
 											<Select
 												value={targetFormat}
 												onValueChange={setTargetFormat}
@@ -397,7 +401,9 @@ function Images() {
 											size="sm"
 											className={cn(
 												"h-8 text-xs px-4 transition-all",
-												compressEnabled ? "bg-orange-500 hover:bg-orange-600" : ""
+												compressEnabled
+													? "bg-orange-500 hover:bg-orange-600"
+													: "",
 											)}
 											onClick={() => setCompressEnabled(!compressEnabled)}
 											disabled={isAnyProcessing}
@@ -407,7 +413,9 @@ function Images() {
 
 										{compressEnabled && (
 											<div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
-												<span className="text-xs text-muted-foreground">质量预设:</span>
+												<span className="text-xs text-muted-foreground">
+													质量预设:
+												</span>
 												<Select
 													value={selectedQuality}
 													onValueChange={setSelectedQuality}
@@ -418,7 +426,10 @@ function Images() {
 													</SelectTrigger>
 													<SelectContent>
 														{DEFAULT_CONFIG.compression_presets.map((p) => (
-															<SelectItem key={p.value} value={p.value.toString()}>
+															<SelectItem
+																key={p.value}
+																value={p.value.toString()}
+															>
 																{p.label}
 															</SelectItem>
 														))}
@@ -462,16 +473,26 @@ function Images() {
 									{task.info ? (
 										task.info.format !== "unknown" ? (
 											<>
-												<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
+												<Badge
+													variant="secondary"
+													className="text-[10px] h-4 px-1"
+													title="格式"
+												>
 													{task.info.format.toUpperCase()}
 												</Badge>
-												<span className="text-[11px] text-muted-foreground" title="分辨率">
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="分辨率"
+												>
 													{task.info.video?.width} x {task.info.video?.height}
 												</span>
 												<span className="text-[11px] text-muted-foreground/60">
 													•
 												</span>
-												<span className="text-[11px] text-muted-foreground" title="文件大小">
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="文件大小"
+												>
 													{formatBytes(task.info.size)}
 												</span>
 											</>
