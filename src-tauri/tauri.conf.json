@@ -32,7 +32,7 @@
 			"endpoints": ["https://example.com/updates/{{target}}-{{arch}}.json"],
 			"pubkey": "SET_YOUR_PUBLIC_KEY_HERE"
 		},
-		"single-instance": {}
+		"single-instance": null
 	},
 	"bundle": {
 		"active": true,
