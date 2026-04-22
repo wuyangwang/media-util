@@ -12,7 +12,6 @@
 	"app": {
 		"windows": [
 			{
-				"capabilities": ["default", "desktop-capability"],
 				"label": "main",
 				"title": "媒体助手",
 				"width": 1000,
