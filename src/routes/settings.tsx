@@ -38,7 +38,12 @@ export const Route = createFileRoute("/settings")({
 
 function Settings() {
 	const { theme: nextTheme, setTheme: setNextTheme } = useTheme();
-	const { concurrency, setConcurrency, theme: savedTheme, setTheme: setSavedTheme } = useAppSettings();
+	const {
+		concurrency,
+		setConcurrency,
+		theme: savedTheme,
+		setTheme: setSavedTheme,
+	} = useAppSettings();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [mounted, setMounted] = useState(false);
 	const [sysInfo, setSysInfo] = useState({
@@ -56,7 +61,7 @@ function Settings() {
 				const osVersion = await version();
 				const cpuArch = await arch();
 				const hostName = await hostname();
-				
+
 				setSysInfo({
 					osType: osType.charAt(0).toUpperCase() + osType.slice(1),
 					osVersion,
@@ -94,7 +99,9 @@ function Settings() {
 	return (
 		<div ref={containerRef} className="flex flex-col h-full bg-background">
 			<header className="p-6 border-b settings-animate">
-				<h2 className="text-2xl font-bold tracking-tight text-foreground">设置</h2>
+				<h2 className="text-2xl font-bold tracking-tight text-foreground">
+					设置
+				</h2>
 				<p className="text-muted-foreground">
 					自定义您的应用偏好、性能及查看运行环境信息。
 				</p>
@@ -116,7 +123,7 @@ function Settings() {
 									应用主题:
 								</span>
 								<Select
-									value={mounted ? (savedTheme || nextTheme) : "system"}
+									value={mounted ? savedTheme || nextTheme : "system"}
 									onValueChange={handleThemeChange}
 								>
 									<SelectTrigger className="w-full">
@@ -189,16 +196,31 @@ function Settings() {
 					<CardContent>
 						<div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8">
 							<div className="space-y-1">
-								<p className="text-[11px] text-muted-foreground uppercase">操作系统</p>
-								<p className="text-sm font-medium">{sysInfo.osType} {sysInfo.osVersion}</p>
+								<p className="text-[11px] text-muted-foreground uppercase">
+									操作系统
+								</p>
+								<p className="text-sm font-medium">
+									{sysInfo.osType} {sysInfo.osVersion}
+								</p>
 							</div>
 							<div className="space-y-1">
-								<p className="text-[11px] text-muted-foreground uppercase">主机名称</p>
-								<p className="text-sm font-medium truncate" title={sysInfo.host}>{sysInfo.host}</p>
+								<p className="text-[11px] text-muted-foreground uppercase">
+									主机名称
+								</p>
+								<p
+									className="text-sm font-medium truncate"
+									title={sysInfo.host}
+								>
+									{sysInfo.host}
+								</p>
 							</div>
 							<div className="space-y-1">
-								<p className="text-[11px] text-muted-foreground uppercase">架构类型</p>
-								<p className="text-sm font-medium">{sysInfo.arch.toUpperCase()}</p>
+								<p className="text-[11px] text-muted-foreground uppercase">
+									架构类型
+								</p>
+								<p className="text-sm font-medium">
+									{sysInfo.arch.toUpperCase()}
+								</p>
 							</div>
 						</div>
 					</CardContent>
@@ -234,11 +256,15 @@ function Settings() {
 					<CardContent className="space-y-2">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">应用版本:</span>
-							<span className="font-medium text-foreground">v{import.meta.env.APP_VERSION}</span>
+							<span className="font-medium text-foreground">
+								v{import.meta.env.APP_VERSION}
+							</span>
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">核心引擎:</span>
-							<span className="font-medium text-foreground">FFmpeg & Rust image crate</span>
+							<span className="font-medium text-foreground">
+								FFmpeg & Rust image crate
+							</span>
 						</div>
 						<div className="flex justify-between items-center text-sm pt-2 border-t border-muted">
 							<span className="text-muted-foreground">开源社区:</span>
