@@ -1,7 +1,8 @@
 {
 	"name": "media-util",
 	"private": true,
-	"version": "1.0.4",	"type": "module",
+	"version": "1.0.4",
+	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",

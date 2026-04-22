@@ -498,7 +498,8 @@ function Videos() {
 																		: "开始处理"
 															}
 														>
-															{task.status === "pending" && task.progress === 0 ? (
+															{task.status === "pending" &&
+															task.progress === 0 ? (
 																<Play className="size-4" />
 															) : (
 																<Loader2 className="size-4 animate-spin" />

@@ -118,7 +118,9 @@ function Images() {
 			const quality = compressEnabled ? parseInt(selectedQuality) : 100;
 
 			setTasks((prev) =>
-				prev.map((t) => (t.id === task.id ? { ...t, status: "processing" } : t)),
+				prev.map((t) =>
+					t.id === task.id ? { ...t, status: "processing" } : t,
+				),
 			);
 			try {
 				const operation = isCustom
