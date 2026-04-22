@@ -465,16 +465,16 @@ function Images() {
 									{task.info ? (
 										task.info.format !== "unknown" ? (
 											<>
-												<Badge variant="secondary" className="text-[10px] h-4 px-1">
+												<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
 													{task.info.format.toUpperCase()}
 												</Badge>
-												<span className="text-[11px] text-muted-foreground">
+												<span className="text-[11px] text-muted-foreground" title="分辨率">
 													{task.info.video?.width} x {task.info.video?.height}
 												</span>
 												<span className="text-[11px] text-muted-foreground/60">
 													•
 												</span>
-												<span className="text-[11px] text-muted-foreground">
+												<span className="text-[11px] text-muted-foreground" title="文件大小">
 													{formatBytes(task.info.size)}
 												</span>
 											</>

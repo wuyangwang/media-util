@@ -398,12 +398,12 @@ function Videos() {
 													{task.info ? (
 														task.info.format !== "unknown" ? (
 															<>
-																<Badge variant="secondary" className="text-[10px] h-4 px-1">
+																<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
 																	{task.info.format.toUpperCase()}
 																</Badge>
 																{task.info.video && (
 																	<>
-																		<span className="text-[11px] text-muted-foreground">
+																		<span className="text-[11px] text-muted-foreground" title="分辨率">
 																			{task.info.video.width} x {task.info.video.height}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
@@ -411,7 +411,7 @@ function Videos() {
 																		</span>
 																		{task.info.duration > 0 && (
 																			<>
-																				<span className="text-[11px] text-muted-foreground">
+																				<span className="text-[11px] text-muted-foreground" title="时长">
 																					{formatDuration(task.info.duration)}
 																				</span>
 																				<span className="text-[11px] text-muted-foreground/60">
@@ -419,13 +419,13 @@ function Videos() {
 																				</span>
 																			</>
 																		)}
-																		<span className="text-[11px] text-muted-foreground">
+																		<span className="text-[11px] text-muted-foreground" title="帧率">
 																			{parseFloat(task.info.video.fps).toFixed(0)} fps
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
 																			•
 																		</span>
-																		<span className="text-[11px] text-muted-foreground">
+																		<span className="text-[11px] text-muted-foreground" title="码率">
 																			{formatBitrate(task.info.video.bitrate)}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
@@ -433,7 +433,7 @@ function Videos() {
 																		</span>
 																	</>
 																)}
-																<span className="text-[11px] text-muted-foreground">
+																<span className="text-[11px] text-muted-foreground" title="文件大小">
 																	{formatBytes(task.info.size)}
 																</span>
 															</>
