@@ -2814,6 +2814,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "image 0.25.10",
+ "log",
  "photon-rs",
  "regex",
  "serde",
