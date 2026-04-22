@@ -110,20 +110,13 @@ function Images() {
 		if (dir) await handleAddPaths([dir as string]);
 	}, [handleAddPaths, checkProcessing]);
 
-	const startBatch = useCallback(async () => {
-		if (checkProcessing()) return;
-		if (tasks.length === 0) {
-			toast.info("请先添加图片文件");
-			return;
-		}
-		setProcessing(true);
+	const handleStartTask = useCallback(
+		async (task: ImageTask) => {
+			const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
+			const width = isCustom ? customSize.width : preset.width;
+			const height = isCustom ? customSize.height : preset.height;
+			const quality = compressEnabled ? parseInt(selectedQuality) : 100;
 
-		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
-		const width = isCustom ? customSize.width : preset.width;
-		const height = isCustom ? customSize.height : preset.height;
-		const quality = compressEnabled ? parseInt(selectedQuality) : 100;
-
-		for (const task of tasks) {
 			setTasks((prev) =>
 				prev.map((t) =>
 					t.id === task.id ? { ...t, status: "processing" } : t,
@@ -170,21 +163,34 @@ function Images() {
 					prev.map((t) => (t.id === task.id ? { ...t, status: "failed" } : t)),
 				);
 				toast.error(`任务 ${task.fileName} 失败: ${err}`);
+				throw err;
 			}
+		},
+		[
+			selectedPreset,
+			isCustom,
+			customSize,
+			compressEnabled,
+			selectedQuality,
+			targetFormat,
+			setTasks,
+		],
+	);
+
+	const startBatch = useCallback(async () => {
+		if (checkProcessing()) return;
+		if (tasks.length === 0) {
+			toast.info("请先添加图片文件");
+			return;
 		}
+		setProcessing(true);
+
+		// 触发所有任务，允许更改设置后重新处理
+		const promises = tasks.map((task) => handleStartTask(task));
+
+		await Promise.allSettled(promises);
 		setProcessing(false);
-	}, [
-		checkProcessing,
-		tasks,
-		targetFormat,
-		selectedPreset,
-		compressEnabled,
-		selectedQuality,
-		setTasks,
-		isCustom,
-		customSize,
-		setProcessing,
-	]);
+	}, [checkProcessing, tasks, handleStartTask, setProcessing]);
 
 	const handleClearTasks = useCallback(() => {
 		if (checkProcessing()) return;
@@ -309,7 +315,9 @@ function Images() {
 									</div>
 									<div className="flex flex-wrap items-center gap-4">
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">尺寸预设:</span>
+											<span className="text-xs text-muted-foreground">
+												尺寸预设:
+											</span>
 											<Select
 												value={selectedPreset}
 												onValueChange={setSelectedPreset}
@@ -362,7 +370,9 @@ function Images() {
 										)}
 
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">目标格式:</span>
+											<span className="text-xs text-muted-foreground">
+												目标格式:
+											</span>
 											<Select
 												value={targetFormat}
 												onValueChange={setTargetFormat}
@@ -397,7 +407,9 @@ function Images() {
 											size="sm"
 											className={cn(
 												"h-8 text-xs px-4 transition-all",
-												compressEnabled ? "bg-orange-500 hover:bg-orange-600" : ""
+												compressEnabled
+													? "bg-orange-500 hover:bg-orange-600"
+													: "",
 											)}
 											onClick={() => setCompressEnabled(!compressEnabled)}
 											disabled={isAnyProcessing}
@@ -407,7 +419,9 @@ function Images() {
 
 										{compressEnabled && (
 											<div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
-												<span className="text-xs text-muted-foreground">质量预设:</span>
+												<span className="text-xs text-muted-foreground">
+													质量预设:
+												</span>
 												<Select
 													value={selectedQuality}
 													onValueChange={setSelectedQuality}
@@ -418,7 +432,10 @@ function Images() {
 													</SelectTrigger>
 													<SelectContent>
 														{DEFAULT_CONFIG.compression_presets.map((p) => (
-															<SelectItem key={p.value} value={p.value.toString()}>
+															<SelectItem
+																key={p.value}
+																value={p.value.toString()}
+															>
 																{p.label}
 															</SelectItem>
 														))}
@@ -462,16 +479,26 @@ function Images() {
 									{task.info ? (
 										task.info.format !== "unknown" ? (
 											<>
-												<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
+												<Badge
+													variant="secondary"
+													className="text-[10px] h-4 px-1"
+													title="格式"
+												>
 													{task.info.format.toUpperCase()}
 												</Badge>
-												<span className="text-[11px] text-muted-foreground" title="分辨率">
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="分辨率"
+												>
 													{task.info.video?.width} x {task.info.video?.height}
 												</span>
 												<span className="text-[11px] text-muted-foreground/60">
 													•
 												</span>
-												<span className="text-[11px] text-muted-foreground" title="文件大小">
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="文件大小"
+												>
 													{formatBytes(task.info.size)}
 												</span>
 											</>
@@ -490,24 +517,50 @@ function Images() {
 									{task.path}
 								</p>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-1.5 shrink-0 ml-4">
 								<span
 									className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 								>
 									{TASK_STATUS_LABELS[task.status]}
 								</span>
+
+								{task.status !== "processing" && (
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										className="text-primary hover:bg-primary/10 h-8 w-8"
+										onClick={() => handleStartTask(task)}
+										title={
+											task.status === "failed"
+												? "重新处理"
+												: task.status === "completed"
+													? "再次处理"
+													: "开始处理"
+										}
+									>
+										{task.status === "pending" ? (
+											<Play className="size-4" />
+										) : (
+											<Loader2 className="size-4 animate-spin" />
+										)}
+									</Button>
+								)}
+
 								{task.status === "completed" && (
 									<Button
 										variant="ghost"
 										size="icon-sm"
+										className="text-primary hover:bg-primary/10 h-8 w-8"
 										onClick={() => handleOpenFolder(task.output)}
+										title="打开所在文件夹"
 									>
-										<FolderOpen />
+										<FolderOpen className="size-4" />
 									</Button>
 								)}
 								<Button
 									variant="ghost"
 									size="icon-sm"
+									className="text-muted-foreground hover:text-destructive transition-colors h-8 w-8"
 									onClick={() => handleRemoveTask(task.id)}
 									title={
 										isAnyProcessing &&
@@ -517,7 +570,7 @@ function Images() {
 											: "删除任务"
 									}
 								>
-									<Trash2 />
+									<Trash2 className="size-4" />
 								</Button>
 							</div>
 						</div>

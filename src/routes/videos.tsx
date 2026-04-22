@@ -110,18 +110,8 @@ function Videos() {
 		}
 	}, [handleAddPaths, checkProcessing]);
 
-	const startBatch = useCallback(async () => {
-		if (checkProcessing()) return;
-		if (tasks.length === 0) {
-			toast.info("请先添加视频文件");
-			return;
-		}
-
-		setProcessing(true);
-		toast.info(`已将 ${tasks.length} 个任务加入队列`);
-
-		// 并发触发所有任务，由后端 Semaphore 控制实际运行数
-		const promises = tasks.map(async (task) => {
+	const handleStartTask = useCallback(
+		async (task: VideoTask) => {
 			try {
 				let operation = "converted";
 				let extension = "mp4";
@@ -165,15 +155,33 @@ function Videos() {
 				setTasks(
 					(prev) =>
 						prev.map((t) =>
-							t.id === task.id ? { ...t, status: "failed", log: String(err) } : t,
+							t.id === task.id
+								? { ...t, status: "failed", log: String(err) }
+								: t,
 						) as VideoTask[],
 				);
+				throw err;
 			}
-		});
+		},
+		[preset, setTasks],
+	);
+
+	const startBatch = useCallback(async () => {
+		if (checkProcessing()) return;
+		if (tasks.length === 0) {
+			toast.info("请先添加视频文件");
+			return;
+		}
+
+		setProcessing(true);
+		toast.info(`已将 ${tasks.length} 个任务加入队列`);
+
+		// 触发所有任务，允许用户更改预设后重新处理
+		const promises = tasks.map((task) => handleStartTask(task));
 
 		// 等待所有请求发送完毕，具体的转换完成由事件通知
 		await Promise.allSettled(promises);
-	}, [tasks, setTasks, setProcessing, preset, checkProcessing]);
+	}, [tasks, handleStartTask, setProcessing, checkProcessing]);
 
 	const handleClearTasks = useCallback(() => {
 		if (checkProcessing()) return;
@@ -200,32 +208,32 @@ function Videos() {
 
 	useEffect(() => {
 		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
-			setTasks(
-				(prev) => {
-					const newTasks = prev.map((t) => {
-						if (t.id === event.payload.id) {
-							let status: VideoTask["status"] = "converting";
-							if (event.payload.status === "Completed") status = "completed";
-							if (event.payload.status === "Failed") status = "failed";
-							return {
-								...t,
-								progress: event.payload.progress,
-								status: status,
-								log: event.payload.log || t.log,
-							};
-						}
-						return t;
-					}) as VideoTask[];
-
-					// 如果没有正在进行的任务，重置处理状态
-					const hasActive = newTasks.some(t => t.status === "converting" || t.status === "processing");
-					if (!hasActive) {
-						setProcessing(false);
+			setTasks((prev) => {
+				const newTasks = prev.map((t) => {
+					if (t.id === event.payload.id) {
+						let status: VideoTask["status"] = "converting";
+						if (event.payload.status === "Completed") status = "completed";
+						if (event.payload.status === "Failed") status = "failed";
+						return {
+							...t,
+							progress: event.payload.progress,
+							status: status,
+							log: event.payload.log || t.log,
+						};
 					}
+					return t;
+				}) as VideoTask[];
 
-					return newTasks;
+				// 如果没有正在进行的任务，重置处理状态
+				const hasActive = newTasks.some(
+					(t) => t.status === "converting" || t.status === "processing",
+				);
+				if (!hasActive) {
+					setProcessing(false);
 				}
-			);
+
+				return newTasks;
+			});
 		});
 
 		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
@@ -330,9 +338,7 @@ function Videos() {
 										</SelectItem>
 									))}
 									<div className="h-px bg-muted my-1" />
-									<SelectItem value="compress">
-										一键压缩 (保持清晰)
-									</SelectItem>
+									<SelectItem value="compress">一键压缩 (保持清晰)</SelectItem>
 									<SelectItem value="extract_audio_mp3">
 										提取音频 (MP3)
 									</SelectItem>
@@ -393,20 +399,31 @@ function Videos() {
 													{task.info ? (
 														task.info.format !== "unknown" ? (
 															<>
-																<Badge variant="secondary" className="text-[10px] h-4 px-1" title="格式">
+																<Badge
+																	variant="secondary"
+																	className="text-[10px] h-4 px-1"
+																	title="格式"
+																>
 																	{task.info.format.toUpperCase()}
 																</Badge>
 																{task.info.video && (
 																	<>
-																		<span className="text-[11px] text-muted-foreground" title="分辨率">
-																			{task.info.video.width} x {task.info.video.height}
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="分辨率"
+																		>
+																			{task.info.video.width} x{" "}
+																			{task.info.video.height}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
 																			•
 																		</span>
 																		{task.info.duration > 0 && (
 																			<>
-																				<span className="text-[11px] text-muted-foreground" title="时长">
+																				<span
+																					className="text-[11px] text-muted-foreground"
+																					title="时长"
+																				>
 																					{formatDuration(task.info.duration)}
 																				</span>
 																				<span className="text-[11px] text-muted-foreground/60">
@@ -414,13 +431,22 @@ function Videos() {
 																				</span>
 																			</>
 																		)}
-																		<span className="text-[11px] text-muted-foreground" title="帧率">
-																			{parseFloat(task.info.video.fps).toFixed(0)} fps
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="帧率"
+																		>
+																			{parseFloat(task.info.video.fps).toFixed(
+																				0,
+																			)}{" "}
+																			fps
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
 																			•
 																		</span>
-																		<span className="text-[11px] text-muted-foreground" title="码率">
+																		<span
+																			className="text-[11px] text-muted-foreground"
+																			title="码率"
+																		>
 																			{formatBitrate(task.info.video.bitrate)}
 																		</span>
 																		<span className="text-[11px] text-muted-foreground/60">
@@ -428,7 +454,10 @@ function Videos() {
 																		</span>
 																	</>
 																)}
-																<span className="text-[11px] text-muted-foreground" title="文件大小">
+																<span
+																	className="text-[11px] text-muted-foreground"
+																	title="文件大小"
+																>
 																	{formatBytes(task.info.size)}
 																</span>
 															</>
@@ -447,12 +476,36 @@ function Videos() {
 													{task.path}
 												</p>
 											</div>
-											<div className="flex items-center gap-2">
+											<div className="flex items-center gap-1.5">
 												<span
 													className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
 												>
 													{TASK_STATUS_LABELS[task.status]}
 												</span>
+
+												{task.status !== "processing" &&
+													task.status !== "converting" && (
+														<Button
+															variant="ghost"
+															size="icon-sm"
+															className="text-primary hover:bg-primary/10 h-8 w-8"
+															onClick={() => handleStartTask(task)}
+															title={
+																task.status === "failed"
+																	? "重新处理"
+																	: task.status === "completed"
+																		? "再次处理"
+																		: "开始处理"
+															}
+														>
+															{task.status === "pending" &&
+															task.progress === 0 ? (
+																<Play className="size-4" />
+															) : (
+																<Loader2 className="size-4 animate-spin" />
+															)}
+														</Button>
+													)}
 
 												{task.log && (
 													<Dialog>
@@ -468,7 +521,9 @@ function Videos() {
 														</DialogTrigger>
 														<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
 															<DialogHeader>
-																<DialogTitle>错误日志: {task.fileName}</DialogTitle>
+																<DialogTitle>
+																	错误日志: {task.fileName}
+																</DialogTitle>
 															</DialogHeader>
 															<div className="mt-4 flex-1 overflow-y-auto bg-muted rounded-md p-4">
 																<pre className="text-xs font-mono whitespace-pre-wrap break-all leading-relaxed text-muted-foreground">

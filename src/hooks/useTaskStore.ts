@@ -44,11 +44,13 @@ export const useTaskStore = create<TaskState>()(
 			setVideoProcessing: (videoProcessing) => set({ videoProcessing }),
 			setImageTasks: (tasks) =>
 				set((state) => ({
-					imageTasks: typeof tasks === "function" ? tasks(state.imageTasks) : tasks,
+					imageTasks:
+						typeof tasks === "function" ? tasks(state.imageTasks) : tasks,
 				})),
 			setVideoTasks: (tasks) =>
 				set((state) => ({
-					videoTasks: typeof tasks === "function" ? tasks(state.videoTasks) : tasks,
+					videoTasks:
+						typeof tasks === "function" ? tasks(state.videoTasks) : tasks,
 				})),
 			addImageTasks: (tasks) =>
 				set((state) => ({
@@ -83,9 +85,7 @@ export const useTaskStore = create<TaskState>()(
 					);
 					state.setImageTasks((prev) =>
 						prev.map((t) =>
-							t.status === "processing"
-								? { ...t, status: "pending" }
-								: t,
+							t.status === "processing" ? { ...t, status: "pending" } : t,
 						),
 					);
 					// 确保应用启动时处理状态为 false

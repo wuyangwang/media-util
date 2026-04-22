@@ -17,6 +17,12 @@
 					"url": "https://github.com/wuyangwang/media-util"
 				}
 			]
-		}
+		},
+		"store:default",
+		"log:default",
+		"fs:default",
+		"window-state:default",
+		"single-instance:default",
+		"os:default"
 	]
 }

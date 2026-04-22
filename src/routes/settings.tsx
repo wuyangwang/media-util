@@ -22,24 +22,61 @@ import {
 	FolderOpen,
 	Info,
 	ExternalLink,
+	Zap,
+	Cpu,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { useAppSettings } from "@/lib/store";
+import { type, version, arch, hostname } from "@tauri-apps/plugin-os";
 
 export const Route = createFileRoute("/settings")({
 	component: Settings,
 });
 
 function Settings() {
-	const { theme, setTheme } = useTheme();
+	const { theme: nextTheme, setTheme: setNextTheme } = useTheme();
+	const { concurrency, setConcurrency, theme: savedTheme, setTheme: setSavedTheme } = useAppSettings();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [mounted, setMounted] = useState(false);
+	const [sysInfo, setSysInfo] = useState({
+		osType: "加载中...",
+		osVersion: "",
+		arch: "",
+		host: "",
+	});
 
 	useEffect(() => {
 		setMounted(true);
+		const fetchSysInfo = async () => {
+			try {
+				const osType = await type();
+				const osVersion = await version();
+				const cpuArch = await arch();
+				const hostName = await hostname();
+				
+				setSysInfo({
+					osType: osType.charAt(0).toUpperCase() + osType.slice(1),
+					osVersion,
+					arch: cpuArch,
+					host: hostName || "Unknown",
+				});
+			} catch (e) {
+				console.error("Failed to fetch system info:", e);
+			}
+		};
+		fetchSysInfo();
 	}, []);
+
+	const handleThemeChange = useCallback(
+		(value: string) => {
+			setNextTheme(value);
+			setSavedTheme(value);
+		},
+		[setNextTheme, setSavedTheme],
+	);
 
 	useGSAP(
 		() => {
@@ -54,64 +91,115 @@ function Settings() {
 		{ scope: containerRef },
 	);
 
-	const handleThemeChange = useCallback(
-		(value: string) => {
-			setTheme(value);
-		},
-		[setTheme],
-	);
-
 	return (
 		<div ref={containerRef} className="flex flex-col h-full bg-background">
 			<header className="p-6 border-b settings-animate">
-				<h2 className="text-2xl font-bold tracking-tight">设置</h2>
+				<h2 className="text-2xl font-bold tracking-tight text-foreground">设置</h2>
 				<p className="text-muted-foreground">
-					自定义您的应用偏好和工作流设置。
+					自定义您的应用偏好、性能及查看运行环境信息。
 				</p>
 			</header>
 
-			<div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl mx-auto w-full">
-				<Card className="settings-animate">
+			<div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl mx-auto w-full pb-20">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<Card className="settings-animate">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Sun className="size-5" />
+								界面外观
+							</CardTitle>
+							<CardDescription>选择您喜欢的主题模式。</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="flex items-center gap-4">
+								<span className="text-sm font-medium text-foreground">
+									应用主题:
+								</span>
+								<Select
+									value={mounted ? (savedTheme || nextTheme) : "system"}
+									onValueChange={handleThemeChange}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue placeholder="选择主题" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="light">
+											<div className="flex items-center gap-2">
+												<Sun className="size-4" />
+												<span>浅色模式</span>
+											</div>
+										</SelectItem>
+										<SelectItem value="dark">
+											<div className="flex items-center gap-2">
+												<Moon className="size-4" />
+												<span>深色模式</span>
+											</div>
+										</SelectItem>
+										<SelectItem value="system">
+											<div className="flex items-center gap-2">
+												<Monitor className="size-4" />
+												<span>跟随系统</span>
+											</div>
+										</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card className="settings-animate border-primary/20 shadow-sm">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Zap className="size-5 text-primary" />
+								性能设置
+							</CardTitle>
+							<CardDescription>管理转换任务的并行处理能力。</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="flex items-center gap-4">
+								<span className="text-sm font-medium text-foreground">
+									并行任务数:
+								</span>
+								<Select
+									value={concurrency.toString()}
+									onValueChange={(v) => setConcurrency(parseInt(v))}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue placeholder="并发任务数" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="1">1 (低占用)</SelectItem>
+										<SelectItem value="2">2 (推荐)</SelectItem>
+										<SelectItem value="3">3 (多线程)</SelectItem>
+										<SelectItem value="4">4 (全速)</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				<Card className="settings-animate bg-muted/30 border-dashed">
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Sun className="size-5" />
-							界面外观
+						<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+							<Cpu className="size-4" />
+							系统运行环境
 						</CardTitle>
-						<CardDescription>选择您喜欢的主题模式。</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<div className="flex items-center gap-4">
-							<span className="text-sm font-medium text-foreground">
-								应用主题:
-							</span>
-							<Select
-								value={mounted ? theme : "system"}
-								onValueChange={handleThemeChange}
-							>
-								<SelectTrigger className="w-[200px]">
-									<SelectValue placeholder="选择主题" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="light">
-										<div className="flex items-center gap-2">
-											<Sun className="size-4" />
-											<span>浅色模式</span>
-										</div>
-									</SelectItem>
-									<SelectItem value="dark">
-										<div className="flex items-center gap-2">
-											<Moon className="size-4" />
-											<span>深色模式</span>
-										</div>
-									</SelectItem>
-									<SelectItem value="system">
-										<div className="flex items-center gap-2">
-											<Monitor className="size-4" />
-											<span>跟随系统</span>
-										</div>
-									</SelectItem>
-								</SelectContent>
-							</Select>
+						<div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8">
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">操作系统</p>
+								<p className="text-sm font-medium">{sysInfo.osType} {sysInfo.osVersion}</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">主机名称</p>
+								<p className="text-sm font-medium truncate" title={sysInfo.host}>{sysInfo.host}</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">架构类型</p>
+								<p className="text-sm font-medium">{sysInfo.arch.toUpperCase()}</p>
+							</div>
 						</div>
 					</CardContent>
 				</Card>
@@ -130,44 +218,30 @@ function Settings() {
 								默认输出目录:
 							</span>
 							<div className="flex-1 p-2 bg-muted rounded-md border text-sm font-mono truncate text-muted-foreground">
-								与源文件相同
+								与源文件相同 (子目录: media-convert)
 							</div>
-							<Button variant="outline" size="sm" disabled>
-								更改目录
-							</Button>
-						</div>
-						<div className="flex items-start gap-2 text-xs text-muted-foreground italic">
-							<Info className="size-3.5 mt-0.5" />
-							<p>目前版本默认将转换后的文件保存在原文件所在目录。</p>
 						</div>
 					</CardContent>
 				</Card>
 
 				<Card className="settings-animate">
 					<CardHeader>
-						<CardTitle>关于应用</CardTitle>
+						<CardTitle className="flex items-center gap-2">
+							<Info className="size-5" />
+							关于应用
+						</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-2">
 						<div className="flex justify-between text-sm">
-							<span className="text-muted-foreground text-sm">应用名称:</span>
-							<span className="font-medium text-foreground text-sm">
-								媒体工具箱 (Media Utility)
-							</span>
+							<span className="text-muted-foreground">应用版本:</span>
+							<span className="font-medium text-foreground">v{import.meta.env.APP_VERSION}</span>
 						</div>
 						<div className="flex justify-between text-sm">
-							<span className="text-muted-foreground text-sm">当前版本:</span>
-							<span className="font-medium text-foreground text-sm">
-								v{import.meta.env.APP_VERSION}
-							</span>
-						</div>
-						<div className="flex justify-between text-sm">
-							<span className="text-muted-foreground text-sm">核心引擎:</span>
-							<span className="font-medium text-foreground text-sm">
-								FFmpeg 7.x & image 库
-							</span>
+							<span className="text-muted-foreground">核心引擎:</span>
+							<span className="font-medium text-foreground">FFmpeg & Rust image crate</span>
 						</div>
 						<div className="flex justify-between items-center text-sm pt-2 border-t border-muted">
-							<span className="text-muted-foreground text-sm">开源地址:</span>
+							<span className="text-muted-foreground">开源社区:</span>
 							<Button
 								variant="link"
 								size="sm"
