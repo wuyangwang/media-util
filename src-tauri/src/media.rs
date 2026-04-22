@@ -391,7 +391,10 @@ pub async fn convert_video(
                     info!("Video conversion completed successfully [ID: {}]", id);
                     ("Completed", 100.0)
                 } else {
-                    error!("Video conversion failed [ID: {}]. Output path: {}", id, output_path_clone);
+                    error!(
+                        "Video conversion failed [ID: {}]. Output path: {}",
+                        id, output_path_clone
+                    );
                     ("Failed", 0.0)
                 };
 

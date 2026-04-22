@@ -22,7 +22,6 @@
 		"log:default",
 		"fs:default",
 		"window-state:default",
-		"single-instance:default",
 		"os:default"
 	]
 }

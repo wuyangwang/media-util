@@ -12,17 +12,16 @@ use tauri_plugin_store::StoreExt;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let _ = app
-                .get_webview_window("main")
-                .map(|w| {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                });
+            let _ = app.get_webview_window("main").map(|w| {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            });
         }))
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -54,7 +53,7 @@ pub fn run() {
                 .get("concurrency")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(2) as usize;
-            
+
             let queue = app.state::<media::AppQueue>();
             let handle = app.handle().clone();
             tauri::async_runtime::block_on(async move {
