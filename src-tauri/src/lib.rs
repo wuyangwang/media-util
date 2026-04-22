@@ -41,6 +41,7 @@ pub fn run() {
             media::crop_image_fixed,
             media::crop_image_ratio,
             media::crop_image_custom,
+            media::process_image_pipeline,
             media::batch_to_zip,
             media::get_app_config,
             media::get_formatted_output_path
@@ -54,7 +55,6 @@ pub fn run() {
                 .unwrap_or(2) as usize;
 
             let queue = app.state::<media::AppQueue>();
-            let handle = app.handle().clone();
             tauri::async_runtime::block_on(async move {
                 queue.update_limit(concurrency).await;
             });

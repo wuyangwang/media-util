@@ -233,8 +233,8 @@ impl AppConfig {
             ],
             compression_presets: vec![
                 CompressionPresetConfig {
-                    value: 80,
-                    label: "最佳 (平衡质量与体积)".to_string(),
+                    value: 75,
+                    label: "默认 (推荐)".to_string(),
                 },
                 CompressionPresetConfig {
                     value: 95,
