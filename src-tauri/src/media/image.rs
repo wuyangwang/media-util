@@ -5,7 +5,7 @@ use std::path::Path;
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 
-async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, String> {
+pub(super) async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, String> {
     if let Ok(img) = image::open(path) {
         return Ok(img);
     }

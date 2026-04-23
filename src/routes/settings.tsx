@@ -31,8 +31,8 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useAppSettings } from "@/lib/store";
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { useUIStore } from "@/hooks/useUIStore";
 
 export const Route = createFileRoute("/settings")({
 	component: Settings,
@@ -46,56 +46,29 @@ function Settings() {
 		theme: savedTheme,
 		setTheme: setSavedTheme,
 	} = useAppSettings();
+	const systemInfo = useUIStore((state) => state.systemInfo);
+	const systemInfoLoaded = useUIStore((state) => state.systemInfoLoaded);
+	const systemInfoLoading = useUIStore((state) => state.systemInfoLoading);
+	const fetchSystemInfo = useUIStore((state) => state.fetchSystemInfo);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [mounted, setMounted] = useState(false);
-	const [sysInfo, setSysInfo] = useState({
-		osType: "加载中...",
-		osVersion: "加载中...",
-		arch: "加载中...",
-		host: "加载中...",
-		totalMemoryBytes: 0,
-		availableMemoryBytes: 0,
-		totalDiskBytes: 0,
-		availableDiskBytes: 0,
-		cpuModel: "加载中...",
-		cpuCores: 0,
-		gpuModel: "加载中...",
-	});
-
-	useEffect(() => {
-		setMounted(true);
-		const fetchSysInfo = async () => {
-			try {
-				const result = await invoke<{
-					os_type: string;
-					os_version: string;
-					arch: string;
-					host: string;
-					total_memory_bytes: number;
-					available_memory_bytes: number;
-					total_disk_bytes: number;
-					available_disk_bytes: number;
-					cpu_model: string;
-					cpu_cores: number;
-					gpu_model: string;
-				}>("get_system_info");
-
-				setSysInfo({
-					osType: result.os_type || "Unknown OS",
-					osVersion: result.os_version || "Unknown",
-					arch: result.arch || "unknown",
-					host: result.host || "Unknown",
-					totalMemoryBytes: result.total_memory_bytes || 0,
-					availableMemoryBytes: result.available_memory_bytes || 0,
-					totalDiskBytes: result.total_disk_bytes || 0,
-					availableDiskBytes: result.available_disk_bytes || 0,
-					cpuModel: result.cpu_model || "Unknown",
-					cpuCores: result.cpu_cores || 0,
-					gpuModel: result.gpu_model || "Unknown",
-				});
-			} catch (error) {
-				console.error("Failed to fetch system info:", error);
-				setSysInfo({
+	const sysInfo =
+		systemInfo ??
+		(systemInfoLoading
+			? {
+					osType: "加载中...",
+					osVersion: "加载中...",
+					arch: "加载中...",
+					host: "加载中...",
+					totalMemoryBytes: 0,
+					availableMemoryBytes: 0,
+					totalDiskBytes: 0,
+					availableDiskBytes: 0,
+					cpuModel: "加载中...",
+					cpuCores: 0,
+					gpuModel: "加载中...",
+				}
+			: {
 					osType: "Unknown OS",
 					osVersion: "Unknown",
 					arch: "unknown",
@@ -108,10 +81,16 @@ function Settings() {
 					cpuCores: 0,
 					gpuModel: "Unknown",
 				});
-			}
-		};
-		fetchSysInfo();
-	}, []);
+
+	useEffect(() => {
+		setMounted(true);
+		if (!systemInfoLoaded && !systemInfoLoading) {
+			const timer = window.setTimeout(() => {
+				void fetchSystemInfo();
+			}, 0);
+			return () => window.clearTimeout(timer);
+		}
+	}, [fetchSystemInfo, systemInfoLoaded, systemInfoLoading]);
 
 	const formatBytes = useCallback((bytes: number) => {
 		if (!bytes) {
@@ -282,6 +261,7 @@ function Settings() {
 								size="sm"
 								className="h-8"
 								onClick={handleCopySysInfo}
+								disabled={!systemInfoLoaded}
 							>
 								<Copy className="size-3.5" />
 								一键复制
