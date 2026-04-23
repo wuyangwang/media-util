@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,13 +31,6 @@ import { TaskStartButton } from "@/components/task-start-button";
 export const Route = createFileRoute("/videos")({
 	component: Videos,
 });
-
-interface ProgressPayload {
-	id: string;
-	progress: number;
-	status: string;
-	log?: string;
-}
 
 function Videos() {
 	const {
@@ -163,41 +155,6 @@ function Videos() {
 			}
 		}
 	}, []);
-
-	useEffect(() => {
-		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
-			setTasks((prev) => {
-				const newTasks = prev.map((t) => {
-					if (t.id === event.payload.id) {
-						let status: VideoTask["status"] = "converting";
-						if (event.payload.status === "Completed") status = "completed";
-						if (event.payload.status === "Failed") status = "failed";
-						return {
-							...t,
-							progress: event.payload.progress,
-							status: status,
-							log: event.payload.log || t.log,
-						};
-					}
-					return t;
-				}) as VideoTask[];
-
-				// 如果没有正在进行的任务，重置处理状态
-				const hasActive = newTasks.some(
-					(t) => t.status === "converting" || t.status === "processing",
-				);
-				if (!hasActive) {
-					setProcessing(false);
-				}
-
-				return newTasks;
-			});
-		});
-
-		return () => {
-			unlisten.then((fn) => fn());
-		};
-	}, [setProcessing, setTasks]);
 
 	return (
 		<div

@@ -12,6 +12,13 @@ interface VideoTask extends Task {
 	log?: string;
 }
 
+export interface VideoProgressPayload {
+	id: string;
+	progress: number;
+	status: string;
+	log?: string;
+}
+
 interface TaskState {
 	imageTasks: ImageTask[];
 	videoTasks: VideoTask[];
@@ -31,6 +38,7 @@ interface TaskState {
 	removeVideoTask: (id: string) => void;
 	clearImageTasks: () => void;
 	clearVideoTasks: () => void;
+	applyVideoProgress: (payload: VideoProgressPayload) => void;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -70,6 +78,34 @@ export const useTaskStore = create<TaskState>()(
 				})),
 			clearImageTasks: () => set({ imageTasks: [] }),
 			clearVideoTasks: () => set({ videoTasks: [] }),
+			applyVideoProgress: (payload) =>
+				set((state) => {
+					const videoTasks = state.videoTasks.map((task) => {
+						if (task.id !== payload.id) return task;
+
+						let status = task.status;
+						if (payload.status === "Completed") status = "completed";
+						else if (payload.status === "Failed") status = "failed";
+						else status = "converting";
+
+						return {
+							...task,
+							progress: payload.progress,
+							status,
+							log: payload.log || task.log,
+						};
+					});
+
+					const hasActive = videoTasks.some(
+						(task) =>
+							task.status === "converting" || task.status === "processing",
+					);
+
+					return {
+						videoTasks,
+						videoProcessing: hasActive ? state.videoProcessing : false,
+					};
+				}),
 		}),
 		{
 			name: "task-storage",
