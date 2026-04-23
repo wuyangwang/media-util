@@ -24,6 +24,7 @@ import {
 	ExternalLink,
 	Zap,
 	Cpu,
+	Copy,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
@@ -31,6 +32,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useAppSettings } from "@/lib/store";
 import { type, version, arch, hostname } from "@tauri-apps/plugin-os";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
 	component: Settings,
@@ -56,21 +58,45 @@ function Settings() {
 	useEffect(() => {
 		setMounted(true);
 		const fetchSysInfo = async () => {
-			try {
-				const osType = await type();
-				const osVersion = await version();
-				const cpuArch = await arch();
-				const hostName = await hostname();
-
-				setSysInfo({
-					osType: osType.charAt(0).toUpperCase() + osType.slice(1),
-					osVersion,
-					arch: cpuArch,
-					host: hostName || "Unknown",
+			const [osTypeRes, osVersionRes, cpuArchRes, hostNameRes] =
+				await Promise.allSettled([type(), version(), arch(), hostname()]);
+			if (
+				osTypeRes.status === "rejected" ||
+				osVersionRes.status === "rejected" ||
+				cpuArchRes.status === "rejected" ||
+				hostNameRes.status === "rejected"
+			) {
+				console.error("Failed to fetch part of system info:", {
+					osType: osTypeRes.status === "rejected" ? osTypeRes.reason : null,
+					osVersion:
+						osVersionRes.status === "rejected" ? osVersionRes.reason : null,
+					arch: cpuArchRes.status === "rejected" ? cpuArchRes.reason : null,
+					host: hostNameRes.status === "rejected" ? hostNameRes.reason : null,
 				});
-			} catch (e) {
-				console.error("Failed to fetch system info:", e);
 			}
+			const osType =
+				osTypeRes.status === "fulfilled" && osTypeRes.value
+					? osTypeRes.value.charAt(0).toUpperCase() + osTypeRes.value.slice(1)
+					: "Unknown OS";
+			const osVersion =
+				osVersionRes.status === "fulfilled" && osVersionRes.value
+					? osVersionRes.value
+					: "Unknown";
+			const cpuArch =
+				cpuArchRes.status === "fulfilled" && cpuArchRes.value
+					? cpuArchRes.value
+					: "unknown";
+			const hostName =
+				hostNameRes.status === "fulfilled" && hostNameRes.value
+					? hostNameRes.value
+					: "Unknown";
+
+			setSysInfo({
+				osType,
+				osVersion,
+				arch: cpuArch,
+				host: hostName,
+			});
 		};
 		fetchSysInfo();
 	}, []);
@@ -82,6 +108,20 @@ function Settings() {
 		},
 		[setNextTheme, setSavedTheme],
 	);
+	const handleCopySysInfo = useCallback(async () => {
+		const text = [
+			`操作系统: ${sysInfo.osType} ${sysInfo.osVersion}`.trim(),
+			`主机名称: ${sysInfo.host}`,
+			`架构类型: ${sysInfo.arch.toUpperCase()}`,
+		].join("\n");
+		try {
+			await navigator.clipboard.writeText(text);
+			toast.success("系统信息已复制");
+		} catch (error) {
+			console.error("Failed to copy system info:", error);
+			toast.error("复制失败，请稍后重试");
+		}
+	}, [sysInfo]);
 
 	useGSAP(
 		() => {
@@ -188,10 +228,22 @@ function Settings() {
 
 				<Card className="settings-animate bg-muted/30 border-dashed">
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-							<Cpu className="size-4" />
-							系统运行环境
-						</CardTitle>
+						<div className="flex items-center justify-between gap-3">
+							<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+								<Cpu className="size-4" />
+								系统运行环境
+							</CardTitle>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="h-8"
+								onClick={handleCopySysInfo}
+							>
+								<Copy className="size-3.5" />
+								一键复制
+							</Button>
+						</div>
 					</CardHeader>
 					<CardContent>
 						<div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8">
