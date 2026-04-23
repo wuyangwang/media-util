@@ -30,6 +30,9 @@ Tech stack: Tauri v2 + React 19 + TypeScript + Rust + FFmpeg/FFprobe sidecar.
 
 ## Verification Requirements
 After code changes, run:
+- `pnpm format`
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`
+- `cargo check --manifest-path src-tauri/Cargo.toml`
 - `pnpm build`
 
 If packaging/release-related files changed, also run:

@@ -39,10 +39,7 @@ pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, S
 }
 
 #[tauri::command]
-pub async fn get_video_thumbnail(
-    app: tauri::AppHandle,
-    path: String,
-) -> Result<String, String> {
+pub async fn get_video_thumbnail(app: tauri::AppHandle, path: String) -> Result<String, String> {
     video::get_video_thumbnail(app, path).await
 }
 
@@ -135,8 +132,15 @@ pub async fn crop_image_ratio(
     target_height: u32,
     quality: u8,
 ) -> Result<(), String> {
-    image::crop_image_ratio(app, input_path, output_path, target_width, target_height, quality)
-        .await
+    image::crop_image_ratio(
+        app,
+        input_path,
+        output_path,
+        target_width,
+        target_height,
+        quality,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -148,8 +152,15 @@ pub async fn crop_image_custom(
     target_height: u32,
     quality: u8,
 ) -> Result<(), String> {
-    image::crop_image_custom(app, input_path, output_path, target_width, target_height, quality)
-        .await
+    image::crop_image_custom(
+        app,
+        input_path,
+        output_path,
+        target_width,
+        target_height,
+        quality,
+    )
+    .await
 }
 
 #[tauri::command]

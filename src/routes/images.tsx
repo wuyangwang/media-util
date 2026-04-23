@@ -273,7 +273,9 @@ function Images() {
 						onClick={handlePickDir}
 						variant="outline"
 						size="sm"
-						title={isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"}
+						title={
+							isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"
+						}
 					>
 						{isScanning ? (
 							<Loader2 className="mr-1 size-4 animate-spin" />
@@ -322,7 +324,9 @@ function Images() {
 
 								<div className="flex flex-wrap items-center gap-4">
 									<div className="flex items-center gap-2">
-										<span className="text-xs text-muted-foreground">尺寸预设:</span>
+										<span className="text-xs text-muted-foreground">
+											尺寸预设:
+										</span>
 										<Select
 											value={selectedPreset}
 											onValueChange={setSelectedPreset}
@@ -375,7 +379,9 @@ function Images() {
 									)}
 
 									<div className="flex items-center gap-2">
-										<span className="text-xs text-muted-foreground">目标格式:</span>
+										<span className="text-xs text-muted-foreground">
+											目标格式:
+										</span>
 										<Select
 											value={targetFormat}
 											onValueChange={setTargetFormat}
@@ -398,7 +404,9 @@ function Images() {
 								{isCompressTab && (
 									<div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-2">
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">压缩质量:</span>
+											<span className="text-xs text-muted-foreground">
+												压缩质量:
+											</span>
 											<Select
 												value={selectedQuality}
 												onValueChange={setSelectedQuality}
@@ -409,7 +417,10 @@ function Images() {
 												</SelectTrigger>
 												<SelectContent>
 													{DEFAULT_CONFIG.compression_presets.map((p) => (
-														<SelectItem key={p.value} value={p.value.toString()}>
+														<SelectItem
+															key={p.value}
+															value={p.value.toString()}
+														>
 															{p.label}
 														</SelectItem>
 													))}
@@ -417,7 +428,9 @@ function Images() {
 											</Select>
 										</div>
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground">PNG 模式:</span>
+											<span className="text-xs text-muted-foreground">
+												PNG 模式:
+											</span>
 											<Select
 												value={pngCompressionMode}
 												onValueChange={(value) =>
@@ -429,7 +442,9 @@ function Images() {
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value="lossless">无损 (oxipng)</SelectItem>
+													<SelectItem value="lossless">
+														无损 (oxipng)
+													</SelectItem>
 													<SelectItem value="lossy">
 														有损 (pngquant → oxipng)
 													</SelectItem>
@@ -465,7 +480,9 @@ function Images() {
 							)}
 						>
 							<div className="mr-4 min-w-0 flex-1">
-								<h3 className="truncate text-sm font-semibold">{task.fileName}</h3>
+								<h3 className="truncate text-sm font-semibold">
+									{task.fileName}
+								</h3>
 								<div className="mt-1 flex flex-wrap items-center gap-2">
 									{task.info ? (
 										task.info.format !== "unknown" ? (
@@ -477,19 +494,31 @@ function Images() {
 												>
 													{task.info.format.toUpperCase()}
 												</Badge>
-												<span className="text-[11px] text-muted-foreground" title="分辨率">
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="分辨率"
+												>
 													{task.info.video?.width} x {task.info.video?.height}
 												</span>
-												<span className="text-[11px] text-muted-foreground/60">•</span>
-												<span className="text-[11px] text-muted-foreground" title="文件大小">
+												<span className="text-[11px] text-muted-foreground/60">
+													•
+												</span>
+												<span
+													className="text-[11px] text-muted-foreground"
+													title="文件大小"
+												>
 													{formatBytes(task.info.size)}
 												</span>
 											</>
 										) : (
-											<span className="text-[11px] text-muted-foreground">未知格式</span>
+											<span className="text-[11px] text-muted-foreground">
+												未知格式
+											</span>
 										)
 									) : (
-										<span className="animate-pulse text-[11px] text-muted-foreground">正在读取信息...</span>
+										<span className="animate-pulse text-[11px] text-muted-foreground">
+											正在读取信息...
+										</span>
 									)}
 								</div>
 								<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
