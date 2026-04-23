@@ -57,7 +57,7 @@ function Settings() {
 		(systemInfoLoading
 			? {
 					osType: "加载中...",
-					osVersion: "加载中...",
+					osVersion: "",
 					arch: "加载中...",
 					host: "加载中...",
 					totalMemoryBytes: 0,

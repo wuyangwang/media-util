@@ -86,10 +86,13 @@ fn write_windows_icons(img: &image::DynamicImage, temp_root: &Path) -> Result<()
     }
 
     let ico_path = windows_dir.join("icon.ico");
-    let writer = BufWriter::new(File::create(&ico_path).map_err(|err| err.to_string())?);
+    let file = File::create(&ico_path).map_err(|err| err.to_string())?;
+    let writer = BufWriter::new(file);
     IcoEncoder::new(writer)
         .encode_images(&frames)
-        .map_err(|err| err.to_string())
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
 }
 
 fn write_png_set(
