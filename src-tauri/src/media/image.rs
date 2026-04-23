@@ -148,6 +148,9 @@ fn save_pngquant_then_oxipng(
     png_writer
         .write_image_data(&pixels)
         .map_err(|e| format!("png write data failed: {e}"))?;
+    png_writer
+        .finish()
+        .map_err(|e| format!("png finish failed: {e}"))?;
 
     run_oxipng_in_place(output_path)
 }
