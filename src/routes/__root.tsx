@@ -15,7 +15,7 @@ import {
 	PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useUIStore } from "@/hooks/useUIStore";
@@ -33,9 +33,23 @@ function RootComponent() {
 	const sidebarRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLElement>(null);
 	const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+	const [showSidebarTitle, setShowSidebarTitle] = useState(!isSidebarCollapsed);
 	const navigate = useNavigate();
 	const addVideoTasks = useTaskStore((s) => s.addVideoTasks);
 	const addImageTasks = useTaskStore((s) => s.addImageTasks);
+
+	useEffect(() => {
+		if (isSidebarCollapsed) {
+			setShowSidebarTitle(false);
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setShowSidebarTitle(true);
+		}, 1000);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [isSidebarCollapsed]);
 
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
@@ -136,7 +150,7 @@ function RootComponent() {
 						isSidebarCollapsed ? "justify-center" : "justify-between px-3",
 					)}
 				>
-					{!isSidebarCollapsed && (
+					{!isSidebarCollapsed && showSidebarTitle && (
 						<div className="flex items-center gap-2">
 							<Film className="size-4 text-primary" />
 							<h1 className="text-sm font-semibold tracking-normal">
@@ -193,7 +207,7 @@ function RootComponent() {
 				<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
 						<Film className="size-3.5" />
-						<span className="font-medium">Media Utility Desktop Workspace</span>
+						<span className="font-medium">媒体工具桌面工作区</span>
 					</div>
 					<div className="text-[11px] text-muted-foreground">
 						拖拽文件到窗口可快速添加任务
