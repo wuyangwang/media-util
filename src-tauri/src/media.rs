@@ -1,3 +1,5 @@
+#[path = "media/icons.rs"]
+mod icons;
 #[path = "media/image.rs"]
 mod image;
 #[path = "media/shared.rs"]
@@ -115,6 +117,16 @@ pub async fn process_image_pipeline(
         png_lossy,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn generate_app_icons(
+    app: tauri::AppHandle,
+    input_path: String,
+    output_zip_path: String,
+    platforms: Vec<String>,
+) -> Result<(), String> {
+    icons::generate_app_icons(app, input_path, output_zip_path, platforms).await
 }
 
 #[tauri::command]

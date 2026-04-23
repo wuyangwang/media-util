@@ -42,6 +42,7 @@ pub fn run() {
             media::crop_image_ratio,
             media::crop_image_custom,
             media::process_image_pipeline,
+            media::generate_app_icons,
             media::batch_to_zip,
             media::get_app_config,
             media::get_system_info,

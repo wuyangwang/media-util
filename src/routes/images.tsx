@@ -28,12 +28,14 @@ import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
 import { TaskStartButton } from "@/components/task-start-button";
+import { ImageIconTab } from "@/components/image-icon-tab";
+import { APP_ICON_PRESETS } from "@/lib/icon-presets";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
 });
 
-type ImageFlowTab = "convert" | "compress";
+type ImageFlowTab = "convert" | "compress" | "icons";
 type PngCompressionMode = "lossless" | "lossy";
 
 function Images() {
@@ -57,6 +59,9 @@ function Images() {
 	);
 	const [pngCompressionMode, setPngCompressionMode] =
 		useState<PngCompressionMode>("lossless");
+	const [selectedIconPlatforms, setSelectedIconPlatforms] = useState<string[]>([
+		APP_ICON_PRESETS[0]?.platform || "Windows",
+	]);
 	const customPreset = useMemo(
 		() => DEFAULT_CONFIG.size_presets.find((p) => p.name === "自定义"),
 		[],
@@ -79,13 +84,19 @@ function Images() {
 		return preset?.name === "自定义";
 	}, [selectedPreset]);
 	const isCompressTab = activeTab === "compress";
+	const isIconTab = activeTab === "icons";
 
 	useTaskPageAnimations(containerRef, tasks.length);
 
 	const handleStartTask = useCallback(
 		async (task: ImageTask) => {
+			if (isIconTab && selectedIconPlatforms.length === 0) {
+				toast.error("请至少选择一个目标平台");
+				return;
+			}
+
 			const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
-			if (!preset) {
+			if (!preset && !isIconTab) {
 				toast.error("尺寸预设无效");
 				return;
 			}
@@ -96,31 +107,45 @@ function Images() {
 				),
 			);
 			try {
-				const operation = isCompressTab
-					? "compress"
-					: isCustom
-						? "custom"
-						: preset.name === "原图尺寸"
-							? "convert"
-							: "fixed";
+				const operation = isIconTab
+					? "app_icons"
+					: isCompressTab
+						? "compress"
+						: isCustom
+							? "custom"
+							: preset?.name === "原图尺寸"
+								? "convert"
+								: "fixed";
 
 				const outputPath = await invoke<string>("get_formatted_output_path", {
 					inputPath: task.path,
 					operation,
-					extension: targetFormat === "original" ? null : targetFormat,
+					extension: isIconTab
+						? "zip"
+						: targetFormat === "original"
+							? null
+							: targetFormat,
 				});
 
-				await invoke("process_image_pipeline", {
-					inputPath: task.path,
-					outputPath,
-					presetIndex: parseInt(selectedPreset),
-					useCustomSize: isCustom,
-					targetWidth: isCustom ? customSize.width : 0,
-					targetHeight: isCustom ? customSize.height : 0,
-					compressEnabled: isCompressTab,
-					quality: isCompressTab ? parseInt(selectedQuality) : 100,
-					pngLossy: isCompressTab && pngCompressionMode === "lossy",
-				});
+				if (isIconTab) {
+					await invoke("generate_app_icons", {
+						inputPath: task.path,
+						outputZipPath: outputPath,
+						platforms: selectedIconPlatforms,
+					});
+				} else {
+					await invoke("process_image_pipeline", {
+						inputPath: task.path,
+						outputPath,
+						presetIndex: parseInt(selectedPreset),
+						useCustomSize: isCustom,
+						targetWidth: isCustom ? customSize.width : 0,
+						targetHeight: isCustom ? customSize.height : 0,
+						compressEnabled: isCompressTab,
+						quality: isCompressTab ? parseInt(selectedQuality) : 100,
+						pngLossy: isCompressTab && pngCompressionMode === "lossy",
+					});
+				}
 
 				setTasks((prev) =>
 					prev.map((t) =>
@@ -144,10 +169,20 @@ function Images() {
 			targetFormat,
 			setTasks,
 			isCompressTab,
+			isIconTab,
+			selectedIconPlatforms,
 			selectedQuality,
 			pngCompressionMode,
 		],
 	);
+
+	const toggleIconPlatform = useCallback((platform: string) => {
+		setSelectedIconPlatforms((prev) =>
+			prev.includes(platform)
+				? prev.filter((item) => item !== platform)
+				: [...prev, platform],
+		);
+	}, []);
 
 	const startBatch = useCallback(async () => {
 		if (checkProcessing()) return;
@@ -258,86 +293,96 @@ function Images() {
 									>
 										<Minimize2 data-icon="inline-start" /> 图片压缩
 									</Button>
+									<Button
+										size="sm"
+										variant={activeTab === "icons" ? "default" : "ghost"}
+										onClick={() => setActiveTab("icons")}
+										disabled={isAnyProcessing}
+									>
+										<ImageIcon data-icon="inline-start" /> 图标生成
+									</Button>
 								</div>
 
-								<div className="flex flex-wrap items-center gap-4">
-									<div className="flex items-center gap-2">
-										<span className="text-xs text-muted-foreground">
-											尺寸预设:
-										</span>
-										<Select
-											value={selectedPreset}
-											onValueChange={setSelectedPreset}
-											disabled={isAnyProcessing}
-										>
-											<SelectTrigger className="h-8 w-[190px] text-xs">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												{DEFAULT_CONFIG.size_presets.map((p, i) => (
-													<SelectItem key={i} value={i.toString()}>
-														{p.name}
-														{p.name !== "自定义" && p.width !== 0
-															? ` (${p.width}x${p.height})`
-															: ""}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-
-									{isCustom && (
-										<div className="animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
-											<Input
-												type="number"
-												value={customSize.width}
-												onChange={(e) =>
-													setCustomSize((prev) => ({
-														...prev,
-														width: parseInt(e.target.value) || 0,
-													}))
-												}
-												className="h-8 w-16 text-xs"
-												placeholder="宽"
-											/>
-											<span className="text-xs text-muted-foreground">x</span>
-											<Input
-												type="number"
-												value={customSize.height}
-												onChange={(e) =>
-													setCustomSize((prev) => ({
-														...prev,
-														height: parseInt(e.target.value) || 0,
-													}))
-												}
-												className="h-8 w-16 text-xs"
-												placeholder="高"
-											/>
+								{!isIconTab && (
+									<div className="flex flex-wrap items-center gap-4">
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-muted-foreground">
+												尺寸预设:
+											</span>
+											<Select
+												value={selectedPreset}
+												onValueChange={setSelectedPreset}
+												disabled={isAnyProcessing}
+											>
+												<SelectTrigger className="h-8 w-[190px] text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{DEFAULT_CONFIG.size_presets.map((p, i) => (
+														<SelectItem key={i} value={i.toString()}>
+															{p.name}
+															{p.name !== "自定义" && p.width !== 0
+																? ` (${p.width}x${p.height})`
+																: ""}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
 										</div>
-									)}
 
-									<div className="flex items-center gap-2">
-										<span className="text-xs text-muted-foreground">
-											目标格式:
-										</span>
-										<Select
-											value={targetFormat}
-											onValueChange={setTargetFormat}
-											disabled={isAnyProcessing}
-										>
-											<SelectTrigger className="h-8 w-[130px] text-xs">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												{DEFAULT_CONFIG.image_formats.map((f) => (
-													<SelectItem key={f.value} value={f.value}>
-														{f.label}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										{isCustom && (
+											<div className="animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
+												<Input
+													type="number"
+													value={customSize.width}
+													onChange={(e) =>
+														setCustomSize((prev) => ({
+															...prev,
+															width: parseInt(e.target.value) || 0,
+														}))
+													}
+													className="h-8 w-16 text-xs"
+													placeholder="宽"
+												/>
+												<span className="text-xs text-muted-foreground">x</span>
+												<Input
+													type="number"
+													value={customSize.height}
+													onChange={(e) =>
+														setCustomSize((prev) => ({
+															...prev,
+															height: parseInt(e.target.value) || 0,
+														}))
+													}
+													className="h-8 w-16 text-xs"
+													placeholder="高"
+												/>
+											</div>
+										)}
+
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-muted-foreground">
+												目标格式:
+											</span>
+											<Select
+												value={targetFormat}
+												onValueChange={setTargetFormat}
+												disabled={isAnyProcessing}
+											>
+												<SelectTrigger className="h-8 w-[130px] text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{DEFAULT_CONFIG.image_formats.map((f) => (
+														<SelectItem key={f.value} value={f.value}>
+															{f.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
 									</div>
-								</div>
+								)}
 
 								{isCompressTab && (
 									<div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-2">
@@ -390,6 +435,14 @@ function Images() {
 											</Select>
 										</div>
 									</div>
+								)}
+
+								{isIconTab && (
+									<ImageIconTab
+										selectedPlatforms={selectedIconPlatforms}
+										onTogglePlatform={toggleIconPlatform}
+										disabled={isAnyProcessing}
+									/>
 								)}
 							</div>
 
