@@ -1,137 +1,118 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useRef } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { Video, Image as ImageIcon, Zap, Shield, Rocket } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	Card,
-	CardHeader,
-	CardTitle,
-	CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+	Image as ImageIcon,
+	Settings2,
+	Video,
+	HardDriveDownload,
+	LayoutGrid,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function OverviewPage() {
-	const container = useRef<HTMLDivElement>(null);
-
-	useGSAP(
-		() => {
-			const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-
-			tl.from(".hero-content > *", {
-				y: 30,
-				opacity: 0,
-				stagger: 0.2,
-				duration: 0.8,
-			}).from(
-				".feature-card",
-				{
-					scale: 0.9,
-					opacity: 0,
-					stagger: 0.1,
-					duration: 0.6,
-				},
-				"-=0.4",
-			);
-		},
-		{ scope: container },
-	);
-
 	return (
-		<main
-			ref={container}
-			className="min-h-screen bg-background p-8 md:p-12 lg:p-16 overflow-y-auto"
-		>
-			<div className="max-w-5xl mx-auto space-y-16">
-				{/* Hero Section */}
-				<section className="hero-content text-center space-y-6 pt-8">
-					<Badge variant="secondary" className="px-4 py-1 text-sm rounded-full">
-						v{import.meta.env.APP_VERSION}
-					</Badge>
-					<h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
-						媒体工具箱 <span className="text-primary">Media Utility</span>
-					</h1>
-					<p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-						一款高效、简洁的跨平台媒体处理工具，旨在为您提供最便捷的音视频及图片处理方案。
-					</p>
+		<main className="min-h-full bg-background p-4 md:p-5">
+			<div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+				<section className="window-surface">
+					<CardHeader className="pb-3">
+						<div className="window-section-title">Workspace</div>
+						<CardTitle className="text-xl">媒体处理工作台</CardTitle>
+					</CardHeader>
+					<CardContent className="grid gap-2 pb-4 md:grid-cols-4">
+						<QuickLink
+							to="/videos"
+							icon={Video}
+							title="视频处理"
+							desc="转码、压缩、提取音频"
+						/>
+						<QuickLink
+							to="/images"
+							icon={ImageIcon}
+							title="图片处理"
+							desc="转换、裁剪、压缩"
+						/>
+						<QuickLink
+							to="/settings"
+							icon={Settings2}
+							title="设置"
+							desc="并发、主题、偏好"
+						/>
+						<QuickLink
+							to="/overview"
+							icon={LayoutGrid}
+							title="概览"
+							desc={`版本 ${import.meta.env.APP_VERSION}`}
+						/>
+					</CardContent>
 				</section>
 
-				{/* Features Grid */}
-				<section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-					<FeatureCard
-						icon={Rocket}
-						title="高性能"
-						description="基于 FFmpeg 与 Rust 内核，多线程并行处理，速度飞快。"
-					/>
-					<FeatureCard
-						icon={Zap}
-						title="自动化"
-						description="文件夹自动化扫描，拖拽即处理，告别繁琐操作。"
-					/>
-					<FeatureCard
-						icon={Shield}
-						title="隐私安全"
-						description="本地离线处理，您的媒体文件永远不会离开您的计算机。"
-					/>
-					<FeatureCard
-						icon={ImageIcon}
-						title="多格式"
-						description="支持主流音视频及图片格式，覆盖日常所有转换需求。"
-					/>
-				</section>
-
-				{/* Detailed Features */}
-				<section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-					<Card className="feature-card border-none bg-muted/30 shadow-none">
-						<CardHeader>
-							<div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
-								<Video className="size-6 text-primary" />
-							</div>
-							<CardTitle>视频批量处理</CardTitle>
-							<CardDescription>
-								支持批量格式转换、压缩、码率调整等功能。预设多种常用配置，一键完成。
-							</CardDescription>
+				<section className="grid gap-4 md:grid-cols-2">
+					<Card className="window-surface">
+						<CardHeader className="pb-2">
+							<div className="window-section-title">Processing</div>
+							<CardTitle className="text-base">处理建议</CardTitle>
 						</CardHeader>
+						<CardContent className="space-y-2 text-sm text-muted-foreground">
+							<p>1. 拖拽文件或文件夹到窗口，可自动识别并分流到视频/图片页。</p>
+							<p>2. 批量任务建议先确认预设，再统一执行，避免重复导出。</p>
+							<p>3. 大批量处理时可在设置中调整并发，优先保证系统流畅。</p>
+						</CardContent>
 					</Card>
 
-					<Card className="feature-card border-none bg-muted/30 shadow-none">
-						<CardHeader>
-							<div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
-								<ImageIcon className="size-6 text-primary" />
-							</div>
-							<CardTitle>图片智能处理</CardTitle>
-							<CardDescription>
-								支持批量裁剪、缩放、格式转换。内置智能裁剪算法，确保画面主体不丢失。
-							</CardDescription>
+					<Card className="window-surface">
+						<CardHeader className="pb-2">
+							<div className="window-section-title">Output</div>
+							<CardTitle className="text-base">导出与分发</CardTitle>
 						</CardHeader>
+						<CardContent className="space-y-3">
+							<div className="flex items-center gap-2 text-sm text-muted-foreground">
+								<HardDriveDownload className="size-4" />
+								<span>支持单文件导出与批量 ZIP 打包导出</span>
+							</div>
+							<div className="h-px w-full bg-border" />
+							<div className="flex gap-2">
+								<Button asChild size="sm" variant="outline">
+									<Link to="/videos">前往视频处理</Link>
+								</Button>
+								<Button asChild size="sm" variant="outline">
+									<Link to="/images">前往图片处理</Link>
+								</Button>
+							</div>
+						</CardContent>
 					</Card>
 				</section>
-
-				<footer className="hero-content text-center py-12 border-t text-muted-foreground">
-					<p>由 @wuyang 开发 | 基于 Tauri & React 构建</p>
-				</footer>
 			</div>
 		</main>
 	);
 }
 
-function FeatureCard({
+function QuickLink({
+	to,
 	icon: Icon,
 	title,
-	description,
+	desc,
 }: {
+	to: "/overview" | "/videos" | "/images" | "/settings";
 	icon: any;
 	title: string;
-	description: string;
+	desc: string;
 }) {
 	return (
-		<Card className="feature-card group hover:bg-muted/50 transition-colors border-none bg-transparent shadow-none">
-			<CardHeader className="p-4">
-				<Icon className="size-8 text-primary mb-2 group-hover:scale-110 transition-transform" />
-				<CardTitle className="text-lg">{title}</CardTitle>
-				<CardDescription>{description}</CardDescription>
-			</CardHeader>
-		</Card>
+		<Button
+			asChild
+			variant="outline"
+			className="h-auto justify-start rounded-sm px-3 py-2"
+		>
+			<Link to={to} className="flex w-full items-center gap-2">
+				<div className="rounded-sm bg-primary/12 p-1">
+					<Icon className="size-4 text-primary" />
+				</div>
+				<div className="flex flex-col items-start text-left">
+					<span className="text-sm font-medium text-foreground">{title}</span>
+					<span className="text-xs text-muted-foreground">{desc}</span>
+				</div>
+			</Link>
+		</Button>
 	);
 }
 
