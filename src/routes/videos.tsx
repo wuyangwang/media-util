@@ -1,22 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-	Plus,
-	FolderPlus,
-	Play,
-	XCircle,
-	Trash2,
-	FileVideo,
-	FolderOpen,
-	Loader2,
-	FileText,
-} from "lucide-react";
+import { Play, FileVideo, Loader2, FileText } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -28,11 +17,16 @@ import { Progress } from "@/components/ui/progress";
 import { useTasks, VideoTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { cn, formatBytes, formatDuration, formatBitrate } from "@/lib/utils";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
 import { toast } from "sonner";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Badge } from "@/components/ui/badge";
+import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { useDragDropPaths } from "@/hooks/useDragDropPaths";
+import { usePickMediaInputs } from "@/hooks/usePickMediaInputs";
+import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
+import { TaskPageToolbar } from "@/components/task-page-toolbar";
+import { TaskEmptyState } from "@/components/task-empty-state";
+import { TaskStatusBadge } from "@/components/task-status-badge";
+import { TaskItemActions } from "@/components/task-item-actions";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
@@ -63,52 +57,15 @@ function Videos() {
 	);
 
 	const containerRef = useRef<HTMLDivElement>(null);
+	const { isDragActive } = useDragDropPaths(handleAddPaths);
+	const { handlePickFiles, handlePickDir } = usePickMediaInputs({
+		modeLabel: "视频",
+		extensions: DEFAULT_CONFIG.video_extensions,
+		checkProcessing,
+		handleAddPaths,
+	});
 
-	useGSAP(
-		() => {
-			gsap.from(".header-animate > *", {
-				y: -20,
-				opacity: 0,
-				stagger: 0.1,
-				duration: 0.5,
-				ease: "power2.out",
-			});
-		},
-		{ scope: containerRef },
-	);
-
-	useGSAP(
-		() => {
-			if (tasks.length > 0) {
-				gsap.from(".task-item-animate:last-child", {
-					x: 20,
-					opacity: 0,
-					duration: 0.4,
-					ease: "power2.out",
-				});
-			}
-		},
-		{ dependencies: [tasks.length], scope: containerRef },
-	);
-
-	const handlePickFiles = useCallback(async () => {
-		if (checkProcessing()) return;
-		const files = await open({
-			multiple: true,
-			filters: [{ name: "视频", extensions: DEFAULT_CONFIG.video_extensions }],
-		});
-		if (files) {
-			await handleAddPaths(Array.isArray(files) ? files : [files]);
-		}
-	}, [handleAddPaths, checkProcessing]);
-
-	const handlePickDir = useCallback(async () => {
-		if (checkProcessing()) return;
-		const dir = await open({ directory: true });
-		if (dir) {
-			await handleAddPaths([dir as string]);
-		}
-	}, [handleAddPaths, checkProcessing]);
+	useTaskPageAnimations(containerRef, tasks.length);
 
 	const handleStartTask = useCallback(
 		async (task: VideoTask) => {
@@ -236,87 +193,36 @@ function Videos() {
 			});
 		});
 
-		const unlistenDrop = getCurrentWebview().onDragDropEvent(async (event) => {
-			const payload = event.payload as any;
-			if (payload.type === "drop") {
-				const paths = payload.paths as string[];
-				await handleAddPaths(paths);
-			}
-		});
-
 		return () => {
 			unlisten.then((fn) => fn());
-			unlistenDrop.then((fn) => fn());
 		};
-	}, [handleAddPaths, setTasks]);
+	}, [setProcessing, setTasks]);
 
 	return (
-		<div ref={containerRef} className="flex flex-col h-full bg-background">
-			<header className="p-6 border-b flex justify-between items-center header-animate">
-				<div>
-					<h2 className="text-2xl font-bold tracking-tight">批量视频转换</h2>
-					<p className="text-muted-foreground text-sm">
-						{isScanning
-							? "正在扫描目录，请稍候..."
-							: "拖拽文件夹或多个视频文件到此处开始。"}
-					</p>
-				</div>
-				<div className="flex gap-2">
-					<Button
-						onClick={handlePickFiles}
-						variant="outline"
-						size="sm"
-						title="添加文件"
-					>
-						{isScanning ? (
-							<Loader2 className="size-4 mr-1 animate-spin" />
-						) : (
-							<Plus data-icon="inline-start" />
-						)}
-						添加文件
-					</Button>
-					<Button
-						onClick={handlePickDir}
-						variant="outline"
-						size="sm"
-						title="添加文件夹"
-					>
-						{isScanning ? (
-							<Loader2 className="size-4 mr-1 animate-spin" />
-						) : (
-							<FolderPlus data-icon="inline-start" />
-						)}
-						添加文件夹
-					</Button>
-					<Button
-						onClick={startBatch}
-						size="sm"
-						title={
-							isAnyProcessing
-								? "正在处理中..."
-								: tasks.length === 0
-									? "请先添加文件"
-									: "开始处理"
-						}
-					>
-						{processing ? (
-							<Loader2 className="size-4 mr-1 animate-spin" />
-						) : (
-							<Play data-icon="inline-start" />
-						)}
-						全部开始
-					</Button>
-					<Button
-						onClick={handleClearTasks}
-						variant="ghost"
-						size="sm"
-						className="text-destructive"
-						title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
-					>
-						<XCircle data-icon="inline-start" /> 清空
-					</Button>
-				</div>
-			</header>
+		<div
+			ref={containerRef}
+			className="relative flex h-full flex-col bg-background"
+		>
+			<DragDropOverlay
+				active={isDragActive}
+				title="松开鼠标导入视频"
+				description="支持拖拽视频文件或文件夹"
+			/>
+			<TaskPageToolbar
+				title="批量视频转换"
+				descriptionIdle="拖拽文件夹或多个视频文件到此处开始。"
+				descriptionScanning="正在扫描目录，请稍候..."
+				pickFilesLabel="添加文件"
+				pickDirLabel="添加文件夹"
+				isScanning={isScanning}
+				isProcessing={processing}
+				isAnyProcessing={isAnyProcessing}
+				hasTasks={tasks.length > 0}
+				onPickFiles={handlePickFiles}
+				onPickDir={handlePickDir}
+				onStartBatch={startBatch}
+				onClearTasks={handleClearTasks}
+			/>
 
 			<main className="flex-1 overflow-hidden flex flex-col p-6 gap-6">
 				<Card className="shrink-0 header-animate">
@@ -356,11 +262,11 @@ function Videos() {
 
 				<div className="flex-1 overflow-y-auto space-y-3 pr-2">
 					{tasks.length === 0 ? (
-						<div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/10 animate-in fade-in duration-500">
-							<FileVideo className="size-16 mb-4 opacity-10" />
-							<p className="text-lg font-medium opacity-50">暂无任务</p>
-							<p className="text-sm opacity-40">点击上方按钮或拖拽文件夹开始</p>
-						</div>
+						<TaskEmptyState
+							icon={FileVideo}
+							title="暂无任务"
+							description="点击上方按钮或拖拽文件夹开始"
+						/>
 					) : (
 						tasks.map((task) => (
 							<div
@@ -476,19 +382,20 @@ function Videos() {
 													{task.path}
 												</p>
 											</div>
-											<div className="flex items-center gap-1.5">
-												<span
-													className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
-												>
-													{TASK_STATUS_LABELS[task.status]}
-												</span>
-
-												{task.status !== "processing" &&
-													task.status !== "converting" && (
+											<TaskItemActions
+												statusBadge={
+													<TaskStatusBadge
+														status={task.status}
+														label={TASK_STATUS_LABELS[task.status]}
+													/>
+												}
+												startAction={
+													task.status !== "processing" &&
+													task.status !== "converting" ? (
 														<Button
 															variant="ghost"
 															size="icon-sm"
-															className="text-primary hover:bg-primary/10 h-8 w-8"
+															className="h-8 w-8 text-primary hover:bg-primary/10"
 															onClick={() => handleStartTask(task)}
 															title={
 																task.status === "failed"
@@ -505,62 +412,48 @@ function Videos() {
 																<Loader2 className="size-4 animate-spin" />
 															)}
 														</Button>
-													)}
-
-												{task.log && (
-													<Dialog>
-														<DialogTrigger asChild>
-															<Button
-																variant="ghost"
-																size="icon-sm"
-																className="text-red-500 hover:bg-red-50 h-8 w-8"
-																title="查看错误日志"
-															>
-																<FileText className="size-4" />
-															</Button>
-														</DialogTrigger>
-														<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-															<DialogHeader>
-																<DialogTitle>
-																	错误日志: {task.fileName}
-																</DialogTitle>
-															</DialogHeader>
-															<div className="mt-4 flex-1 overflow-y-auto bg-muted rounded-md p-4">
-																<pre className="text-xs font-mono whitespace-pre-wrap break-all leading-relaxed text-muted-foreground">
-																	{task.log}
-																</pre>
-															</div>
-														</DialogContent>
-													</Dialog>
-												)}
-
-												{task.status === "completed" && (
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														className="text-primary hover:bg-primary/10 h-8 w-8"
-														onClick={() => handleOpenFolder(task.outputPath)}
-														title="打开所在文件夹"
-													>
-														<FolderOpen className="size-4" />
-													</Button>
-												)}
-												<Button
-													variant="ghost"
-													size="icon-sm"
-													className="text-muted-foreground hover:text-destructive transition-colors h-8 w-8"
-													onClick={() => handleRemoveTask(task.id)}
-													title={
-														isAnyProcessing &&
-														(task.status === "processing" ||
-															task.status === "converting")
-															? "正在转换中，无法删除"
-															: "删除任务"
-													}
-												>
-													<Trash2 className="size-4" />
-												</Button>
-											</div>
+													) : undefined
+												}
+												extraActions={
+													task.log ? (
+														<Dialog>
+															<DialogTrigger asChild>
+																<Button
+																	variant="ghost"
+																	size="icon-sm"
+																	className="h-8 w-8 text-red-500 hover:bg-red-50"
+																	title="查看错误日志"
+																>
+																	<FileText className="size-4" />
+																</Button>
+															</DialogTrigger>
+															<DialogContent className="max-h-[80vh] max-w-2xl flex flex-col">
+																<DialogHeader>
+																	<DialogTitle>
+																		错误日志: {task.fileName}
+																	</DialogTitle>
+																</DialogHeader>
+																<div className="mt-4 flex-1 overflow-y-auto rounded-md bg-muted p-4">
+																	<pre className="whitespace-pre-wrap break-all text-xs leading-relaxed text-muted-foreground">
+																		{task.log}
+																	</pre>
+																</div>
+															</DialogContent>
+														</Dialog>
+													) : undefined
+												}
+												showOpenFolder={task.status === "completed"}
+												onOpenFolder={() => handleOpenFolder(task.outputPath)}
+												onRemove={() => handleRemoveTask(task.id)}
+												removeTitle={
+													isAnyProcessing &&
+													(task.status === "processing" ||
+														task.status === "converting")
+														? "正在转换中，无法删除"
+														: "删除任务"
+												}
+												containerClassName="flex items-center gap-1.5"
+											/>
 										</div>
 										{(task.progress! > 0 || task.status !== "pending") && (
 											<div className="space-y-1 mt-2">

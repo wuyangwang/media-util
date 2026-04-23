@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useCallback, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,24 +14,19 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import {
-	Trash2,
-	Play,
-	Plus,
-	FolderPlus,
-	XCircle,
-	Download,
-	FolderOpen,
-	Loader2,
-	Image as ImageIcon,
-	Minimize2,
-} from "lucide-react";
+import { Play, Download, Image as ImageIcon, Minimize2 } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
 import { useTasks, ImageTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { cn, formatBytes } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { useDragDropPaths } from "@/hooks/useDragDropPaths";
+import { usePickMediaInputs } from "@/hooks/usePickMediaInputs";
+import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
+import { TaskPageToolbar } from "@/components/task-page-toolbar";
+import { TaskEmptyState } from "@/components/task-empty-state";
+import { TaskStatusBadge } from "@/components/task-status-badge";
+import { TaskItemActions } from "@/components/task-item-actions";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -44,6 +39,7 @@ function Images() {
 	const {
 		tasks,
 		setTasks,
+		processing,
 		isAnyProcessing,
 		setProcessing,
 		isScanning,
@@ -69,6 +65,13 @@ function Images() {
 		height: customPreset?.height || 800,
 	});
 	const containerRef = useRef<HTMLDivElement>(null);
+	const { isDragActive } = useDragDropPaths(handleAddPaths);
+	const { handlePickFiles, handlePickDir } = usePickMediaInputs({
+		modeLabel: "图片",
+		extensions: DEFAULT_CONFIG.image_extensions,
+		checkProcessing,
+		handleAddPaths,
+	});
 
 	const isCustom = useMemo(() => {
 		const preset = DEFAULT_CONFIG.size_presets[parseInt(selectedPreset)];
@@ -76,47 +79,7 @@ function Images() {
 	}, [selectedPreset]);
 	const isCompressTab = activeTab === "compress";
 
-	useGSAP(
-		() => {
-			gsap.from(".header-animate > *", {
-				y: -20,
-				opacity: 0,
-				stagger: 0.1,
-				duration: 0.5,
-				ease: "power2.out",
-			});
-		},
-		{ scope: containerRef },
-	);
-
-	useGSAP(
-		() => {
-			if (tasks.length > 0) {
-				gsap.from(".task-item-animate:last-child", {
-					x: 20,
-					opacity: 0,
-					duration: 0.4,
-					ease: "power2.out",
-				});
-			}
-		},
-		{ dependencies: [tasks.length], scope: containerRef },
-	);
-
-	const handlePickFiles = useCallback(async () => {
-		if (checkProcessing()) return;
-		const files = await open({
-			multiple: true,
-			filters: [{ name: "图片", extensions: DEFAULT_CONFIG.image_extensions }],
-		});
-		if (files) await handleAddPaths(Array.isArray(files) ? files : [files]);
-	}, [handleAddPaths, checkProcessing]);
-
-	const handlePickDir = useCallback(async () => {
-		if (checkProcessing()) return;
-		const dir = await open({ directory: true });
-		if (dir) await handleAddPaths([dir as string]);
-	}, [handleAddPaths, checkProcessing]);
+	useTaskPageAnimations(containerRef, tasks.length);
 
 	const handleStartTask = useCallback(
 		async (task: ImageTask) => {
@@ -247,56 +210,30 @@ function Images() {
 	}, []);
 
 	return (
-		<div ref={containerRef} className="flex h-full flex-col bg-background">
-			<header className="header-animate flex items-center justify-between border-b p-6">
-				<div>
-					<h2 className="text-2xl font-bold tracking-tight">批量图片处理</h2>
-					<p className="text-sm text-muted-foreground">
-						{isScanning ? "正在扫描目录..." : "拖拽图片文件开始。"}
-					</p>
-				</div>
-				<div className="flex gap-2">
-					<Button
-						onClick={handlePickFiles}
-						variant="outline"
-						size="sm"
-						title={isAnyProcessing ? "正在处理中，无法添加图片" : "添加图片"}
-					>
-						{isScanning ? (
-							<Loader2 className="mr-1 size-4 animate-spin" />
-						) : (
-							<Plus data-icon="inline-start" />
-						)}
-						添加图片
-					</Button>
-					<Button
-						onClick={handlePickDir}
-						variant="outline"
-						size="sm"
-						title={
-							isAnyProcessing ? "正在处理中，无法添加文件夹" : "添加文件夹"
-						}
-					>
-						{isScanning ? (
-							<Loader2 className="mr-1 size-4 animate-spin" />
-						) : (
-							<FolderPlus data-icon="inline-start" />
-						)}
-						添加文件夹
-					</Button>
-					<Button onClick={startBatch} size="sm">
-						<Play data-icon="inline-start" /> 全部开始
-					</Button>
-					<Button
-						onClick={handleClearTasks}
-						variant="ghost"
-						size="sm"
-						className="text-destructive"
-					>
-						<XCircle data-icon="inline-start" /> 清空
-					</Button>
-				</div>
-			</header>
+		<div
+			ref={containerRef}
+			className="relative flex h-full flex-col bg-background"
+		>
+			<DragDropOverlay
+				active={isDragActive}
+				title="松开鼠标导入图片"
+				description="支持拖拽图片文件或文件夹"
+			/>
+			<TaskPageToolbar
+				title="批量图片处理"
+				descriptionIdle="拖拽图片文件或文件夹开始。"
+				descriptionScanning="正在扫描目录..."
+				pickFilesLabel="添加图片"
+				pickDirLabel="添加文件夹"
+				isScanning={isScanning}
+				isProcessing={processing}
+				isAnyProcessing={isAnyProcessing}
+				hasTasks={tasks.length > 0}
+				onPickFiles={handlePickFiles}
+				onPickDir={handlePickDir}
+				onStartBatch={startBatch}
+				onClearTasks={handleClearTasks}
+			/>
 
 			<main className="flex flex-1 flex-col gap-6 overflow-hidden p-6">
 				<Card className="header-animate shrink-0">
@@ -469,111 +406,103 @@ function Images() {
 				</Card>
 
 				<div className="flex-1 space-y-3 overflow-y-auto pr-2">
-					{tasks.map((task) => (
-						<div
-							key={task.id}
-							className={cn(
-								"task-item-animate flex items-center justify-between rounded-lg border p-4 transition-all",
-								task.status === "processing" || task.status === "converting"
-									? "border-primary/20 bg-primary/5"
-									: "border-border bg-muted/30",
-							)}
-						>
-							<div className="mr-4 min-w-0 flex-1">
-								<h3 className="truncate text-sm font-semibold">
-									{task.fileName}
-								</h3>
-								<div className="mt-1 flex flex-wrap items-center gap-2">
-									{task.info ? (
-										task.info.format !== "unknown" ? (
-											<>
-												<Badge
-													variant="secondary"
-													className="h-4 px-1 text-[10px]"
-													title="格式"
-												>
-													{task.info.format.toUpperCase()}
-												</Badge>
-												<span
-													className="text-[11px] text-muted-foreground"
-													title="分辨率"
-												>
-													{task.info.video?.width} x {task.info.video?.height}
+					{tasks.length === 0 ? (
+						<TaskEmptyState
+							icon={ImageIcon}
+							title="暂无任务"
+							description="点击上方按钮或拖拽图片文件开始"
+						/>
+					) : (
+						tasks.map((task) => (
+							<div
+								key={task.id}
+								className={cn(
+									"task-item-animate flex items-center justify-between rounded-lg border p-4 transition-all",
+									task.status === "processing" || task.status === "converting"
+										? "border-primary/20 bg-primary/5"
+										: "border-border bg-muted/30",
+								)}
+							>
+								<div className="mr-4 min-w-0 flex-1">
+									<h3 className="truncate text-sm font-semibold">
+										{task.fileName}
+									</h3>
+									<div className="mt-1 flex flex-wrap items-center gap-2">
+										{task.info ? (
+											task.info.format !== "unknown" ? (
+												<>
+													<Badge
+														variant="secondary"
+														className="h-4 px-1 text-[10px]"
+														title="格式"
+													>
+														{task.info.format.toUpperCase()}
+													</Badge>
+													<span
+														className="text-[11px] text-muted-foreground"
+														title="分辨率"
+													>
+														{task.info.video?.width} x {task.info.video?.height}
+													</span>
+													<span className="text-[11px] text-muted-foreground/60">
+														•
+													</span>
+													<span
+														className="text-[11px] text-muted-foreground"
+														title="文件大小"
+													>
+														{formatBytes(task.info.size)}
+													</span>
+												</>
+											) : (
+												<span className="text-[11px] text-muted-foreground">
+													未知格式
 												</span>
-												<span className="text-[11px] text-muted-foreground/60">
-													•
-												</span>
-												<span
-													className="text-[11px] text-muted-foreground"
-													title="文件大小"
-												>
-													{formatBytes(task.info.size)}
-												</span>
-											</>
+											)
 										) : (
-											<span className="text-[11px] text-muted-foreground">
-												未知格式
+											<span className="animate-pulse text-[11px] text-muted-foreground">
+												正在读取信息...
 											</span>
-										)
-									) : (
-										<span className="animate-pulse text-[11px] text-muted-foreground">
-											正在读取信息...
-										</span>
-									)}
+										)}
+									</div>
+									<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
+										{task.path}
+									</p>
 								</div>
-								<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
-									{task.path}
-								</p>
+
+								<TaskItemActions
+									statusBadge={
+										<TaskStatusBadge
+											status={task.status}
+											label={TASK_STATUS_LABELS[task.status]}
+										/>
+									}
+									startAction={
+										task.status !== "processing" ? (
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												className="h-8 w-8 text-primary hover:bg-primary/10"
+												onClick={() => handleStartTask(task)}
+												title={
+													task.status === "failed"
+														? "重新处理"
+														: task.status === "completed"
+															? "再次处理"
+															: "开始处理"
+												}
+											>
+												<Play className="size-4" />
+											</Button>
+										) : undefined
+									}
+									showOpenFolder={task.status === "completed"}
+									onOpenFolder={() => handleOpenFolder(task.output)}
+									onRemove={() => handleRemoveTask(task.id)}
+								/>
 							</div>
-
-							<div className="ml-4 flex shrink-0 items-center gap-1.5">
-								<span
-									className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${task.status === "completed" ? "bg-green-100 text-green-700" : task.status === "failed" ? "bg-red-100 text-red-700" : task.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-primary/10 text-primary animate-pulse"}`}
-								>
-									{TASK_STATUS_LABELS[task.status]}
-								</span>
-
-								{task.status !== "processing" && (
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										className="h-8 w-8 text-primary hover:bg-primary/10"
-										onClick={() => handleStartTask(task)}
-										title={
-											task.status === "failed"
-												? "重新处理"
-												: task.status === "completed"
-													? "再次处理"
-													: "开始处理"
-										}
-									>
-										<Play className="size-4" />
-									</Button>
-								)}
-
-								{task.status === "completed" && (
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										className="h-8 w-8 text-primary hover:bg-primary/10"
-										onClick={() => handleOpenFolder(task.output)}
-										title="打开所在文件夹"
-									>
-										<FolderOpen className="size-4" />
-									</Button>
-								)}
-								<Button
-									variant="ghost"
-									size="icon-sm"
-									className="h-8 w-8 text-muted-foreground transition-colors hover:text-destructive"
-									onClick={() => handleRemoveTask(task.id)}
-									title="删除任务"
-								>
-									<Trash2 className="size-4" />
-								</Button>
-							</div>
-						</div>
-					))}
+						))
+					)}
 				</div>
 			</main>
 		</div>

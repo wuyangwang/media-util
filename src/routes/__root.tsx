@@ -207,7 +207,7 @@ function RootComponent() {
 				<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
 						<Film className="size-3.5" />
-						<span className="font-medium">Media Utility Desktop Workspace</span>
+						<span className="font-medium">媒体工具桌面工作区</span>
 					</div>
 					<div className="text-[11px] text-muted-foreground">
 						拖拽文件到窗口可快速添加任务
