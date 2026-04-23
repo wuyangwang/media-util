@@ -1,15 +1,13 @@
-use log::{error, info};
-use crate::config::{AppConfig, Preset, IMAGE_EXTENSIONS, IMAGE_SIZE_PRESETS, VIDEO_EXTENSIONS};
-use base64::{engine::general_purpose, Engine as _};
-use chrono;
-use image::GenericImageView;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_shell::{process::CommandEvent, ShellExt};
+#[path = "media/image.rs"]
+mod image;
+#[path = "media/shared.rs"]
+mod shared;
+#[path = "media/video.rs"]
+mod video;
+
+pub use crate::config::AppConfig;
+pub use shared::MediaInfo;
+pub use video::AppQueue;
 
 #[tauri::command]
 pub fn get_formatted_output_path(
@@ -17,273 +15,55 @@ pub fn get_formatted_output_path(
     operation: String,
     extension: Option<String>,
 ) -> Result<String, String> {
-    let path = Path::new(&input_path);
-    let parent = path.parent().ok_or("Invalid input path")?;
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or("Invalid filename")?;
-
-    let input_ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_string();
-
-    let ext = match extension.as_deref() {
-        Some("original") | None => input_ext,
-        Some(e) => e.to_string(),
-    };
-
-    let now = chrono::Utc::now();
-    let timestamp = now.timestamp_millis().to_string();
-
-    let output_dir = parent.join("media-convert");
-    if !output_dir.exists() {
-        std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
-    }
-
-    let new_filename = format!("{}_{}_{}.{}", stem, operation, timestamp, ext);
-    let output_path = output_dir.join(new_filename);
-
-    Ok(output_path
-        .to_str()
-        .ok_or("Invalid output path")?
-        .to_string())
+    shared::get_formatted_output_path(input_path, operation, extension)
 }
 
-#[derive(Clone, Serialize)]
-struct ProgressPayload {
+#[tauri::command]
+pub async fn get_media_info(app: tauri::AppHandle, path: String) -> Result<MediaInfo, String> {
+    shared::get_media_info(app, path).await
+}
+
+#[tauri::command]
+pub async fn open_devtools(app: tauri::AppHandle) -> Result<(), String> {
+    shared::open_devtools(app).await
+}
+
+#[tauri::command]
+pub fn get_app_config() -> Result<AppConfig, String> {
+    shared::get_app_config()
+}
+
+#[tauri::command]
+pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
+    shared::scan_directory(path, mode).await
+}
+
+#[tauri::command]
+pub async fn get_video_thumbnail(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    video::get_video_thumbnail(app, path).await
+}
+
+#[tauri::command]
+pub async fn convert_video(
+    app: tauri::AppHandle,
     id: String,
-    progress: f64,
-    status: String,
-    output_info: Option<MediaInfo>, // 任务完成后返回新文件信息
-    log: Option<String>,            // 用于存储错误详情或日志
-}
-
-use serde_json::Value;
-
-#[derive(Serialize, Clone, Debug)]
-pub struct MediaInfo {
-    pub format: String,
-    pub size: u64,
-    pub duration: f64,
-    pub video: Option<VideoInfo>,
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub struct VideoInfo {
-    pub width: i32,
-    pub height: i32,
-    pub codec: String,
-    pub fps: String,
-    pub bitrate: Option<String>,
-}
-
-#[tauri::command]
-pub async fn open_devtools(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        window.open_devtools();
-        Ok(())
-    } else {
-        Err("Main window not found".to_string())
-    }
-}
-
-#[tauri::command]
-pub async fn get_media_info(app: AppHandle, path: String) -> Result<MediaInfo, String> {
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
-    let size = metadata.len();
-
-    let ext = Path::new(&path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
-    if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-        if let Ok(img) = image::image_dimensions(&path) {
-            return Ok(MediaInfo {
-                format: ext,
-                size,
-                duration: 0.0,
-                video: Some(VideoInfo {
-                    width: img.0 as i32,
-                    height: img.1 as i32,
-                    codec: "image".to_string(),
-                    fps: "0".to_string(),
-                    bitrate: None,
-                }),
-            });
-        }
-        // If image crate fails (e.g. HEIC), fall through to ffprobe
-    }
-
-    let shell = app.shell();
-    let output_result = shell
-        .sidecar("ffprobe")
-        .map_err(|e| e.to_string())?
-        .args([
-            "-v",
-            "error",
-            "-show_format",
-            "-show_streams",
-            "-of",
-            "json",
-            &path,
-        ])
-        .output()
-        .await;
-
-    let mut duration = 0.0;
-    let mut video = None;
-
-    if let Ok(output) = output_result {
-        if let Ok(json) = serde_json::from_slice::<Value>(&output.stdout) {
-            duration = json["format"]["duration"]
-                .as_str()
-                .unwrap_or("0")
-                .parse::<f64>()
-                .unwrap_or(0.0);
-
-            let video_stream = json["streams"]
-                .as_array()
-                .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
-
-            video = video_stream.map(|s| {
-                let fps_raw = s["avg_frame_rate"].as_str().unwrap_or("0");
-                let fps = if fps_raw.contains('/') {
-                    let parts: Vec<&str> = fps_raw.split('/').collect();
-                    if parts.len() == 2 {
-                        let num: f64 = parts[0].parse().unwrap_or(0.0);
-                        let den: f64 = parts[1].parse().unwrap_or(1.0);
-                        if den > 0.0 {
-                            (num / den).to_string()
-                        } else {
-                            num.to_string()
-                        }
-                    } else {
-                        fps_raw.to_string()
-                    }
-                } else {
-                    fps_raw.to_string()
-                };
-
-                VideoInfo {
-                    width: s["width"].as_i64().unwrap_or(0) as i32,
-                    height: s["height"].as_i64().unwrap_or(0) as i32,
-                    codec: s["codec_name"].as_str().unwrap_or("unknown").to_string(),
-                    fps,
-                    bitrate: s["bit_rate"].as_str().map(|s| s.to_string()),
-                }
-            });
-        }
-    }
-
-    Ok(MediaInfo {
-        format: ext,
-        size,
-        duration,
-        video,
-    })
-}
-
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use tauri::path::BaseDirectory;
-
-#[tauri::command]
-pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String, String> {
-    // 1. 获取缓存目录
-    let cache_dir = app
-        .path()
-        .resolve("thumbnails", BaseDirectory::AppCache)
-        .map_err(|e| e.to_string())?;
-
-    if !cache_dir.exists() {
-        std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
-    }
-
-    // 2. 生成基于路径和修改时间的唯一文件名
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
-    let modified = metadata.modified().map_err(|e| e.to_string())?;
-
-    let mut hasher = DefaultHasher::new();
-    path.hash(&mut hasher);
-    modified.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    let thumb_path = cache_dir.join(format!("{:x}.jpg", hash));
-    let thumb_path_str = thumb_path.to_str().ok_or("Invalid thumb path")?.to_string();
-
-    // 3. 如果缓存已存在，直接返回路径
-    if thumb_path.exists() {
-        return Ok(thumb_path_str);
-    }
-
-    // 4. 调用 ffmpeg 生成缩略图到文件
-    let output = app
-        .shell()
-        .sidecar("ffmpeg")
-        .map_err(|e| e.to_string())?
-        .args([
-            "-ss",
-            "00:00:01",
-            "-i",
-            &path,
-            "-vframes",
-            "1",
-            "-f",
-            "image2",
-            "-s",
-            "320x180",
-            "-y", // 覆盖现有文件
-            &thumb_path_str,
-        ])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if output.status.success() {
-        Ok(thumb_path_str)
-    } else {
-        Err("Failed to extract thumbnail to disk".to_string())
-    }
-}
-
-use std::sync::Arc;
-use tokio::sync::{RwLock, Semaphore};
-
-pub struct AppQueue {
-    pub semaphore: Arc<RwLock<Semaphore>>,
-}
-
-impl AppQueue {
-    pub fn new(max_concurrent: usize) -> Self {
-        Self {
-            semaphore: Arc::new(RwLock::new(Semaphore::new(max_concurrent))),
-        }
-    }
-
-    pub async fn update_limit(&self, new_limit: usize) {
-        *self.semaphore.write().await = Semaphore::new(new_limit);
-    }
+    input_path: String,
+    output_path: String,
+    preset: crate::config::Preset,
+) -> Result<(), String> {
+    video::convert_video(app, id, input_path, output_path, preset).await
 }
 
 #[tauri::command]
 pub async fn convert_video_queued(
-    app: AppHandle,
+    app: tauri::AppHandle,
     queue: tauri::State<'_, AppQueue>,
     id: String,
     input_path: String,
     output_path: String,
-    preset: Preset,
+    preset: crate::config::Preset,
 ) -> Result<(), String> {
-    let semaphore = queue.semaphore.read().await;
-    let permit = semaphore.acquire().await.map_err(|e| e.to_string())?;
-    let result = convert_video(app, id, input_path, output_path, preset).await;
-    drop(permit);
-    result
+    video::convert_video_queued(app, queue, id, input_path, output_path, preset).await
 }
 
 #[tauri::command]
@@ -291,435 +71,99 @@ pub async fn update_concurrency(
     queue: tauri::State<'_, AppQueue>,
     limit: usize,
 ) -> Result<(), String> {
-    queue.update_limit(limit).await;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn convert_video(
-    app: AppHandle,
-    id: String,
-    input_path: String,
-    output_path: String,
-    preset: Preset,
-) -> Result<(), String> {
-    let media_info = get_media_info(app.clone(), input_path.clone()).await?;
-    let total_duration = media_info.duration;
-
-    let params = preset.get_params();
-    let mut args = vec!["-i".to_string(), input_path.clone()];
-
-    // 线程控制：使用所有可用核心，保留 1 个核心给 UI
-    let threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-    let worker_threads = if threads > 1 { threads - 1 } else { 1 };
-    args.push("-threads".to_string());
-    args.push(worker_threads.to_string());
-
-    if params.vcodec == "none" {
-        args.push("-vn".to_string());
-    } else {
-        if let (Some(w), Some(h)) = (params.width, params.height) {
-            args.push("-vf".to_string());
-            args.push(format!("scale={}:{},fps=30", w, h));
-        }
-        args.push("-c:v".to_string());
-        args.push(params.vcodec.to_string());
-        if params.crf > 0 {
-            args.push("-crf".to_string());
-            args.push(params.crf.to_string());
-        }
-    }
-
-    args.push("-c:a".to_string());
-    args.push(params.acodec.to_string());
-
-    for extra in params.extra_args {
-        args.push(extra.to_string());
-    }
-
-    args.push("-y".to_string());
-    args.push(output_path.clone());
-
-    let shell = app.shell();
-    let output = shell
-        .sidecar("ffmpeg")
-        .map_err(|e| e.to_string())?
-        .args(args)
-        .spawn()
-        .map_err(|e| e.to_string())?;
-
-    let (mut rx, _child) = output;
-    let re = Regex::new(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})").unwrap();
-    let output_path_clone = output_path.clone();
-    let mut accumulated_log = String::new();
-
-    while let Some(event) = rx.recv().await {
-        match event {
-            CommandEvent::Stderr(line) => {
-                let line_str = String::from_utf8_lossy(&line).to_string();
-                accumulated_log.push_str(&line_str);
-
-                if let Some(caps) = re.captures(&line_str) {
-                    let h: f64 = caps.get(1).unwrap().as_str().parse().unwrap_or(0.0);
-                    let m: f64 = caps.get(2).unwrap().as_str().parse().unwrap_or(0.0);
-                    let s: f64 = caps.get(3).unwrap().as_str().parse().unwrap_or(0.0);
-                    let ms: f64 = caps.get(4).unwrap().as_str().parse().unwrap_or(0.0);
-
-                    let current_seconds = h * 3600.0 + m * 60.0 + s + ms / 100.0;
-                    let progress = if total_duration > 0.0 {
-                        (current_seconds / total_duration * 100.0).min(99.9)
-                    } else {
-                        0.0
-                    };
-
-                    app.emit(
-                        "conversion-progress",
-                        ProgressPayload {
-                            id: id.clone(),
-                            progress,
-                            status: format!("正在处理... ({:.1}%)", progress),
-                            output_info: None,
-                            log: None,
-                        },
-                    )
-                    .unwrap();
-                }
-            }
-            CommandEvent::Terminated(payload) => {
-                let (status, progress) = if payload.code == Some(0) {
-                    info!("Video conversion completed successfully [ID: {}]", id);
-                    ("Completed", 100.0)
-                } else {
-                    error!(
-                        "Video conversion failed [ID: {}]. Output path: {}",
-                        id, output_path_clone
-                    );
-                    ("Failed", 0.0)
-                };
-
-                let mut output_info = None;
-                if status == "Completed" {
-                    if let Ok(info) = get_media_info(app.clone(), output_path_clone.clone()).await {
-                        output_info = Some(info);
-                    }
-                }
-
-                app.emit(
-                    "conversion-progress",
-                    ProgressPayload {
-                        id: id.clone(),
-                        progress,
-                        status: status.to_string(),
-                        output_info,
-                        log: if status == "Failed" {
-                            Some(accumulated_log)
-                        } else {
-                            None
-                        },
-                    },
-                )
-                .unwrap();
-                break;
-            }
-            _ => {}
-        }
-    }
-
-    Ok(())
-}
-
-async fn load_image(app: &AppHandle, path: &str) -> Result<image::DynamicImage, String> {
-    // Try image crate first
-    if let Ok(img) = image::open(path) {
-        return Ok(img);
-    }
-
-    // Fallback to ffmpeg for HEIC/HEIF or other formats image crate doesn't support
-    let output = app
-        .shell()
-        .sidecar("ffmpeg")
-        .map_err(|e| e.to_string())?
-        .args(["-i", path, "-f", "image2pipe", "-vcodec", "png", "pipe:1"])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if output.status.success() {
-        image::load_from_memory(&output.stdout).map_err(|e| e.to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Failed to load image via FFmpeg: {}", stderr))
-    }
-}
-
-fn save_image_with_quality(
-    img: &image::DynamicImage,
-    output_path: &str,
-    quality: u8,
-) -> Result<(), String> {
-    let path = Path::new(output_path);
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
-    let file = File::create(path).map_err(|e| e.to_string())?;
-    let mut writer = std::io::BufWriter::new(file);
-
-    match ext.as_str() {
-        "jpg" | "jpeg" => {
-            let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, quality);
-            img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
-        }
-        "webp" => {
-            // image-webp crate (used by image) doesn't easily expose quality through write_to
-            // For now we use the default which is lossless in many cases or default lossy
-            img.write_to(&mut writer, image::ImageFormat::WebP)
-                .map_err(|e| e.to_string())?;
-        }
-        "png" => {
-            // PNG compression: Best compression level
-            // Note: PNG is lossless, "quality" here doesn't apply the same as JPEG
-            // But we use the best compression level to minimize size
-            let encoder = image::codecs::png::PngEncoder::new_with_quality(
-                &mut writer,
-                image::codecs::png::CompressionType::Best,
-                image::codecs::png::FilterType::Adaptive,
-            );
-            img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
-        }
-        _ => {
-            img.save(output_path).map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
+    video::update_concurrency(queue, limit).await
 }
 
 #[tauri::command]
 pub async fn convert_image(
-    app: AppHandle,
+    app: tauri::AppHandle,
     input_path: String,
     output_path: String,
     quality: u8,
 ) -> Result<(), String> {
-    let img = load_image(&app, &input_path).await?;
-    save_image_with_quality(&img, &output_path, quality)?;
-    Ok(())
+    image::convert_image(app, input_path, output_path, quality).await
 }
 
-// 图像处理参数
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImageProcessParams {
-    pub mode: String, // "fixed", "ratio", "custom"
-    pub width: u32,
-    pub height: u32,
-    pub preset_index: Option<usize>, // 预设尺寸索引
-    pub quality: u8,
+#[tauri::command]
+pub async fn process_image_pipeline(
+    app: tauri::AppHandle,
+    input_path: String,
+    output_path: String,
+    preset_index: usize,
+    use_custom_size: bool,
+    target_width: u32,
+    target_height: u32,
+    compress_enabled: bool,
+    quality: u8,
+    png_lossy: bool,
+) -> Result<(), String> {
+    image::process_image_pipeline(
+        app,
+        input_path,
+        output_path,
+        preset_index,
+        use_custom_size,
+        target_width,
+        target_height,
+        compress_enabled,
+        quality,
+        png_lossy,
+    )
+    .await
 }
 
-// 固定尺寸裁剪
 #[tauri::command]
 pub async fn crop_image_fixed(
-    app: AppHandle,
+    app: tauri::AppHandle,
     input_path: String,
     output_path: String,
     preset_index: usize,
     quality: u8,
 ) -> Result<(), String> {
-    if preset_index >= IMAGE_SIZE_PRESETS.len() {
-        return Err("Invalid preset index".to_string());
-    }
-
-    let preset = &IMAGE_SIZE_PRESETS[preset_index];
-    let target_width = preset.width;
-    let target_height = preset.height;
-
-    let img = load_image(&app, &input_path).await?;
-
-    if target_width == 0 || target_height == 0 {
-        // Original size
-        save_image_with_quality(&img, &output_path, quality)?;
-        return Ok(());
-    }
-
-    let (img_width, img_height) = img.dimensions();
-
-    // 计算缩放比例，使图片至少达到目标尺寸
-    let scale_w = target_width as f64 / img_width as f64;
-    let scale_h = target_height as f64 / img_height as f64;
-    let scale = scale_w.max(scale_h);
-
-    // 缩放图片
-    let new_width = (img_width as f64 * scale).round() as u32;
-    let new_height = (img_height as f64 * scale).round() as u32;
-    let resized = img.resize(new_width, new_height, image::imageops::FilterType::Lanczos3);
-
-    // 居中裁剪
-    let x = (new_width - target_width) / 2;
-    let y = (new_height - target_height) / 2;
-    let cropped = resized.crop_imm(x, y, target_width, target_height);
-
-    save_image_with_quality(&cropped, &output_path, quality)?;
-    Ok(())
+    image::crop_image_fixed(app, input_path, output_path, preset_index, quality).await
 }
 
-// 按比例裁剪（居中）
 #[tauri::command]
 pub async fn crop_image_ratio(
-    app: AppHandle,
+    app: tauri::AppHandle,
     input_path: String,
     output_path: String,
     target_width: u32,
     target_height: u32,
     quality: u8,
 ) -> Result<(), String> {
-    if target_width == 0 || target_height == 0 {
-        return Err("Invalid target dimensions".to_string());
-    }
-
-    let target_ratio = target_width as f64 / target_height as f64;
-
-    let img = load_image(&app, &input_path).await?;
-    let (img_width, img_height) = img.dimensions();
-    let img_ratio = img_width as f64 / img_height as f64;
-
-    // 计算裁剪区域
-    let (crop_width, crop_height) = if img_ratio > target_ratio {
-        // 图片更宽，按高度裁剪
-        let w = (img_height as f64 * target_ratio).round() as u32;
-        (w, img_height)
-    } else {
-        // 图片更高，按宽度裁剪
-        let h = (img_width as f64 / target_ratio).round() as u32;
-        (img_width, h)
-    };
-
-    // 居中裁剪
-    let x = (img_width - crop_width) / 2;
-    let y = (img_height - crop_height) / 2;
-    let cropped = img.crop_imm(x, y, crop_width, crop_height);
-
-    // 缩放到目标尺寸
-    let resized = cropped.resize(
+    image::crop_image_ratio(
+        app,
+        input_path,
+        output_path,
         target_width,
         target_height,
-        image::imageops::FilterType::Lanczos3,
-    );
-    save_image_with_quality(&resized, &output_path, quality)?;
-    Ok(())
+        quality,
+    )
+    .await
 }
 
-// 自定义尺寸裁剪
 #[tauri::command]
 pub async fn crop_image_custom(
-    app: AppHandle,
+    app: tauri::AppHandle,
     input_path: String,
     output_path: String,
     target_width: u32,
     target_height: u32,
     quality: u8,
 ) -> Result<(), String> {
-    let img = load_image(&app, &input_path).await?;
-
-    if target_width == 0 || target_height == 0 {
-        save_image_with_quality(&img, &output_path, quality)?;
-        return Ok(());
-    }
-
-    let (img_width, img_height) = img.dimensions();
-
-    // 计算缩放比例
-    let scale_w = target_width as f64 / img_width as f64;
-    let scale_h = target_height as f64 / img_height as f64;
-    let scale = scale_w.max(scale_h);
-
-    // 缩放图片
-    let new_width = (img_width as f64 * scale).round() as u32;
-    let new_height = (img_height as f64 * scale).round() as u32;
-    let resized = img.resize(new_width, new_height, image::imageops::FilterType::Lanczos3);
-
-    // 居中裁剪
-    let x = (new_width - target_width) / 2;
-    let y = (new_height - target_height) / 2;
-    let cropped = resized.crop_imm(x, y, target_width, target_height);
-
-    save_image_with_quality(&cropped, &output_path, quality)?;
-    Ok(())
+    image::crop_image_custom(
+        app,
+        input_path,
+        output_path,
+        target_width,
+        target_height,
+        quality,
+    )
+    .await
 }
 
-// 批量打包为 ZIP
 #[tauri::command]
 pub fn batch_to_zip(file_paths: Vec<String>, output_zip_path: String) -> Result<(), String> {
-    if file_paths.is_empty() {
-        return Err("No files to zip".to_string());
-    }
-
-    let zip_file = File::create(&output_zip_path).map_err(|e| e.to_string())?;
-    let mut zip = zip::ZipWriter::new(zip_file);
-
-    let options = zip::write::FileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o755);
-
-    for file_path in file_paths {
-        let path = Path::new(&file_path);
-        let file_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| format!("Invalid file name: {}", file_path))?;
-
-        zip.start_file(file_name, options)
-            .map_err(|e| format!("Failed to add file to zip: {}", e))?;
-
-        let file_content = std::fs::read(&file_path)
-            .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
-
-        zip.write_all(&file_content)
-            .map_err(|e| format!("Failed to write file to zip: {}", e))?;
-    }
-
-    zip.finish()
-        .map_err(|e| format!("Failed to finish zip file: {}", e))?;
-
-    Ok(())
-}
-
-// 获取应用配置
-#[tauri::command]
-pub fn get_app_config() -> Result<AppConfig, String> {
-    Ok(AppConfig::get_config())
-}
-
-#[tauri::command]
-pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
-    let mut files = Vec::new();
-    let mut stack = vec![std::path::PathBuf::from(path)];
-
-    let target_exts = if mode == "video" {
-        VIDEO_EXTENSIONS
-    } else {
-        IMAGE_EXTENSIONS
-    };
-
-    while let Some(current_path) = stack.pop() {
-        if current_path.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(current_path) {
-                for entry in entries.flatten() {
-                    stack.push(entry.path());
-                }
-            }
-        } else if current_path.is_file() {
-            if let Some(ext) = current_path.extension().and_then(|e| e.to_str()) {
-                if target_exts.contains(&ext.to_lowercase().as_str()) {
-                    if let Some(path_str) = current_path.to_str() {
-                        files.push(path_str.to_string());
-                    }
-                }
-            }
-        }
-    }
-    Ok(files)
+    shared::batch_to_zip(file_paths, output_zip_path)
 }

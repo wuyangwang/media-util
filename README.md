@@ -39,6 +39,19 @@ pnpm build
 pnpm pack:win
 ```
 
+## 开发校验与格式化
+代码变更后，建议按以下顺序执行：
+
+```bash
+# 格式化
+pnpm format
+cargo fmt --manifest-path src-tauri/Cargo.toml
+
+# 验证
+cargo check --manifest-path src-tauri/Cargo.toml
+pnpm build
+```
+
 `pack:win` 当前会生成安装包（而非仅可直接运行的裸 exe）：
 - `NSIS`: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe`
 - `MSI`: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi`

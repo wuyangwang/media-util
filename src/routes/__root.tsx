@@ -121,39 +121,41 @@ function RootComponent() {
 	});
 
 	return (
-		<div className="flex h-screen w-full bg-background font-sans antialiased overflow-hidden">
+		<div className="flex h-screen w-full overflow-hidden bg-background font-sans antialiased">
 			{/* Sidebar */}
 			<aside
 				ref={sidebarRef}
 				className={cn(
-					"border-r flex flex-col bg-muted/30 transition-all duration-300",
+					"window-surface m-2 mr-0 flex flex-col transition-all duration-200",
 					isSidebarCollapsed ? "w-14" : "w-56",
 				)}
 			>
 				<div
 					className={cn(
-						"border-b flex items-center gap-2 h-16",
-						isSidebarCollapsed ? "justify-center" : "px-6 justify-between",
+						"window-toolbar flex h-12 items-center gap-2",
+						isSidebarCollapsed ? "justify-center" : "justify-between px-3",
 					)}
 				>
 					{!isSidebarCollapsed && (
 						<div className="flex items-center gap-2">
-							<Film className="size-6 text-primary" />
-							<h1 className="text-xl font-bold tracking-tight">媒体工具</h1>
+							<Film className="size-4 text-primary" />
+							<h1 className="text-sm font-semibold tracking-normal">
+								媒体工具
+							</h1>
 						</div>
 					)}
 					<button
 						onClick={toggleSidebar}
-						className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+						className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					>
 						{isSidebarCollapsed ? (
-							<PanelLeftOpen size={20} />
+							<PanelLeftOpen size={16} />
 						) : (
-							<PanelLeftClose size={20} />
+							<PanelLeftClose size={16} />
 						)}
 					</button>
 				</div>
-				<nav className="flex-1 p-3 space-y-2">
+				<nav className="flex-1 space-y-1 p-2">
 					<SidebarLink
 						to="/overview"
 						label="概览"
@@ -180,18 +182,29 @@ function RootComponent() {
 					/>
 				</nav>
 				{!isSidebarCollapsed && (
-					<div className="p-4 border-t text-[10px] uppercase tracking-wider text-muted-foreground/50 text-center font-medium">
+					<div className="window-toolbar p-2 text-center text-[10px] font-medium tracking-wide text-muted-foreground">
 						v{import.meta.env.APP_VERSION}
 					</div>
 				)}
 			</aside>
 
 			{/* Main Content */}
-			<main ref={contentRef} className="flex-1 overflow-y-auto relative">
-				<Outlet />
+			<main ref={contentRef} className="m-2 ml-2 flex min-w-0 flex-1 flex-col">
+				<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						<Film className="size-3.5" />
+						<span className="font-medium">Media Utility Desktop Workspace</span>
+					</div>
+					<div className="text-[11px] text-muted-foreground">
+						拖拽文件到窗口可快速添加任务
+					</div>
+				</header>
+				<section className="window-surface mt-2 min-h-0 flex-1 overflow-y-auto">
+					<Outlet />
+				</section>
 			</main>
 
-			<Toaster position="bottom-right" duration={2000} />
+			<Toaster position="bottom-right" duration={2200} />
 		</div>
 	);
 }
@@ -211,21 +224,21 @@ function SidebarLink({
 		<Link
 			to={to}
 			className={cn(
-				"flex items-center rounded-md transition-all duration-200 hover:bg-muted group",
-				isCollapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+				"group flex items-center rounded-sm transition-colors duration-150 hover:bg-muted",
+				isCollapsed ? "mx-auto h-9 w-9 justify-center" : "gap-2 px-2 py-1.5",
 			)}
 			activeProps={{
-				className: "bg-primary/10 text-primary hover:bg-primary/15",
+				className: "bg-accent text-foreground ring-1 ring-border",
 			}}
 			title={isCollapsed ? label : undefined}
 		>
 			<Icon
 				className={cn(
-					"transition-transform duration-200 group-hover:scale-110",
-					isCollapsed ? "size-6" : "size-5",
+					"transition-transform duration-150 group-hover:scale-105",
+					isCollapsed ? "size-5" : "size-4",
 				)}
 			/>
-			{!isCollapsed && <span className="font-medium">{label}</span>}
+			{!isCollapsed && <span className="text-sm font-medium">{label}</span>}
 		</Link>
 	);
 }
