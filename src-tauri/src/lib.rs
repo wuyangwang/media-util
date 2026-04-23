@@ -44,6 +44,7 @@ pub fn run() {
             media::process_image_pipeline,
             media::batch_to_zip,
             media::get_app_config,
+            media::get_system_info,
             media::get_formatted_output_path
         ])
         .setup(|app| {

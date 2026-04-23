@@ -31,7 +31,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useAppSettings } from "@/lib/store";
-import { type, version, arch, hostname } from "@tauri-apps/plugin-os";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
@@ -50,55 +50,76 @@ function Settings() {
 	const [mounted, setMounted] = useState(false);
 	const [sysInfo, setSysInfo] = useState({
 		osType: "加载中...",
-		osVersion: "",
-		arch: "",
-		host: "",
+		osVersion: "加载中...",
+		arch: "加载中...",
+		host: "加载中...",
+		totalMemoryBytes: 0,
+		availableMemoryBytes: 0,
+		cpuModel: "加载中...",
+		cpuCores: 0,
+		gpuModel: "加载中...",
 	});
 
 	useEffect(() => {
 		setMounted(true);
 		const fetchSysInfo = async () => {
-			const [osTypeRes, osVersionRes, cpuArchRes, hostNameRes] =
-				await Promise.allSettled([type(), version(), arch(), hostname()]);
-			if (
-				osTypeRes.status === "rejected" ||
-				osVersionRes.status === "rejected" ||
-				cpuArchRes.status === "rejected" ||
-				hostNameRes.status === "rejected"
-			) {
-				console.error("Failed to fetch part of system info:", {
-					osType: osTypeRes.status === "rejected" ? osTypeRes.reason : null,
-					osVersion:
-						osVersionRes.status === "rejected" ? osVersionRes.reason : null,
-					arch: cpuArchRes.status === "rejected" ? cpuArchRes.reason : null,
-					host: hostNameRes.status === "rejected" ? hostNameRes.reason : null,
+			try {
+				const result = await invoke<{
+					os_type: string;
+					os_version: string;
+					arch: string;
+					host: string;
+					total_memory_bytes: number;
+					available_memory_bytes: number;
+					cpu_model: string;
+					cpu_cores: number;
+					gpu_model: string;
+				}>("get_system_info");
+
+				setSysInfo({
+					osType: result.os_type || "Unknown OS",
+					osVersion: result.os_version || "Unknown",
+					arch: result.arch || "unknown",
+					host: result.host || "Unknown",
+					totalMemoryBytes: result.total_memory_bytes || 0,
+					availableMemoryBytes: result.available_memory_bytes || 0,
+					cpuModel: result.cpu_model || "Unknown",
+					cpuCores: result.cpu_cores || 0,
+					gpuModel: result.gpu_model || "Unknown",
+				});
+			} catch (error) {
+				console.error("Failed to fetch system info:", error);
+				setSysInfo({
+					osType: "Unknown OS",
+					osVersion: "Unknown",
+					arch: "unknown",
+					host: "Unknown",
+					totalMemoryBytes: 0,
+					availableMemoryBytes: 0,
+					cpuModel: "Unknown",
+					cpuCores: 0,
+					gpuModel: "Unknown",
 				});
 			}
-			const osType =
-				osTypeRes.status === "fulfilled" && osTypeRes.value
-					? osTypeRes.value.charAt(0).toUpperCase() + osTypeRes.value.slice(1)
-					: "Unknown OS";
-			const osVersion =
-				osVersionRes.status === "fulfilled" && osVersionRes.value
-					? osVersionRes.value
-					: "Unknown";
-			const cpuArch =
-				cpuArchRes.status === "fulfilled" && cpuArchRes.value
-					? cpuArchRes.value
-					: "unknown";
-			const hostName =
-				hostNameRes.status === "fulfilled" && hostNameRes.value
-					? hostNameRes.value
-					: "Unknown";
-
-			setSysInfo({
-				osType,
-				osVersion,
-				arch: cpuArch,
-				host: hostName,
-			});
 		};
 		fetchSysInfo();
+	}, []);
+
+	const formatBytes = useCallback((bytes: number) => {
+		if (!bytes) {
+			return "Unknown";
+		}
+
+		const units = ["B", "KB", "MB", "GB", "TB"];
+		let value = bytes;
+		let index = 0;
+
+		while (value >= 1024 && index < units.length - 1) {
+			value /= 1024;
+			index += 1;
+		}
+
+		return `${value.toFixed(index >= 3 ? 1 : 0)} ${units[index]}`;
 	}, []);
 
 	const handleThemeChange = useCallback(
@@ -113,6 +134,11 @@ function Settings() {
 			`操作系统: ${sysInfo.osType} ${sysInfo.osVersion}`.trim(),
 			`主机名称: ${sysInfo.host}`,
 			`架构类型: ${sysInfo.arch.toUpperCase()}`,
+			`内存总量: ${formatBytes(sysInfo.totalMemoryBytes)}`,
+			`可用内存: ${formatBytes(sysInfo.availableMemoryBytes)}`,
+			`CPU 型号: ${sysInfo.cpuModel}`,
+			`CPU 核心数: ${sysInfo.cpuCores || "Unknown"}`,
+			`GPU 型号: ${sysInfo.gpuModel}`,
 		].join("\n");
 		try {
 			await navigator.clipboard.writeText(text);
@@ -121,7 +147,7 @@ function Settings() {
 			console.error("Failed to copy system info:", error);
 			toast.error("复制失败，请稍后重试");
 		}
-	}, [sysInfo]);
+	}, [formatBytes, sysInfo]);
 
 	useGSAP(
 		() => {
@@ -272,6 +298,52 @@ function Settings() {
 								</p>
 								<p className="text-sm font-medium">
 									{sysInfo.arch.toUpperCase()}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									内存总量
+								</p>
+								<p className="text-sm font-medium">
+									{formatBytes(sysInfo.totalMemoryBytes)}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									可用内存
+								</p>
+								<p className="text-sm font-medium">
+									{formatBytes(sysInfo.availableMemoryBytes)}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									CPU 型号
+								</p>
+								<p
+									className="text-sm font-medium truncate"
+									title={sysInfo.cpuModel}
+								>
+									{sysInfo.cpuModel}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									CPU 核心数
+								</p>
+								<p className="text-sm font-medium">
+									{sysInfo.cpuCores || "Unknown"}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									GPU 型号
+								</p>
+								<p
+									className="text-sm font-medium truncate"
+									title={sysInfo.gpuModel}
+								>
+									{sysInfo.gpuModel}
 								</p>
 							</div>
 						</div>

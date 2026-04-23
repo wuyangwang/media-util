@@ -15,7 +15,7 @@ import {
 	PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useUIStore } from "@/hooks/useUIStore";
@@ -33,9 +33,23 @@ function RootComponent() {
 	const sidebarRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLElement>(null);
 	const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+	const [showSidebarTitle, setShowSidebarTitle] = useState(!isSidebarCollapsed);
 	const navigate = useNavigate();
 	const addVideoTasks = useTaskStore((s) => s.addVideoTasks);
 	const addImageTasks = useTaskStore((s) => s.addImageTasks);
+
+	useEffect(() => {
+		if (isSidebarCollapsed) {
+			setShowSidebarTitle(false);
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setShowSidebarTitle(true);
+		}, 1000);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [isSidebarCollapsed]);
 
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
@@ -136,7 +150,7 @@ function RootComponent() {
 						isSidebarCollapsed ? "justify-center" : "justify-between px-3",
 					)}
 				>
-					{!isSidebarCollapsed && (
+					{!isSidebarCollapsed && showSidebarTitle && (
 						<div className="flex items-center gap-2">
 							<Film className="size-4 text-primary" />
 							<h1 className="text-sm font-semibold tracking-normal">

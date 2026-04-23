@@ -1,9 +1,11 @@
 use crate::config::{AppConfig, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
 use serde::Serialize;
 use serde_json::Value;
+use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::ShellExt;
 
@@ -60,6 +62,19 @@ pub struct VideoInfo {
     pub codec: String,
     pub fps: String,
     pub bitrate: Option<String>,
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct SystemInfo {
+    pub os_type: String,
+    pub os_version: String,
+    pub arch: String,
+    pub host: String,
+    pub total_memory_bytes: u64,
+    pub available_memory_bytes: u64,
+    pub cpu_model: String,
+    pub cpu_cores: usize,
+    pub gpu_model: String,
 }
 
 pub async fn open_devtools(app: AppHandle) -> Result<(), String> {
@@ -171,6 +186,29 @@ pub fn get_app_config() -> Result<AppConfig, String> {
     Ok(AppConfig::get_config())
 }
 
+pub fn get_system_info() -> Result<SystemInfo, String> {
+    let os_type = env::consts::OS.to_string();
+    let arch = env::consts::ARCH.to_string();
+    let os_version = get_os_version();
+    let host = get_hostname();
+
+    let (total_memory_bytes, available_memory_bytes) = get_memory_info();
+    let (cpu_model, cpu_cores) = get_cpu_info();
+    let gpu_model = get_gpu_info();
+
+    Ok(SystemInfo {
+        os_type: title_case(&os_type),
+        os_version,
+        arch,
+        host,
+        total_memory_bytes,
+        available_memory_bytes,
+        cpu_model,
+        cpu_cores,
+        gpu_model,
+    })
+}
+
 pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     let mut stack = vec![std::path::PathBuf::from(path)];
@@ -234,4 +272,283 @@ pub fn batch_to_zip(file_paths: Vec<String>, output_zip_path: String) -> Result<
         .map_err(|e| format!("Failed to finish zip file: {}", e))?;
 
     Ok(())
+}
+
+fn title_case(value: &str) -> String {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => "Unknown".to_string(),
+    }
+}
+
+fn read_command_output(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn parse_first_u64(value: &str) -> Option<u64> {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok()
+}
+
+fn get_os_version() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        return read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_OperatingSystem).Version",
+            ],
+        )
+        .unwrap_or_else(|| "Unknown".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return read_command_output("sw_vers", &["-productVersion"])
+            .unwrap_or_else(|| "Unknown".to_string());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(value) = read_command_output("uname", &["-r"]) {
+            return value;
+        }
+    }
+
+    "Unknown".to_string()
+}
+
+fn get_hostname() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(value) = env::var("COMPUTERNAME") {
+            if !value.trim().is_empty() {
+                return value;
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(value) = env::var("HOSTNAME") {
+            if !value.trim().is_empty() {
+                return value;
+            }
+        }
+    }
+
+    read_command_output("hostname", &[]).unwrap_or_else(|| "Unknown".to_string())
+}
+
+fn get_memory_info() -> (u64, u64) {
+    #[cfg(target_os = "windows")]
+    {
+        let total = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",
+            ],
+        )
+        .and_then(|value| parse_first_u64(&value))
+        .unwrap_or(0);
+
+        let available_kb = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory",
+            ],
+        )
+        .and_then(|value| parse_first_u64(&value))
+        .unwrap_or(0);
+
+        return (total, available_kb.saturating_mul(1024));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let total = read_command_output("sysctl", &["-n", "hw.memsize"])
+            .and_then(|value| parse_first_u64(&value))
+            .unwrap_or(0);
+
+        let page_size = read_command_output("sysctl", &["-n", "hw.pagesize"])
+            .and_then(|value| parse_first_u64(&value))
+            .unwrap_or(4096);
+
+        let free_pages = read_command_output("vm_stat", &[])
+            .and_then(|output| {
+                output
+                    .lines()
+                    .find(|line| line.starts_with("Pages free"))
+                    .and_then(parse_first_u64)
+            })
+            .unwrap_or(0);
+
+        return (total, free_pages.saturating_mul(page_size));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+        let total_kb = meminfo
+            .lines()
+            .find(|line| line.starts_with("MemTotal:"))
+            .and_then(parse_first_u64)
+            .unwrap_or(0);
+        let available_kb = meminfo
+            .lines()
+            .find(|line| line.starts_with("MemAvailable:"))
+            .and_then(parse_first_u64)
+            .unwrap_or(0);
+
+        return (
+            total_kb.saturating_mul(1024),
+            available_kb.saturating_mul(1024),
+        );
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    (0, 0)
+}
+
+fn get_cpu_info() -> (String, usize) {
+    #[cfg(target_os = "windows")]
+    {
+        let cpu_model = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)",
+            ],
+        )
+        .unwrap_or_else(|| "Unknown".to_string());
+
+        let cpu_cores = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors",
+            ],
+        )
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(usize::from)
+                .unwrap_or(0)
+        });
+
+        return (cpu_model, cpu_cores);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let cpu_model = read_command_output("sysctl", &["-n", "machdep.cpu.brand_string"])
+            .or_else(|| read_command_output("sysctl", &["-n", "machdep.cpu.brand_string"]))
+            .unwrap_or_else(|| "Apple Silicon".to_string());
+
+        let cpu_cores = read_command_output("sysctl", &["-n", "hw.logicalcpu"])
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or_else(|| {
+                std::thread::available_parallelism()
+                    .map(usize::from)
+                    .unwrap_or(0)
+            });
+
+        return (cpu_model, cpu_cores);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+        let cpu_model = cpuinfo
+            .lines()
+            .find_map(|line| line.strip_prefix("model name\t: "))
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        let cpu_cores = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(0);
+
+        return (cpu_model, cpu_cores);
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    (
+        "Unknown".to_string(),
+        std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(0),
+    )
+}
+
+fn get_gpu_info() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        return read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_VideoController | Select-Object -First 1 -ExpandProperty Name)",
+            ],
+        )
+        .unwrap_or_else(|| "Unknown".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(output) = read_command_output("system_profiler", &["SPDisplaysDataType"]) {
+            if let Some(name) = output
+                .lines()
+                .find_map(|line| line.trim().strip_prefix("Chipset Model: "))
+            {
+                return name.to_string();
+            }
+        }
+
+        return "Unknown".to_string();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(output) = read_command_output("lspci", &[]) {
+            if let Some(name) = output.lines().find_map(|line| {
+                if line.contains("VGA compatible controller")
+                    || line.contains("3D controller")
+                    || line.contains("Display controller")
+                {
+                    line.split(": ").nth(2).map(ToString::to_string)
+                } else {
+                    None
+                }
+            }) {
+                return name;
+            }
+        }
+
+        return "Unknown".to_string();
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    "Unknown".to_string()
 }

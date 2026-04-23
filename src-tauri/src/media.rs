@@ -6,7 +6,7 @@ mod shared;
 mod video;
 
 pub use crate::config::AppConfig;
-pub use shared::MediaInfo;
+pub use shared::{MediaInfo, SystemInfo};
 pub use video::AppQueue;
 
 #[tauri::command]
@@ -31,6 +31,11 @@ pub async fn open_devtools(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn get_app_config() -> Result<AppConfig, String> {
     shared::get_app_config()
+}
+
+#[tauri::command]
+pub fn get_system_info() -> Result<SystemInfo, String> {
+    shared::get_system_info()
 }
 
 #[tauri::command]
