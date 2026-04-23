@@ -55,6 +55,8 @@ function Settings() {
 		host: "加载中...",
 		totalMemoryBytes: 0,
 		availableMemoryBytes: 0,
+		totalDiskBytes: 0,
+		availableDiskBytes: 0,
 		cpuModel: "加载中...",
 		cpuCores: 0,
 		gpuModel: "加载中...",
@@ -71,6 +73,8 @@ function Settings() {
 					host: string;
 					total_memory_bytes: number;
 					available_memory_bytes: number;
+					total_disk_bytes: number;
+					available_disk_bytes: number;
 					cpu_model: string;
 					cpu_cores: number;
 					gpu_model: string;
@@ -83,6 +87,8 @@ function Settings() {
 					host: result.host || "Unknown",
 					totalMemoryBytes: result.total_memory_bytes || 0,
 					availableMemoryBytes: result.available_memory_bytes || 0,
+					totalDiskBytes: result.total_disk_bytes || 0,
+					availableDiskBytes: result.available_disk_bytes || 0,
 					cpuModel: result.cpu_model || "Unknown",
 					cpuCores: result.cpu_cores || 0,
 					gpuModel: result.gpu_model || "Unknown",
@@ -96,6 +102,8 @@ function Settings() {
 					host: "Unknown",
 					totalMemoryBytes: 0,
 					availableMemoryBytes: 0,
+					totalDiskBytes: 0,
+					availableDiskBytes: 0,
 					cpuModel: "Unknown",
 					cpuCores: 0,
 					gpuModel: "Unknown",
@@ -129,6 +137,13 @@ function Settings() {
 		},
 		[setNextTheme, setSavedTheme],
 	);
+	const formatGb = useCallback((bytes: number) => {
+		if (!bytes) {
+			return "Unknown";
+		}
+		const gb = bytes / (1024 * 1024 * 1024);
+		return `${gb.toFixed(1)} GB`;
+	}, []);
 	const handleCopySysInfo = useCallback(async () => {
 		const text = [
 			`操作系统: ${sysInfo.osType} ${sysInfo.osVersion}`.trim(),
@@ -136,6 +151,8 @@ function Settings() {
 			`架构类型: ${sysInfo.arch.toUpperCase()}`,
 			`内存总量: ${formatBytes(sysInfo.totalMemoryBytes)}`,
 			`可用内存: ${formatBytes(sysInfo.availableMemoryBytes)}`,
+			`硬盘总量: ${formatGb(sysInfo.totalDiskBytes)}`,
+			`可用硬盘: ${formatGb(sysInfo.availableDiskBytes)}`,
 			`CPU 型号: ${sysInfo.cpuModel}`,
 			`CPU 核心数: ${sysInfo.cpuCores || "Unknown"}`,
 			`GPU 型号: ${sysInfo.gpuModel}`,
@@ -147,7 +164,7 @@ function Settings() {
 			console.error("Failed to copy system info:", error);
 			toast.error("复制失败，请稍后重试");
 		}
-	}, [formatBytes, sysInfo]);
+	}, [formatBytes, formatGb, sysInfo]);
 
 	useGSAP(
 		() => {
@@ -314,6 +331,22 @@ function Settings() {
 								</p>
 								<p className="text-sm font-medium">
 									{formatBytes(sysInfo.availableMemoryBytes)}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									硬盘总量
+								</p>
+								<p className="text-sm font-medium">
+									{formatGb(sysInfo.totalDiskBytes)}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<p className="text-[11px] text-muted-foreground uppercase">
+									可用硬盘
+								</p>
+								<p className="text-sm font-medium">
+									{formatGb(sysInfo.availableDiskBytes)}
 								</p>
 							</div>
 							<div className="space-y-1">

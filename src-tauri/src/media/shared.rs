@@ -4,6 +4,8 @@ use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::io::Write;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager};
@@ -72,6 +74,8 @@ pub struct SystemInfo {
     pub host: String,
     pub total_memory_bytes: u64,
     pub available_memory_bytes: u64,
+    pub total_disk_bytes: u64,
+    pub available_disk_bytes: u64,
     pub cpu_model: String,
     pub cpu_cores: usize,
     pub gpu_model: String,
@@ -193,6 +197,7 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
     let host = get_hostname();
 
     let (total_memory_bytes, available_memory_bytes) = get_memory_info();
+    let (total_disk_bytes, available_disk_bytes) = get_disk_info();
     let (cpu_model, cpu_cores) = get_cpu_info();
     let gpu_model = get_gpu_info();
 
@@ -203,6 +208,8 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         host,
         total_memory_bytes,
         available_memory_bytes,
+        total_disk_bytes,
+        available_disk_bytes,
         cpu_model,
         cpu_cores,
         gpu_model,
@@ -283,7 +290,16 @@ fn title_case(value: &str) -> String {
 }
 
 fn read_command_output(program: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(program).args(args).output().ok()?;
+    let mut command = Command::new(program);
+    command.args(args);
+
+    #[cfg(target_os = "windows")]
+    {
+        // Prevent flashing/visible console windows when invoking shell tools.
+        command.creation_flags(0x08000000);
+    }
+
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -499,6 +515,70 @@ fn get_cpu_info() -> (String, usize) {
             .map(usize::from)
             .unwrap_or(0),
     )
+}
+
+fn get_disk_info() -> (u64, u64) {
+    #[cfg(target_os = "windows")]
+    {
+        let total = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" | Measure-Object -Property Size -Sum).Sum",
+            ],
+        )
+        .and_then(|value| parse_first_u64(&value))
+        .unwrap_or(0);
+
+        let available = read_command_output(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" | Measure-Object -Property FreeSpace -Sum).Sum",
+            ],
+        )
+        .and_then(|value| parse_first_u64(&value))
+        .unwrap_or(0);
+
+        return (total, available);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(output) = read_command_output("df", &["-k", "/"]) {
+            if let Some(line) = output.lines().nth(1) {
+                let cols: Vec<&str> = line.split_whitespace().collect();
+                if cols.len() >= 4 {
+                    let total_kb = cols[1].parse::<u64>().unwrap_or(0);
+                    let avail_kb = cols[3].parse::<u64>().unwrap_or(0);
+                    return (total_kb.saturating_mul(1024), avail_kb.saturating_mul(1024));
+                }
+            }
+        }
+
+        return (0, 0);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(output) = read_command_output("df", &["-k", "/"]) {
+            if let Some(line) = output.lines().nth(1) {
+                let cols: Vec<&str> = line.split_whitespace().collect();
+                if cols.len() >= 4 {
+                    let total_kb = cols[1].parse::<u64>().unwrap_or(0);
+                    let avail_kb = cols[3].parse::<u64>().unwrap_or(0);
+                    return (total_kb.saturating_mul(1024), avail_kb.saturating_mul(1024));
+                }
+            }
+        }
+
+        return (0, 0);
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    (0, 0)
 }
 
 fn get_gpu_info() -> String {

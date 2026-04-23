@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Play, Download, Image as ImageIcon, Minimize2 } from "lucide-react";
+import { Download, Image as ImageIcon, Minimize2 } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTasks, ImageTask, TASK_STATUS_LABELS } from "@/hooks/useTasks";
 import { cn, formatBytes } from "@/lib/utils";
@@ -27,6 +27,7 @@ import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
+import { TaskStartButton } from "@/components/task-start-button";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -478,23 +479,10 @@ function Images() {
 										/>
 									}
 									startAction={
-										task.status !== "processing" ? (
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												className="h-8 w-8 text-primary hover:bg-primary/10"
-												onClick={() => handleStartTask(task)}
-												title={
-													task.status === "failed"
-														? "重新处理"
-														: task.status === "completed"
-															? "再次处理"
-															: "开始处理"
-												}
-											>
-												<Play className="size-4" />
-											</Button>
-										) : undefined
+										<TaskStartButton
+											status={task.status}
+											onStart={() => handleStartTask(task)}
+										/>
 									}
 									showOpenFolder={task.status === "completed"}
 									onOpenFolder={() => handleOpenFolder(task.output)}

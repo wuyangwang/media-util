@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Play, FileVideo, Loader2, FileText } from "lucide-react";
+import { FileVideo, FileText } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -27,17 +26,11 @@ import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
+import { TaskStartButton } from "@/components/task-start-button";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
 });
-
-interface ProgressPayload {
-	id: string;
-	progress: number;
-	status: string;
-	log?: string;
-}
 
 function Videos() {
 	const {
@@ -162,41 +155,6 @@ function Videos() {
 			}
 		}
 	}, []);
-
-	useEffect(() => {
-		const unlisten = listen<ProgressPayload>("conversion-progress", (event) => {
-			setTasks((prev) => {
-				const newTasks = prev.map((t) => {
-					if (t.id === event.payload.id) {
-						let status: VideoTask["status"] = "converting";
-						if (event.payload.status === "Completed") status = "completed";
-						if (event.payload.status === "Failed") status = "failed";
-						return {
-							...t,
-							progress: event.payload.progress,
-							status: status,
-							log: event.payload.log || t.log,
-						};
-					}
-					return t;
-				}) as VideoTask[];
-
-				// 如果没有正在进行的任务，重置处理状态
-				const hasActive = newTasks.some(
-					(t) => t.status === "converting" || t.status === "processing",
-				);
-				if (!hasActive) {
-					setProcessing(false);
-				}
-
-				return newTasks;
-			});
-		});
-
-		return () => {
-			unlisten.then((fn) => fn());
-		};
-	}, [setProcessing, setTasks]);
 
 	return (
 		<div
@@ -390,29 +348,10 @@ function Videos() {
 													/>
 												}
 												startAction={
-													task.status !== "processing" &&
-													task.status !== "converting" ? (
-														<Button
-															variant="ghost"
-															size="icon-sm"
-															className="h-8 w-8 text-primary hover:bg-primary/10"
-															onClick={() => handleStartTask(task)}
-															title={
-																task.status === "failed"
-																	? "重新处理"
-																	: task.status === "completed"
-																		? "再次处理"
-																		: "开始处理"
-															}
-														>
-															{task.status === "pending" &&
-															task.progress === 0 ? (
-																<Play className="size-4" />
-															) : (
-																<Loader2 className="size-4 animate-spin" />
-															)}
-														</Button>
-													) : undefined
+													<TaskStartButton
+														status={task.status}
+														onStart={() => handleStartTask(task)}
+													/>
 												}
 												extraActions={
 													task.log ? (

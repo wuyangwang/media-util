@@ -7,6 +7,7 @@ import "./index.css";
 import { ThemeProvider } from "next-themes";
 import { initConfig } from "./lib/config";
 import { listen } from "@tauri-apps/api/event";
+import { useTaskStore, type VideoProgressPayload } from "./hooks/useTaskStore";
 
 const router = createRouter({ routeTree });
 
@@ -28,6 +29,10 @@ async function initApp() {
 
 	listen<string>("navigate", (event) => {
 		router.navigate({ to: event.payload as any });
+	});
+
+	listen<VideoProgressPayload>("conversion-progress", (event) => {
+		useTaskStore.getState().applyVideoProgress(event.payload);
 	});
 
 	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
