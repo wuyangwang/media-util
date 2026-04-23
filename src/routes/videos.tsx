@@ -5,7 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Play, FileVideo, Loader2, FileText } from "lucide-react";
+import { FileVideo, FileText } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -27,6 +27,7 @@ import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
+import { TaskStartButton } from "@/components/task-start-button";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
@@ -390,29 +391,10 @@ function Videos() {
 													/>
 												}
 												startAction={
-													task.status !== "processing" &&
-													task.status !== "converting" ? (
-														<Button
-															variant="ghost"
-															size="icon-sm"
-															className="h-8 w-8 text-primary hover:bg-primary/10"
-															onClick={() => handleStartTask(task)}
-															title={
-																task.status === "failed"
-																	? "重新处理"
-																	: task.status === "completed"
-																		? "再次处理"
-																		: "开始处理"
-															}
-														>
-															{task.status === "pending" &&
-															task.progress === 0 ? (
-																<Play className="size-4" />
-															) : (
-																<Loader2 className="size-4 animate-spin" />
-															)}
-														</Button>
-													) : undefined
+													<TaskStartButton
+														status={task.status}
+														onStart={() => handleStartTask(task)}
+													/>
 												}
 												extraActions={
 													task.log ? (
