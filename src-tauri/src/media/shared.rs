@@ -1,5 +1,5 @@
 use crate::config::{AppConfig, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
 use std::fs::File;
@@ -10,6 +10,10 @@ use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_store::StoreExt;
+
+const SYSTEM_INFO_STORE_PATH: &str = "settings.json";
+const SYSTEM_INFO_STATIC_STORE_KEY: &str = "systemInfoStatic";
 
 pub fn get_formatted_output_path(
     input_path: String,
@@ -66,7 +70,7 @@ pub struct VideoInfo {
     pub bitrate: Option<String>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SystemInfo {
     pub os_type: String,
     pub os_version: String,
@@ -79,6 +83,17 @@ pub struct SystemInfo {
     pub cpu_model: String,
     pub cpu_cores: usize,
     pub gpu_model: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct StaticSystemInfo {
+    os_type: String,
+    os_version: String,
+    arch: String,
+    host: String,
+    cpu_model: String,
+    cpu_cores: usize,
+    gpu_model: String,
 }
 
 pub async fn open_devtools(app: AppHandle) -> Result<(), String> {
@@ -190,30 +205,73 @@ pub fn get_app_config() -> Result<AppConfig, String> {
     Ok(AppConfig::get_config())
 }
 
-pub fn get_system_info() -> Result<SystemInfo, String> {
-    let os_type = env::consts::OS.to_string();
-    let arch = env::consts::ARCH.to_string();
-    let os_version = get_os_version();
-    let host = get_hostname();
-
+pub fn get_system_info(app: AppHandle) -> Result<SystemInfo, String> {
     let (total_memory_bytes, available_memory_bytes) = get_memory_info();
     let (total_disk_bytes, available_disk_bytes) = get_disk_info();
-    let (cpu_model, cpu_cores) = get_cpu_info();
-    let gpu_model = get_gpu_info();
+    let static_info = load_cached_static_system_info(&app)?.unwrap_or_else(|| {
+        let static_info = build_static_system_info();
+        let _ = save_cached_static_system_info(&app, &static_info);
+        static_info
+    });
 
     Ok(SystemInfo {
-        os_type: title_case(&os_type),
-        os_version,
-        arch,
-        host,
+        os_type: static_info.os_type,
+        os_version: static_info.os_version,
+        arch: static_info.arch,
+        host: static_info.host,
         total_memory_bytes,
         available_memory_bytes,
         total_disk_bytes,
         available_disk_bytes,
+        cpu_model: static_info.cpu_model,
+        cpu_cores: static_info.cpu_cores,
+        gpu_model: static_info.gpu_model,
+    })
+}
+
+fn build_static_system_info() -> StaticSystemInfo {
+    let os_type = env::consts::OS.to_string();
+    let arch = env::consts::ARCH.to_string();
+    let os_version = get_os_version();
+    let host = get_hostname();
+    let (cpu_model, cpu_cores) = get_cpu_info();
+    let gpu_model = get_gpu_info();
+
+    StaticSystemInfo {
+        os_type: title_case(&os_type),
+        os_version,
+        arch,
+        host,
         cpu_model,
         cpu_cores,
         gpu_model,
-    })
+    }
+}
+
+fn load_cached_static_system_info(app: &AppHandle) -> Result<Option<StaticSystemInfo>, String> {
+    let store = app
+        .store(SYSTEM_INFO_STORE_PATH)
+        .map_err(|e| e.to_string())?;
+
+    store
+        .get(SYSTEM_INFO_STATIC_STORE_KEY)
+        .map(|value| serde_json::from_value(value).map_err(|e| e.to_string()))
+        .transpose()
+}
+
+fn save_cached_static_system_info(
+    app: &AppHandle,
+    static_info: &StaticSystemInfo,
+) -> Result<(), String> {
+    let store = app
+        .store(SYSTEM_INFO_STORE_PATH)
+        .map_err(|e| e.to_string())?;
+
+    store.set(
+        SYSTEM_INFO_STATIC_STORE_KEY,
+        serde_json::to_value(static_info).map_err(|e| e.to_string())?,
+    );
+    store.save().map_err(|e| e.to_string())
 }
 
 pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {

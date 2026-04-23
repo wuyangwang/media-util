@@ -47,7 +47,6 @@ function Settings() {
 		setTheme: setSavedTheme,
 	} = useAppSettings();
 	const systemInfo = useUIStore((state) => state.systemInfo);
-	const systemInfoLoaded = useUIStore((state) => state.systemInfoLoaded);
 	const systemInfoLoading = useUIStore((state) => state.systemInfoLoading);
 	const fetchSystemInfo = useUIStore((state) => state.fetchSystemInfo);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -84,13 +83,11 @@ function Settings() {
 
 	useEffect(() => {
 		setMounted(true);
-		if (!systemInfoLoaded && !systemInfoLoading) {
-			const timer = window.setTimeout(() => {
-				void fetchSystemInfo();
-			}, 0);
-			return () => window.clearTimeout(timer);
-		}
-	}, [fetchSystemInfo, systemInfoLoaded, systemInfoLoading]);
+		const timer = window.setTimeout(() => {
+			void fetchSystemInfo();
+		}, 0);
+		return () => window.clearTimeout(timer);
+	}, [fetchSystemInfo]);
 
 	const formatBytes = useCallback((bytes: number) => {
 		if (!bytes) {
@@ -261,7 +258,7 @@ function Settings() {
 								size="sm"
 								className="h-8"
 								onClick={handleCopySysInfo}
-								disabled={!systemInfoLoaded}
+								disabled={!systemInfo}
 							>
 								<Copy className="size-3.5" />
 								一键复制

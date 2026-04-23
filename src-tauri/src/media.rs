@@ -36,8 +36,8 @@ pub fn get_app_config() -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub fn get_system_info() -> Result<SystemInfo, String> {
-    shared::get_system_info()
+pub fn get_system_info(app: tauri::AppHandle) -> Result<SystemInfo, String> {
+    shared::get_system_info(app)
 }
 
 #[tauri::command]
