@@ -125,17 +125,54 @@ pub async fn convert_video(
     let total_duration = media_info.duration;
 
     let params = preset.get_params();
-    let mut args = vec!["-i".to_string(), input_path.clone()];
-    let threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-    let worker_threads = if threads > 1 { threads - 1 } else { 1 };
-    args.push("-threads".to_string());
-    args.push(worker_threads.to_string());
 
-    if params.vcodec == "none" {
+    // 极速转换兼容性检查
+    if params.vcodec == "copy" {
+        let output_ext = std::path::Path::new(&output_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if let Some(v_info) = &media_info.video {
+            let codec = v_info.codec.to_lowercase();
+            let is_compatible = match output_ext.as_str() {
+                "mp4" | "mov" | "m4v" => {
+                    codec.contains("h264") || codec.contains("h265") || codec.contains("hevc") || codec.contains("avc")
+                }
+                "mkv" => true, // MKV 几乎支持所有编码拷贝
+                "webm" => codec.contains("vp8") || codec.contains("vp9") || codec.contains("av1"),
+                _ => true, // 其他格式暂不严格限制，交给 FFmpeg 报错
+            };
+
+            if !is_compatible {
+                return Err(format!(
+                    "编码不兼容：无法将 {} 编码极速拷贝到 .{} 容器中。请选择其他预设进行转码。",
+                    v_info.codec, output_ext
+                ));
+            }
+        }
+    }
+
+    let mut args = vec!["-i".to_string(), input_path.clone()];
+    
+    if params.vcodec == "copy" {
+        args.push("-c:v".to_string());
+        args.push("copy".to_string());
+        args.push("-c:a".to_string());
+        args.push("copy".to_string());
+    } else if params.vcodec == "none" {
         args.push("-vn".to_string());
+        args.push("-c:a".to_string());
+        args.push(params.acodec.to_string());
     } else {
+        let threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        let worker_threads = if threads > 1 { threads - 1 } else { 1 };
+        args.push("-threads".to_string());
+        args.push(worker_threads.to_string());
+
         if let (Some(w), Some(h)) = (params.width, params.height) {
             args.push("-vf".to_string());
             args.push(format!("scale={}:{},fps=30", w, h));
@@ -146,10 +183,9 @@ pub async fn convert_video(
             args.push("-crf".to_string());
             args.push(params.crf.to_string());
         }
+        args.push("-c:a".to_string());
+        args.push(params.acodec.to_string());
     }
-
-    args.push("-c:a".to_string());
-    args.push(params.acodec.to_string());
 
     for extra in params.extra_args {
         args.push(extra.to_string());
