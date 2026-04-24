@@ -52,6 +52,7 @@ pub fn run() {
             media::read_text_file,
             media::get_transcription_models_status,
             media::download_transcription_model,
+            media::delete_transcription_model,
             media::transcribe_media
         ])
         .setup(|app| {

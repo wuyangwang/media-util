@@ -7,6 +7,9 @@ interface TaskPageToolbarProps {
 	descriptionScanning: string;
 	pickFilesLabel: string;
 	pickDirLabel: string;
+	showPickDirButton?: boolean;
+	showStartBatchButton?: boolean;
+	showClearButton?: boolean;
 	isScanning: boolean;
 	isProcessing: boolean;
 	isAnyProcessing: boolean;
@@ -23,6 +26,9 @@ export function TaskPageToolbar({
 	descriptionScanning,
 	pickFilesLabel,
 	pickDirLabel,
+	showPickDirButton = true,
+	showStartBatchButton = true,
+	showClearButton = true,
 	isScanning,
 	isProcessing,
 	isAnyProcessing,
@@ -54,46 +60,52 @@ export function TaskPageToolbar({
 					)}
 					{pickFilesLabel}
 				</Button>
-				<Button
-					onClick={onPickDir}
-					variant="outline"
-					size="sm"
-					title={pickDirLabel}
-				>
-					{isScanning ? (
-						<Loader2 className="mr-1 size-4 animate-spin" />
-					) : (
-						<FolderPlus data-icon="inline-start" />
-					)}
-					{pickDirLabel}
-				</Button>
-				<Button
-					onClick={onStartBatch}
-					size="sm"
-					title={
-						isAnyProcessing
-							? "正在处理中..."
-							: hasTasks
-								? "开始处理"
-								: "请先添加文件"
-					}
-				>
-					{isProcessing ? (
-						<Loader2 className="mr-1 size-4 animate-spin" />
-					) : (
-						<Play data-icon="inline-start" />
-					)}
-					全部开始
-				</Button>
-				<Button
-					onClick={onClearTasks}
-					variant="ghost"
-					size="sm"
-					className="text-destructive"
-					title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
-				>
-					<XCircle data-icon="inline-start" /> 清空
-				</Button>
+				{showPickDirButton && (
+					<Button
+						onClick={onPickDir}
+						variant="outline"
+						size="sm"
+						title={pickDirLabel}
+					>
+						{isScanning ? (
+							<Loader2 className="mr-1 size-4 animate-spin" />
+						) : (
+							<FolderPlus data-icon="inline-start" />
+						)}
+						{pickDirLabel}
+					</Button>
+				)}
+				{showStartBatchButton && (
+					<Button
+						onClick={onStartBatch}
+						size="sm"
+						title={
+							isAnyProcessing
+								? "正在处理中..."
+								: hasTasks
+									? "开始处理"
+									: "请先添加文件"
+						}
+					>
+						{isProcessing ? (
+							<Loader2 className="mr-1 size-4 animate-spin" />
+						) : (
+							<Play data-icon="inline-start" />
+						)}
+						全部开始
+					</Button>
+				)}
+				{showClearButton && (
+					<Button
+						onClick={onClearTasks}
+						variant="ghost"
+						size="sm"
+						className="text-destructive"
+						title={isAnyProcessing ? "正在处理中，无法清空" : "清空任务列表"}
+					>
+						<XCircle data-icon="inline-start" /> 清空
+					</Button>
+				)}
 			</div>
 		</header>
 	);

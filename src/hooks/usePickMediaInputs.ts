@@ -6,6 +6,7 @@ interface UsePickMediaInputsOptions {
 	extensions: string[];
 	checkProcessing: () => boolean;
 	handleAddPaths: (paths: string[]) => Promise<void>;
+	multipleFiles?: boolean;
 }
 
 export function usePickMediaInputs({
@@ -13,17 +14,18 @@ export function usePickMediaInputs({
 	extensions,
 	checkProcessing,
 	handleAddPaths,
+	multipleFiles = true,
 }: UsePickMediaInputsOptions) {
 	const handlePickFiles = useCallback(async () => {
 		if (checkProcessing()) return;
 		const files = await open({
-			multiple: true,
+			multiple: multipleFiles,
 			filters: [{ name: modeLabel, extensions }],
 		});
 		if (files) {
 			await handleAddPaths(Array.isArray(files) ? files : [files]);
 		}
-	}, [checkProcessing, extensions, handleAddPaths, modeLabel]);
+	}, [checkProcessing, extensions, handleAddPaths, modeLabel, multipleFiles]);
 
 	const handlePickDir = useCallback(async () => {
 		if (checkProcessing()) return;

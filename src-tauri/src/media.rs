@@ -221,6 +221,11 @@ pub async fn download_transcription_model(
 }
 
 #[tauri::command]
+pub fn delete_transcription_model(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
+    model_manager::delete_model(&app, model_id)
+}
+
+#[tauri::command]
 pub async fn transcribe_media(
     app: tauri::AppHandle,
     id: String,

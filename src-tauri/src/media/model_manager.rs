@@ -310,3 +310,25 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
 
     Ok(())
 }
+
+pub fn delete_model(app: &AppHandle, model_id: String) -> Result<(), String> {
+    let id = TranscriptionModelId::parse(&model_id)?;
+    let model_base_dir = model_dir(app, id)?;
+    if model_base_dir.exists() {
+        fs::remove_dir_all(&model_base_dir).map_err(|e| e.to_string())?;
+    }
+
+    let archive_path = model_base_dir.with_extension("tar.gz");
+    if archive_path.exists() {
+        fs::remove_file(&archive_path).map_err(|e| e.to_string())?;
+    }
+
+    emit_download_event(
+        app,
+        model_meta(id).id_str,
+        0.0,
+        "missing",
+        Some("Model deleted".to_string()),
+    );
+    Ok(())
+}

@@ -39,6 +39,12 @@ import { useAppSettings, useTranscriptionSettings } from "@/lib/store";
 import { toast } from "sonner";
 import { useUIStore } from "@/hooks/useUIStore";
 
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+	"whisper-medium": "平衡速度与准确度，适合大多数日常转写任务。",
+	"whisper-large": "准确率更高，适合复杂语音或高质量识别场景。",
+	"sense-voice": "轻量高效，适合快速转写与资源受限设备。",
+};
+
 export const Route = createFileRoute("/settings")({
 	component: Settings,
 });
@@ -66,6 +72,9 @@ function Settings() {
 	>({});
 	const [downloadStateByModel, setDownloadStateByModel] = useState<
 		Record<string, string>
+	>({});
+	const [deletingModelIds, setDeletingModelIds] = useState<
+		Record<string, boolean>
 	>({});
 	const systemInfo = useUIStore((state) => state.systemInfo);
 	const systemInfoLoading = useUIStore((state) => state.systemInfoLoading);
@@ -150,6 +159,32 @@ function Settings() {
 					[targetModelId]: "failed",
 				}));
 				toast.error(`模型下载失败: ${error}`);
+			}
+		},
+		[refreshTranscriptionModels],
+	);
+
+	const handleDeleteModel = useCallback(
+		async (targetModelId: string, label: string) => {
+			const confirmed = window.confirm(`确认删除模型“${label}”吗？`);
+			if (!confirmed) return;
+
+			try {
+				setDeletingModelIds((prev) => ({ ...prev, [targetModelId]: true }));
+				await invoke("delete_transcription_model", {
+					modelId: targetModelId,
+				});
+				setDownloadProgressByModel((prev) => ({ ...prev, [targetModelId]: 0 }));
+				setDownloadStateByModel((prev) => ({
+					...prev,
+					[targetModelId]: "missing",
+				}));
+				await refreshTranscriptionModels();
+				toast.success("模型已删除");
+			} catch (error) {
+				toast.error(`删除模型失败: ${error}`);
+			} finally {
+				setDeletingModelIds((prev) => ({ ...prev, [targetModelId]: false }));
 			}
 		},
 		[refreshTranscriptionModels],
@@ -526,17 +561,24 @@ function Settings() {
 										<Button
 											variant="outline"
 											size="sm"
-											onClick={() => handleDownloadModel(model.id)}
+											onClick={() =>
+												model.downloaded
+													? handleDeleteModel(model.id, model.label)
+													: handleDownloadModel(model.id)
+											}
 											disabled={
-												downloadStateByModel[model.id] === "downloading"
+												downloadStateByModel[model.id] === "downloading" ||
+												deletingModelIds[model.id]
 											}
 										>
-											下载/更新
+											{model.downloaded ? "删除" : "下载/更新"}
 										</Button>
 									</div>
-									<Progress value={downloadProgressByModel[model.id] || 0} />
-									<div className="text-[11px] text-muted-foreground">
-										状态: {downloadStateByModel[model.id] || model.status}
+									{downloadStateByModel[model.id] === "downloading" && (
+										<Progress value={downloadProgressByModel[model.id] || 0} />
+									)}
+									<div className="text-[11px] leading-5 text-muted-foreground">
+										{MODEL_DESCRIPTIONS[model.id] || "通用语音转写模型。"}
 									</div>
 								</div>
 							))}

@@ -12,6 +12,24 @@ interface VideoTask extends Task {
 	log?: string;
 }
 
+export type TranscribeTaskStatus =
+	| "pending"
+	| "preparing"
+	| "normalizing_audio"
+	| "transcribing"
+	| "completed"
+	| "failed";
+
+export interface TranscribeTask {
+	id: string;
+	path: string;
+	fileName: string;
+	status: TranscribeTaskStatus;
+	progress: number;
+	outputPath?: string;
+	log?: string;
+}
+
 export interface VideoProgressPayload {
 	id: string;
 	progress: number;
@@ -22,15 +40,24 @@ export interface VideoProgressPayload {
 interface TaskState {
 	imageTasks: ImageTask[];
 	videoTasks: VideoTask[];
+	transcribeTask: TranscribeTask | null;
 	imageProcessing: boolean;
 	videoProcessing: boolean;
+	transcribeProcessing: boolean;
 	setImageProcessing: (processing: boolean) => void;
 	setVideoProcessing: (processing: boolean) => void;
+	setTranscribeProcessing: (processing: boolean) => void;
 	setImageTasks: (
 		tasks: ImageTask[] | ((prev: ImageTask[]) => ImageTask[]),
 	) => void;
 	setVideoTasks: (
 		tasks: VideoTask[] | ((prev: VideoTask[]) => VideoTask[]),
+	) => void;
+	setTranscribeTask: (
+		task:
+			| TranscribeTask
+			| null
+			| ((prev: TranscribeTask | null) => TranscribeTask | null),
 	) => void;
 	addImageTasks: (tasks: ImageTask[]) => void;
 	addVideoTasks: (tasks: VideoTask[]) => void;
@@ -38,6 +65,7 @@ interface TaskState {
 	removeVideoTask: (id: string) => void;
 	clearImageTasks: () => void;
 	clearVideoTasks: () => void;
+	clearTranscribeTask: () => void;
 	applyVideoProgress: (payload: VideoProgressPayload) => void;
 }
 
@@ -46,10 +74,14 @@ export const useTaskStore = create<TaskState>()(
 		(set) => ({
 			imageTasks: [],
 			videoTasks: [],
+			transcribeTask: null,
 			imageProcessing: false,
 			videoProcessing: false,
+			transcribeProcessing: false,
 			setImageProcessing: (imageProcessing) => set({ imageProcessing }),
 			setVideoProcessing: (videoProcessing) => set({ videoProcessing }),
+			setTranscribeProcessing: (transcribeProcessing) =>
+				set({ transcribeProcessing }),
 			setImageTasks: (tasks) =>
 				set((state) => ({
 					imageTasks:
@@ -59,6 +91,11 @@ export const useTaskStore = create<TaskState>()(
 				set((state) => ({
 					videoTasks:
 						typeof tasks === "function" ? tasks(state.videoTasks) : tasks,
+				})),
+			setTranscribeTask: (task) =>
+				set((state) => ({
+					transcribeTask:
+						typeof task === "function" ? task(state.transcribeTask) : task,
 				})),
 			addImageTasks: (tasks) =>
 				set((state) => ({
@@ -78,6 +115,7 @@ export const useTaskStore = create<TaskState>()(
 				})),
 			clearImageTasks: () => set({ imageTasks: [] }),
 			clearVideoTasks: () => set({ videoTasks: [] }),
+			clearTranscribeTask: () => set({ transcribeTask: null }),
 			applyVideoProgress: (payload) =>
 				set((state) => {
 					const videoTasks = state.videoTasks.map((task) => {
@@ -119,6 +157,14 @@ export const useTaskStore = create<TaskState>()(
 								: t,
 						),
 					);
+					state.setTranscribeTask((prev) =>
+						prev &&
+						(prev.status === "transcribing" ||
+							prev.status === "preparing" ||
+							prev.status === "normalizing_audio")
+							? { ...prev, status: "pending", progress: 0 }
+							: prev,
+					);
 					state.setImageTasks((prev) =>
 						prev.map((t) =>
 							t.status === "processing" ? { ...t, status: "pending" } : t,
@@ -127,6 +173,7 @@ export const useTaskStore = create<TaskState>()(
 					// 确保应用启动时处理状态为 false
 					state.setVideoProcessing(false);
 					state.setImageProcessing(false);
+					state.setTranscribeProcessing(false);
 				}
 			},
 		},
