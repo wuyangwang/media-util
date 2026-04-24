@@ -46,7 +46,10 @@ pub fn run() {
             media::batch_to_zip,
             media::get_app_config,
             media::get_system_info,
-            media::get_formatted_output_path
+            media::get_formatted_output_path,
+            media::get_transcription_models_status,
+            media::download_transcription_model,
+            media::transcribe_media
         ])
         .setup(|app| {
             // 从 Store 加载并发配置

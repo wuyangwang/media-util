@@ -42,6 +42,10 @@ imagequant = "4"
 png = "0.17"
 mozjpeg = "0.10"
 icns = "0.3.1"
+transcribe-rs = { version = "0.3.11", default-features = false, features = ["whisper-cpp", "onnx"] }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+flate2 = "1"
+tar = "0.4"
 
 # 构建优化配置
 [profile.dev]

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mkv", "avi", "mov", "webm"];
+pub const AUDIO_EXTENSIONS: &[&str] = &["mp3", "wav", "m4a", "aac", "flac", "ogg"];
 pub const IMAGE_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "png", "webp", "bmp", "tiff", "jfif", "heic", "heif",
 ];
@@ -143,6 +144,7 @@ pub const IMAGE_RATIO_PRESETS: &[(&str, f32)] = &[
 #[derive(Debug, Serialize, Clone)]
 pub struct AppConfig {
     pub video_extensions: Vec<&'static str>,
+    pub audio_extensions: Vec<&'static str>,
     pub image_extensions: Vec<&'static str>,
     pub video_presets: Vec<VideoPresetConfig>,
     pub image_formats: Vec<ImageFormatConfig>,
@@ -186,6 +188,7 @@ impl AppConfig {
     pub fn get_config() -> Self {
         Self {
             video_extensions: VIDEO_EXTENSIONS.to_vec(),
+            audio_extensions: AUDIO_EXTENSIONS.to_vec(),
             image_extensions: IMAGE_EXTENSIONS.to_vec(),
             video_presets: vec![
                 VideoPresetConfig {

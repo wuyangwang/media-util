@@ -1,4 +1,4 @@
-use crate::config::{AppConfig, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
+use crate::config::{AppConfig, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
@@ -277,10 +277,17 @@ fn save_cached_static_system_info(
 pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     let mut stack = vec![std::path::PathBuf::from(path)];
-    let target_exts = if mode == "video" {
+    let target_exts: Vec<&str> = if mode == "video" {
+        VIDEO_EXTENSIONS.to_vec()
+    } else if mode == "transcribe" {
+        // ASR accepts both video and audio inputs.
         VIDEO_EXTENSIONS
+            .iter()
+            .chain(AUDIO_EXTENSIONS.iter())
+            .copied()
+            .collect()
     } else {
-        IMAGE_EXTENSIONS
+        IMAGE_EXTENSIONS.to_vec()
     };
 
     while let Some(current_path) = stack.pop() {

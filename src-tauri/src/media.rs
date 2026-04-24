@@ -2,12 +2,17 @@
 mod icons;
 #[path = "media/image.rs"]
 mod image;
+#[path = "media/model_manager.rs"]
+mod model_manager;
 #[path = "media/shared.rs"]
 mod shared;
+#[path = "media/transcription.rs"]
+mod transcription;
 #[path = "media/video.rs"]
 mod video;
 
 pub use crate::config::AppConfig;
+pub use model_manager::TranscriptionModelStatus;
 pub use shared::{MediaInfo, SystemInfo};
 pub use video::AppQueue;
 
@@ -183,4 +188,31 @@ pub async fn crop_image_custom(
 #[tauri::command]
 pub fn batch_to_zip(file_paths: Vec<String>, output_zip_path: String) -> Result<(), String> {
     shared::batch_to_zip(file_paths, output_zip_path)
+}
+
+#[tauri::command]
+pub fn get_transcription_models_status(
+    app: tauri::AppHandle,
+) -> Result<Vec<TranscriptionModelStatus>, String> {
+    model_manager::list_model_statuses(&app)
+}
+
+#[tauri::command]
+pub async fn download_transcription_model(
+    app: tauri::AppHandle,
+    model_id: String,
+) -> Result<(), String> {
+    model_manager::download_model(app, model_id).await
+}
+
+#[tauri::command]
+pub async fn transcribe_media(
+    app: tauri::AppHandle,
+    id: String,
+    input_path: String,
+    output_path: String,
+    model_id: String,
+    language: Option<String>,
+) -> Result<(), String> {
+    transcription::transcribe_media(app, id, input_path, output_path, model_id, language).await
 }
