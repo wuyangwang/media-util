@@ -54,9 +54,6 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-
       # 构建
       - name: Build Windows app
         run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
