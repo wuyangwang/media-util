@@ -1,8 +1,4 @@
-import {
-	createRootRoute,
-	Link,
-	Outlet,
-} from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import {
 	Play,
