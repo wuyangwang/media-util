@@ -546,29 +546,30 @@ function Images() {
 										{task.path}
 									</p>
 								</div>
-
-								<TaskItemActions
-									statusBadge={
-										<TaskStatusBadge
-											status={task.status}
-											label={TASK_STATUS_LABELS[task.status]}
-										/>
-									}
-									startAction={
-										<TaskStartButton
-											status={task.status}
-											onStart={() => handleStartTask(task)}
-										/>
-									}
-									showOpenFolder={task.status === "completed"}
-									onOpenFolder={() => handleOpenFolder(task.output)}
-									onRemove={() => handleRemoveTask(task.id)}
-								/>
 							</div>
-						))
-					)}
-				</div>
-			</main>
-		</div>
-	);
+
+							<TaskItemActions
+								statusBadge={
+									<TaskStatusBadge
+										status={task.status}
+										label={TASK_STATUS_LABELS[task.status]}
+									/>
+								}
+								startAction={
+									<TaskStartButton
+										status={task.status}
+										onStart={() => handleStartTask(task)}
+									/>
+								}
+								showOpenFolder={task.status === "completed"}
+								onOpenFolder={() => handleOpenFolder(task.output)}
+								onRemove={() => handleRemoveTask(task.id)}
+							/>
+						</div>
+					))
+				)}
+			</div>
+		</main>
+	</div>
+);
 }
