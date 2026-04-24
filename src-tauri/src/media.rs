@@ -16,6 +16,21 @@ pub use model_manager::TranscriptionModelStatus;
 pub use shared::{MediaInfo, SystemInfo};
 pub use video::AppQueue;
 
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+pub async fn confirm_delete(app: tauri::AppHandle, model_label: String) -> Result<bool, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .confirm(format!("确认删除模型“{}”吗？此操作无法撤销。", model_label))
+        .show(move |confirmed| {
+            let _ = tx.send(confirmed);
+        });
+
+    rx.await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_formatted_output_path(
     input_path: String,
@@ -234,7 +249,7 @@ pub async fn transcribe_media(
     model_id: String,
     language: Option<String>,
     translate_to_english: bool,
-) -> Result<(), String> {
+) -> Result<transcription::TranscriptionOutput, String> {
     transcription::transcribe_media(
         app,
         id,

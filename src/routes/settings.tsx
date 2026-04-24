@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useTheme } from "next-themes";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -166,10 +167,13 @@ function Settings() {
 
 	const handleDeleteModel = useCallback(
 		async (targetModelId: string, label: string) => {
-			const confirmed = window.confirm(`确认删除模型“${label}”吗？`);
-			if (!confirmed) return;
-
 			try {
+				const confirmed = await invoke<boolean>("confirm_delete", {
+					modelLabel: label,
+				});
+
+				if (!confirmed) return;
+
 				setDeletingModelIds((prev) => ({ ...prev, [targetModelId]: true }));
 				await invoke("delete_transcription_model", {
 					modelId: targetModelId,
@@ -541,6 +545,18 @@ function Settings() {
 									? "可用"
 									: "未下载"}
 							</Badge>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() =>
+									invoke("get_transcription_output_dir").then((dir) =>
+										revealItemInDir(dir as string),
+									)
+								}
+							>
+								<FolderOpen className="size-4 mr-2" />
+								打开模型存储目录
+							</Button>
 						</div>
 
 						<div className="space-y-3">
@@ -571,7 +587,7 @@ function Settings() {
 												deletingModelIds[model.id]
 											}
 										>
-											{model.downloaded ? "删除" : "下载/更新"}
+											{model.downloaded ? "删除" : "下载"}
 										</Button>
 									</div>
 									{downloadStateByModel[model.id] === "downloading" && (
