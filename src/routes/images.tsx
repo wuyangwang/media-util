@@ -30,6 +30,7 @@ import { TaskItemActions } from "@/components/task-item-actions";
 import { TaskStartButton } from "@/components/task-start-button";
 import { ImageIconTab } from "@/components/image-icon-tab";
 import { APP_ICON_PRESETS } from "@/lib/icon-presets";
+import { MediaPreviewDialog } from "@/components/media-preview-dialog";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -477,51 +478,75 @@ function Images() {
 										: "border-border bg-muted/30",
 								)}
 							>
-								<div className="mr-4 min-w-0 flex-1">
-									<h3 className="truncate text-sm font-semibold">
-										{task.fileName}
-									</h3>
-									<div className="mt-1 flex flex-wrap items-center gap-2">
-										{task.info ? (
-											task.info.format !== "unknown" ? (
-												<>
-													<Badge
-														variant="secondary"
-														className="h-4 px-1 text-[10px]"
-														title="格式"
-													>
-														{task.info.format.toUpperCase()}
-													</Badge>
-													<span
-														className="text-[11px] text-muted-foreground"
-														title="分辨率"
-													>
-														{task.info.video?.width} x {task.info.video?.height}
-													</span>
-													<span className="text-[11px] text-muted-foreground/60">
-														•
-													</span>
-													<span
-														className="text-[11px] text-muted-foreground"
-														title="文件大小"
-													>
-														{formatBytes(task.info.size)}
-													</span>
-												</>
+								<div className="flex gap-4 flex-1 min-w-0">
+									<MediaPreviewDialog
+										type="image"
+										path={task.path}
+										fileName={task.fileName}
+									>
+										<div className="size-16 bg-muted rounded flex items-center justify-center overflow-hidden shrink-0 border shadow-sm cursor-zoom-in group relative">
+											{task.thumbnail ? (
+												<img
+													src={task.thumbnail}
+													alt="预览"
+													className="w-full h-full object-cover transition-transform group-hover:scale-110"
+												/>
 											) : (
-												<span className="text-[11px] text-muted-foreground">
-													未知格式
+												<ImageIcon className="size-6 text-muted-foreground/20" />
+											)}
+											<div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+												<ImageIcon className="size-4 text-white" />
+											</div>
+										</div>
+									</MediaPreviewDialog>
+
+									<div className="mr-4 min-w-0 flex-1">
+										<h3 className="truncate text-sm font-semibold">
+											{task.fileName}
+										</h3>
+										<div className="mt-1 flex flex-wrap items-center gap-2">
+											{task.info ? (
+												task.info.format !== "unknown" ? (
+													<>
+														<Badge
+															variant="secondary"
+															className="h-4 px-1 text-[10px]"
+															title="格式"
+														>
+															{task.info.format.toUpperCase()}
+														</Badge>
+														<span
+															className="text-[11px] text-muted-foreground"
+															title="分辨率"
+														>
+															{task.info.video?.width} x{" "}
+															{task.info.video?.height}
+														</span>
+														<span className="text-[11px] text-muted-foreground/60">
+															•
+														</span>
+														<span
+															className="text-[11px] text-muted-foreground"
+															title="文件大小"
+														>
+															{formatBytes(task.info.size)}
+														</span>
+													</>
+												) : (
+													<span className="text-[11px] text-muted-foreground">
+														未知格式
+													</span>
+												)
+											) : (
+												<span className="animate-pulse text-[11px] text-muted-foreground">
+													正在读取信息...
 												</span>
-											)
-										) : (
-											<span className="animate-pulse text-[11px] text-muted-foreground">
-												正在读取信息...
-											</span>
-										)}
+											)}
+										</div>
+										<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
+											{task.path}
+										</p>
 									</div>
-									<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
-										{task.path}
-									</p>
 								</div>
 
 								<TaskItemActions

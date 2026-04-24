@@ -189,6 +189,10 @@ impl AppConfig {
             image_extensions: IMAGE_EXTENSIONS.to_vec(),
             video_presets: vec![
                 VideoPresetConfig {
+                    value: "fast_copy".to_string(),
+                    label: "极速转换 (无损拷贝)".to_string(),
+                },
+                VideoPresetConfig {
                     value: "720p_low".to_string(),
                     label: "720p (低码率)".to_string(),
                 },
@@ -298,6 +302,8 @@ pub enum Preset {
     P1080High,
     #[serde(rename = "2k")]
     P2K,
+    #[serde(rename = "fast_copy")]
+    FastCopy,
     #[serde(rename = "extract_audio")]
     ExtractAudio { format: AudioFormat },
     #[serde(rename = "compress")]
@@ -316,6 +322,14 @@ pub struct PresetParams {
 impl Preset {
     pub fn get_params(&self) -> PresetParams {
         match self {
+            Preset::FastCopy => PresetParams {
+                width: None,
+                height: None,
+                crf: 0,
+                vcodec: "copy",
+                acodec: "copy",
+                extra_args: vec![],
+            },
             Preset::P720Low => PresetParams {
                 width: Some("1280"),
                 height: Some("720"),

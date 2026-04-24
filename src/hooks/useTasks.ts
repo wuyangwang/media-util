@@ -180,13 +180,14 @@ export function useTasks<T extends Task>(mode: "video" | "image") {
 											path: currentTask.path,
 										},
 									);
-									// If it's a file path (doesn't start with data:), convert it
 									thumbnail = thumbPath.startsWith("data:")
 										? thumbPath
 										: convertFileSrc(thumbPath);
 								} catch (e) {
 									console.error("Failed to get thumbnail:", e);
 								}
+							} else if (mode === "image") {
+								thumbnail = convertFileSrc(currentTask.path);
 							}
 
 							setTasks((prev) =>

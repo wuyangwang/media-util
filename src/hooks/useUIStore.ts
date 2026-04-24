@@ -33,7 +33,6 @@ const EMPTY_SYSTEM_INFO: SystemInfoState = {
 interface UIState {
 	isSidebarCollapsed: boolean;
 	systemInfo: SystemInfoState | null;
-	systemInfoLoaded: boolean;
 	systemInfoLoading: boolean;
 	toggleSidebar: () => void;
 	fetchSystemInfo: () => Promise<void>;
@@ -44,13 +43,12 @@ export const useUIStore = create<UIState>()(
 		(set, get) => ({
 			isSidebarCollapsed: false,
 			systemInfo: null,
-			systemInfoLoaded: false,
 			systemInfoLoading: false,
 			toggleSidebar: () =>
 				set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
 			fetchSystemInfo: async () => {
-				const { systemInfoLoaded, systemInfoLoading } = get();
-				if (systemInfoLoaded || systemInfoLoading) {
+				const { systemInfoLoading } = get();
+				if (systemInfoLoading) {
 					return;
 				}
 
@@ -84,14 +82,12 @@ export const useUIStore = create<UIState>()(
 							cpuCores: result.cpu_cores || 0,
 							gpuModel: result.gpu_model || "Unknown",
 						},
-						systemInfoLoaded: true,
 						systemInfoLoading: false,
 					});
 				} catch (error) {
 					console.error("Failed to fetch system info:", error);
 					set({
 						systemInfo: EMPTY_SYSTEM_INFO,
-						systemInfoLoaded: true,
 						systemInfoLoading: false,
 					});
 				}
@@ -100,6 +96,9 @@ export const useUIStore = create<UIState>()(
 		{
 			name: "ui-storage",
 			storage: createJSONStorage(() => localStorage),
+			partialize: (state) => ({
+				isSidebarCollapsed: state.isSidebarCollapsed,
+			}),
 		},
 	),
 );

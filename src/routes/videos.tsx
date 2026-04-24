@@ -27,6 +27,7 @@ import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
 import { TaskStartButton } from "@/components/task-start-button";
+import { MediaPreviewDialog } from "@/components/media-preview-dialog";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
@@ -238,17 +239,28 @@ function Videos() {
 							>
 								<div className="flex gap-4">
 									{/* Thumbnail */}
-									<div className="size-20 bg-muted rounded flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
-										{task.thumbnail ? (
-											<img
-												src={task.thumbnail}
-												alt="预览"
-												className="w-full h-full object-cover"
-											/>
-										) : (
-											<FileVideo className="size-8 text-muted-foreground/20" />
-										)}
-									</div>
+									<MediaPreviewDialog
+										type="video"
+										path={task.path}
+										fileName={task.fileName}
+									>
+										<div className="size-20 bg-muted rounded flex items-center justify-center overflow-hidden shrink-0 border shadow-sm cursor-pointer group relative">
+											{task.thumbnail ? (
+												<img
+													src={task.thumbnail}
+													alt="预览"
+													className="w-full h-full object-cover transition-transform group-hover:scale-105"
+												/>
+											) : (
+												<FileVideo className="size-8 text-muted-foreground/20" />
+											)}
+											<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+												<div className="size-10 rounded-full bg-primary flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+													<div className="ml-1 border-y-[6px] border-y-transparent border-l-[10px] border-l-primary-foreground" />
+												</div>
+											</div>
+										</div>
+									</MediaPreviewDialog>
 
 									<div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
 										<div className="flex justify-between items-start">

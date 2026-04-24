@@ -28,13 +28,13 @@ export function ImageIconTab({
 						disabled={disabled}
 						onClick={() => onTogglePlatform(preset.platform)}
 						className={cn(
-							"h-auto items-start justify-start rounded-md border bg-background/60 p-3 text-left",
+							"h-auto items-start justify-start rounded-md border bg-background/60 p-3 text-left whitespace-normal",
 							selectedPlatforms.includes(preset.platform)
 								? "border-primary bg-primary/8"
 								: "border-border",
 						)}
 					>
-						<div className="mb-1 flex items-center justify-between">
+						<div className="mb-1 flex w-full items-center justify-between">
 							<span className="text-xs font-semibold">{preset.platform}</span>
 							<span className="font-mono text-[10px] uppercase text-muted-foreground">
 								{preset.format}
@@ -43,7 +43,7 @@ export function ImageIconTab({
 						<p className="text-[11px] text-muted-foreground">
 							{preset.description}
 						</p>
-						<p className="mt-2 font-mono text-[10px] text-muted-foreground/80">
+						<p className="mt-2 font-mono text-[10px] text-muted-foreground/80 break-words">
 							{preset.sizes.map((size) => `${size}x${size}`).join(" · ")}
 						</p>
 					</Button>
