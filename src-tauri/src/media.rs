@@ -14,6 +14,7 @@ mod video;
 pub use crate::config::AppConfig;
 pub use model_manager::TranscriptionModelStatus;
 pub use shared::{MediaInfo, SystemInfo};
+pub use transcription::TranscriptionOutput;
 pub use video::AppQueue;
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
@@ -24,7 +25,7 @@ pub async fn confirm_delete(app: tauri::AppHandle, model_label: String) -> Resul
 
     app.dialog()
         .message(format!("确认删除模型“{}”吗？此操作无法撤销。", model_label))
-        .kind(MessageDialogKind::Question)
+        .kind(MessageDialogKind::Info)
         .show(move |confirmed| {
             let _ = tx.send(confirmed);
         });
@@ -241,4 +242,24 @@ pub fn delete_transcription_model(app: tauri::AppHandle, model_id: String) -> Re
     model_manager::delete_model(&app, model_id)
 }
 
-pub use transcription::transcribe_media;
+#[tauri::command]
+pub async fn transcribe_media(
+    app: tauri::AppHandle,
+    id: String,
+    input_path: String,
+    output_path: String,
+    model_id: String,
+    language: Option<String>,
+    translate_to_english: bool,
+) -> Result<TranscriptionOutput, String> {
+    transcription::transcribe_media(
+        app,
+        id,
+        input_path,
+        output_path,
+        model_id,
+        language,
+        translate_to_english,
+    )
+    .await
+}

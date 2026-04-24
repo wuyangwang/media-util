@@ -29,6 +29,7 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
+
       # ✅ 依赖安装（会命中缓存）
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -40,6 +41,10 @@ jobs:
       # ⭐⭐⭐ 核心优化：Rust 缓存
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+          cache-on-failure: true
 
       # 读取版本号
       - name: Get version from package.json
@@ -49,10 +54,15 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
       # 构建
       - name: Build Windows app
         run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
         env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
           CI: true
 
       # 发布

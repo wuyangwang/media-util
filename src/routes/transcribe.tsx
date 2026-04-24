@@ -4,7 +4,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, FileAudio, FileVideo, FolderOpen, Play, Trash2 } from "lucide-react";
+import {
+	Copy,
+	FileAudio,
+	FileVideo,
+	FolderOpen,
+	Play,
+	Trash2,
+} from "lucide-react";
 
 import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
@@ -394,7 +401,9 @@ function TranscribePage() {
 													<input
 														type="checkbox"
 														checked={showTimestamps}
-														onChange={(e) => setShowTimestamps(e.target.checked)}
+														onChange={(e) =>
+															setShowTimestamps(e.target.checked)
+														}
 														className="size-3 accent-emerald-600"
 													/>
 												</div>
@@ -432,9 +441,11 @@ function TranscribePage() {
 											onClick={clearTask}
 											disabled={
 												isAnyProcessing ||
-												["preparing", "normalizing_audio", "transcribing"].includes(
-													task.status,
-												)
+												[
+													"preparing",
+													"normalizing_audio",
+													"transcribing",
+												].includes(task.status)
 											}
 										>
 											<Trash2 className="size-4" />

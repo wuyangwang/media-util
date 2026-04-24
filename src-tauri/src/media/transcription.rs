@@ -196,7 +196,7 @@ fn run_transcription(
         } else if !timestamped.is_empty() {
             timestamped.push('\n');
         }
-        timestamped.push_str(&format!("[{}] {}", format_timestamp(segment.start), text));
+        timestamped.push_str(&format!("[{}] {}", format_timestamp(segment.start as f64), text));
 
         // Plain version: just collect text with spaces
         if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
@@ -253,7 +253,6 @@ fn run_transcription(
     }
 }
 
-#[tauri::command]
 pub async fn transcribe_media(
     app: AppHandle,
     id: String,
