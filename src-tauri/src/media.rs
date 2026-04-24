@@ -26,6 +26,21 @@ pub fn get_formatted_output_path(
 }
 
 #[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    shared::read_text_file(path)
+}
+
+#[tauri::command]
+pub fn get_transcription_output_dir(app: tauri::AppHandle) -> Result<String, String> {
+    shared::get_transcription_output_dir(app)
+}
+
+#[tauri::command]
+pub fn get_transcription_output_path(app: tauri::AppHandle) -> Result<String, String> {
+    shared::get_transcription_output_path(app)
+}
+
+#[tauri::command]
 pub async fn get_media_info(app: tauri::AppHandle, path: String) -> Result<MediaInfo, String> {
     shared::get_media_info(app, path).await
 }

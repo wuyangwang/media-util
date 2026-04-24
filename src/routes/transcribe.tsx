@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileAudio, FileVideo, FolderOpen } from "lucide-react";
+import { Copy, FileAudio, FileVideo, FolderOpen } from "lucide-react";
 
 import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
@@ -71,6 +71,7 @@ function TranscribePage() {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [models, setModels] = useState<ModelStatus[]>([]);
 	const [translateToEnglish, setTranslateToEnglish] = useState(false);
+	const [transcriptOutputDir, setTranscriptOutputDir] = useState<string>();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const { modelId } = useTranscriptionSettings();
 
@@ -179,11 +180,7 @@ function TranscribePage() {
 		for (const task of tasks) {
 			if (task.status === "completed") continue;
 
-			const outputPath = await invoke<string>("get_formatted_output_path", {
-				inputPath: task.path,
-				operation: "transcript",
-				extension: "txt",
-			});
+			const outputPath = await invoke<string>("get_transcription_output_path");
 
 			setTasks((prev) =>
 				prev.map((t) =>
@@ -242,6 +239,26 @@ function TranscribePage() {
 		}
 	}, []);
 
+	const handleCopyOutputText = useCallback(async (path?: string) => {
+		if (!path) return;
+		try {
+			const text = await invoke<string>("read_text_file", { path });
+			await navigator.clipboard.writeText(text);
+			toast.success("转写文本已复制");
+		} catch (error) {
+			toast.error(`复制失败: ${error}`);
+		}
+	}, []);
+
+	const handleOpenTranscriptDir = useCallback(async () => {
+		if (!transcriptOutputDir) return;
+		try {
+			await openPath(transcriptOutputDir);
+		} catch (error) {
+			toast.error(`打开目录失败: ${error}`);
+		}
+	}, [transcriptOutputDir]);
+
 	const clearTasks = useCallback(() => {
 		if (isAnyProcessing) {
 			toast.error("任务处理中，无法清空");
@@ -253,6 +270,12 @@ function TranscribePage() {
 	useEffect(() => {
 		refreshModels();
 	}, [refreshModels]);
+
+	useEffect(() => {
+		void invoke<string>("get_transcription_output_dir")
+			.then((dir) => setTranscriptOutputDir(dir))
+			.catch((error) => toast.error(`读取输出目录失败: ${error}`));
+	}, []);
 
 	useEffect(() => {
 		let mounted = true;
@@ -343,6 +366,15 @@ function TranscribePage() {
 						<div className="flex items-center gap-2">
 							<Button
 								variant="outline"
+								size="icon"
+								title="打开转写输出目录"
+								onClick={handleOpenTranscriptDir}
+								disabled={!transcriptOutputDir}
+							>
+								<FolderOpen className="size-4" />
+							</Button>
+							<Button
+								variant="outline"
 								onClick={() => navigate({ to: "/settings" })}
 							>
 								前往设置
@@ -390,7 +422,7 @@ function TranscribePage() {
 												</div>
 											)}
 										</div>
-										<div className="shrink-0">
+										<div className="shrink-0 space-y-2">
 											<Button
 												variant="ghost"
 												size="sm"
@@ -399,6 +431,17 @@ function TranscribePage() {
 											>
 												<FolderOpen className="mr-1 size-4" />
 												打开输出
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => handleCopyOutputText(task.outputPath)}
+												disabled={
+													task.status !== "completed" || !task.outputPath
+												}
+											>
+												<Copy className="mr-1 size-4" />
+												复制文本
 											</Button>
 										</div>
 									</div>
