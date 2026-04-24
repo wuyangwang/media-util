@@ -213,6 +213,16 @@ pub async fn transcribe_media(
     output_path: String,
     model_id: String,
     language: Option<String>,
+    translate_to_english: bool,
 ) -> Result<(), String> {
-    transcription::transcribe_media(app, id, input_path, output_path, model_id, language).await
+    transcription::transcribe_media(
+        app,
+        id,
+        input_path,
+        output_path,
+        model_id,
+        language,
+        translate_to_english,
+    )
+    .await
 }

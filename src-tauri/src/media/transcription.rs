@@ -127,6 +127,7 @@ fn run_transcription(
     model_path: PathBuf,
     wav_path: PathBuf,
     language: Option<String>,
+    translate_to_english: bool,
 ) -> Result<String, String> {
     let samples = transcribe_rs::audio::read_wav_samples(&wav_path).map_err(|e| e.to_string())?;
 
@@ -140,6 +141,7 @@ fn run_transcription(
                     &samples,
                     &WhisperInferenceParams {
                         language,
+                        translate: translate_to_english,
                         ..Default::default()
                     },
                 )
@@ -175,6 +177,7 @@ pub async fn transcribe_media(
     output_path: String,
     model_id: String,
     language: Option<String>,
+    translate_to_english: bool,
 ) -> Result<(), String> {
     let parsed_model = TranscriptionModelId::parse(&model_id)?;
 
@@ -197,7 +200,13 @@ pub async fn transcribe_media(
     let wav_for_task = temp_wav.clone();
     let model_for_task = model_path.clone();
     let text = tauri::async_runtime::spawn_blocking(move || {
-        run_transcription(parsed_model, model_for_task, wav_for_task, language)
+        run_transcription(
+            parsed_model,
+            model_for_task,
+            wav_for_task,
+            language,
+            translate_to_english,
+        )
     })
     .await
     .map_err(|e| e.to_string())??;

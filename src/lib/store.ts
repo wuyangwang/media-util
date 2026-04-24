@@ -80,3 +80,22 @@ export function useAppSettings() {
 		isLoaded,
 	};
 }
+
+export type TranscriptionModelId =
+	| "whisper-medium"
+	| "whisper-large"
+	| "sense-voice";
+
+export function useTranscriptionSettings() {
+	const [modelId, setModelId, modelLoaded] =
+		useStoreValue<TranscriptionModelId>(
+			"transcription.modelId",
+			"whisper-medium",
+		);
+
+	return {
+		modelId,
+		setModelId,
+		isLoaded: modelLoaded,
+	};
+}

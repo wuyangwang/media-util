@@ -1,17 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileAudio, FileVideo, Download, FolderOpen } from "lucide-react";
+import { FileAudio, FileVideo, FolderOpen } from "lucide-react";
 
 import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
 	Select,
@@ -24,6 +24,7 @@ import { useDragDropPaths } from "@/hooks/useDragDropPaths";
 import { usePickMediaInputs } from "@/hooks/usePickMediaInputs";
 import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
 import { DEFAULT_CONFIG } from "@/lib/config";
+import { useTranscriptionSettings } from "@/lib/store";
 
 export const Route = createFileRoute("/transcribe")({
 	component: TranscribePage,
@@ -55,13 +56,6 @@ interface ModelStatus {
 	path?: string;
 }
 
-interface ModelDownloadPayload {
-	model_id: string;
-	progress: number;
-	status: string;
-	message?: string;
-}
-
 interface TranscriptionProgressPayload {
 	id: string;
 	progress: number;
@@ -71,14 +65,14 @@ interface TranscriptionProgressPayload {
 }
 
 function TranscribePage() {
+	const navigate = useNavigate();
 	const [tasks, setTasks] = useState<TranscribeTask[]>([]);
 	const [isScanning, setIsScanning] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
-	const [selectedModel, setSelectedModel] = useState("whisper-medium");
 	const [models, setModels] = useState<ModelStatus[]>([]);
-	const [modelDownloadProgress, setModelDownloadProgress] = useState(0);
-	const [modelDownloadState, setModelDownloadState] = useState("");
+	const [translateToEnglish, setTranslateToEnglish] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const { modelId } = useTranscriptionSettings();
 
 	const extensions = useMemo(
 		() => [
@@ -96,8 +90,8 @@ function TranscribePage() {
 		);
 
 	const selectedModelStatus = useMemo(
-		() => models.find((model) => model.id === selectedModel),
-		[models, selectedModel],
+		() => models.find((model) => model.id === modelId),
+		[modelId, models],
 	);
 
 	const refreshModels = useCallback(async () => {
@@ -165,19 +159,6 @@ function TranscribePage() {
 		handleAddPaths,
 	});
 
-	const handleDownloadModel = useCallback(async () => {
-		try {
-			setModelDownloadProgress(0);
-			setModelDownloadState("downloading");
-			await invoke("download_transcription_model", { modelId: selectedModel });
-			await refreshModels();
-			toast.success("模型下载完成");
-		} catch (error) {
-			setModelDownloadState("failed");
-			toast.error(`模型下载失败: ${error}`);
-		}
-	}, [refreshModels, selectedModel]);
-
 	const handleStartBatch = useCallback(async () => {
 		if (isAnyProcessing) {
 			toast.error("已有任务在执行中");
@@ -189,8 +170,9 @@ function TranscribePage() {
 		}
 
 		if (!selectedModelStatus?.downloaded) {
-			toast.info("当前模型未下载，开始自动下载...");
-			await handleDownloadModel();
+			toast.error("当前启用模型未下载，请先到设置页下载模型");
+			navigate({ to: "/settings" });
+			return;
 		}
 
 		setIsProcessing(true);
@@ -221,8 +203,10 @@ function TranscribePage() {
 					id: task.id,
 					inputPath: task.path,
 					outputPath,
-					modelId: selectedModel,
+					modelId,
 					language: null,
+					translateToEnglish:
+						modelId.startsWith("whisper") && translateToEnglish,
 				});
 			} catch (error) {
 				setTasks((prev) =>
@@ -241,11 +225,12 @@ function TranscribePage() {
 		}
 		setIsProcessing(false);
 	}, [
-		handleDownloadModel,
 		isAnyProcessing,
-		selectedModel,
+		modelId,
 		selectedModelStatus,
 		tasks,
+		navigate,
+		translateToEnglish,
 	]);
 
 	const handleOpenOutput = useCallback(async (path?: string) => {
@@ -272,13 +257,6 @@ function TranscribePage() {
 	useEffect(() => {
 		let mounted = true;
 		const unlistenFns: Array<() => void> = [];
-
-		listen<ModelDownloadPayload>("model-download-progress", (event) => {
-			if (!mounted || event.payload.model_id !== selectedModel) return;
-			setModelDownloadProgress(event.payload.progress);
-			setModelDownloadState(event.payload.status);
-		}).then((fn) => unlistenFns.push(fn));
-
 		listen<TranscriptionProgressPayload>("transcription-progress", (event) => {
 			if (!mounted) return;
 			const payload = event.payload;
@@ -301,7 +279,7 @@ function TranscribePage() {
 			mounted = false;
 			for (const fn of unlistenFns) fn();
 		};
-	}, [selectedModel]);
+	}, []);
 
 	useTaskPageAnimations(containerRef, tasks.length);
 
@@ -318,7 +296,7 @@ function TranscribePage() {
 
 			<TaskPageToolbar
 				title="视频/音频转文字"
-				descriptionIdle="选择模型后开始批量转写。视频会先提取音频。"
+				descriptionIdle="模型与下载在设置页管理。视频会先提取音频后转写。"
 				descriptionScanning="正在扫描媒体文件，请稍候..."
 				pickFilesLabel="添加媒体"
 				pickDirLabel="添加文件夹"
@@ -336,39 +314,39 @@ function TranscribePage() {
 				<Card className="shrink-0 header-animate">
 					<CardContent className="flex items-center justify-between gap-4 p-4">
 						<div className="flex items-center gap-3">
-							<span className="text-sm font-medium">模型:</span>
-							<Select value={selectedModel} onValueChange={setSelectedModel}>
-								<SelectTrigger className="w-[220px]">
-									<SelectValue placeholder="选择模型" />
+							<span className="text-sm font-medium">当前模型:</span>
+							<span className="text-sm text-muted-foreground">
+								{selectedModelStatus?.label || modelId}
+							</span>
+							<span className="text-xs text-muted-foreground">
+								{selectedModelStatus?.downloaded ? "可用" : "未下载"}
+							</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<span className="text-xs text-muted-foreground">
+								Whisper 输出
+							</span>
+							<Select
+								value={translateToEnglish ? "en" : "origin"}
+								onValueChange={(value) => setTranslateToEnglish(value === "en")}
+								disabled={!modelId.startsWith("whisper")}
+							>
+								<SelectTrigger className="w-[160px]">
+									<SelectValue placeholder="选择输出" />
 								</SelectTrigger>
 								<SelectContent>
-									{models.map((model) => (
-										<SelectItem key={model.id} value={model.id}>
-											{model.label}
-										</SelectItem>
-									))}
+									<SelectItem value="origin">保持原语言</SelectItem>
+									<SelectItem value="en">翻译为英文</SelectItem>
 								</SelectContent>
 							</Select>
-							{selectedModelStatus?.downloaded ? (
-								<Badge variant="secondary">已下载</Badge>
-							) : (
-								<Badge variant="outline">未下载</Badge>
-							)}
 						</div>
 						<div className="flex items-center gap-2">
 							<Button
 								variant="outline"
-								onClick={handleDownloadModel}
-								disabled={
-									modelDownloadState === "downloading" || isAnyProcessing
-								}
+								onClick={() => navigate({ to: "/settings" })}
 							>
-								<Download className="mr-2 size-4" />
-								下载模型
+								前往设置
 							</Button>
-							<div className="w-40">
-								<Progress value={modelDownloadProgress} />
-							</div>
 						</div>
 					</CardContent>
 				</Card>
