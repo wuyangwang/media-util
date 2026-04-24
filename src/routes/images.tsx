@@ -504,72 +504,73 @@ function Images() {
 										<h3 className="truncate text-sm font-semibold">
 											{task.fileName}
 										</h3>
-									<div className="mt-1 flex flex-wrap items-center gap-2">
-										{task.info ? (
-											task.info.format !== "unknown" ? (
-												<>
-													<Badge
-														variant="secondary"
-														className="h-4 px-1 text-[10px]"
-														title="格式"
-													>
-														{task.info.format.toUpperCase()}
-													</Badge>
-													<span
-														className="text-[11px] text-muted-foreground"
-														title="分辨率"
-													>
-														{task.info.video?.width} x {task.info.video?.height}
+										<div className="mt-1 flex flex-wrap items-center gap-2">
+											{task.info ? (
+												task.info.format !== "unknown" ? (
+													<>
+														<Badge
+															variant="secondary"
+															className="h-4 px-1 text-[10px]"
+															title="格式"
+														>
+															{task.info.format.toUpperCase()}
+														</Badge>
+														<span
+															className="text-[11px] text-muted-foreground"
+															title="分辨率"
+														>
+															{task.info.video?.width} x{" "}
+															{task.info.video?.height}
+														</span>
+														<span className="text-[11px] text-muted-foreground/60">
+															•
+														</span>
+														<span
+															className="text-[11px] text-muted-foreground"
+															title="文件大小"
+														>
+															{formatBytes(task.info.size)}
+														</span>
+													</>
+												) : (
+													<span className="text-[11px] text-muted-foreground">
+														未知格式
 													</span>
-													<span className="text-[11px] text-muted-foreground/60">
-														•
-													</span>
-													<span
-														className="text-[11px] text-muted-foreground"
-														title="文件大小"
-													>
-														{formatBytes(task.info.size)}
-													</span>
-												</>
+												)
 											) : (
-												<span className="text-[11px] text-muted-foreground">
-													未知格式
+												<span className="animate-pulse text-[11px] text-muted-foreground">
+													正在读取信息...
 												</span>
-											)
-										) : (
-											<span className="animate-pulse text-[11px] text-muted-foreground">
-												正在读取信息...
-											</span>
-										)}
+											)}
+										</div>
+										<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
+											{task.path}
+										</p>
 									</div>
-									<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
-										{task.path}
-									</p>
 								</div>
-							</div>
 
-							<TaskItemActions
-								statusBadge={
-									<TaskStatusBadge
-										status={task.status}
-										label={TASK_STATUS_LABELS[task.status]}
-									/>
-								}
-								startAction={
-									<TaskStartButton
-										status={task.status}
-										onStart={() => handleStartTask(task)}
-									/>
-								}
-								showOpenFolder={task.status === "completed"}
-								onOpenFolder={() => handleOpenFolder(task.output)}
-								onRemove={() => handleRemoveTask(task.id)}
-							/>
-						</div>
-					))
-				)}
-			</div>
-		</main>
-	</div>
-);
+								<TaskItemActions
+									statusBadge={
+										<TaskStatusBadge
+											status={task.status}
+											label={TASK_STATUS_LABELS[task.status]}
+										/>
+									}
+									startAction={
+										<TaskStartButton
+											status={task.status}
+											onStart={() => handleStartTask(task)}
+										/>
+									}
+									showOpenFolder={task.status === "completed"}
+									onOpenFolder={() => handleOpenFolder(task.output)}
+									onRemove={() => handleRemoveTask(task.id)}
+								/>
+							</div>
+						))
+					)}
+				</div>
+			</main>
+		</div>
+	);
 }

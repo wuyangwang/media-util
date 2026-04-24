@@ -138,7 +138,10 @@ pub async fn convert_video(
             let codec = v_info.codec.to_lowercase();
             let is_compatible = match output_ext.as_str() {
                 "mp4" | "mov" | "m4v" => {
-                    codec.contains("h264") || codec.contains("h265") || codec.contains("hevc") || codec.contains("avc")
+                    codec.contains("h264")
+                        || codec.contains("h265")
+                        || codec.contains("hevc")
+                        || codec.contains("avc")
                 }
                 "mkv" => true, // MKV 几乎支持所有编码拷贝
                 "webm" => codec.contains("vp8") || codec.contains("vp9") || codec.contains("av1"),
@@ -155,7 +158,7 @@ pub async fn convert_video(
     }
 
     let mut args = vec!["-i".to_string(), input_path.clone()];
-    
+
     if params.vcodec == "copy" {
         args.push("-c:v".to_string());
         args.push("copy".to_string());
