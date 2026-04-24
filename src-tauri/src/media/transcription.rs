@@ -184,7 +184,7 @@ fn run_transcription(
     let mut plain_raw = String::new();
     let mut last_end = 0.0;
     
-    for segment in result.segments {
+    for segment in result.segments.into_iter().flatten() {
         let text = segment.text.trim();
         if text.is_empty() {
             continue;
