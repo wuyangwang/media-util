@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import {
 	Play,
 	Image as ImageIcon,
+	Mic2,
 	Settings2,
 	Film,
 	LayoutGrid,
@@ -186,6 +187,12 @@ function RootComponent() {
 						to="/images"
 						label="图片"
 						icon={ImageIcon}
+						isCollapsed={isSidebarCollapsed}
+					/>
+					<SidebarLink
+						to="/transcribe"
+						label="转文字"
+						icon={Mic2}
 						isCollapsed={isSidebarCollapsed}
 					/>
 					<SidebarLink

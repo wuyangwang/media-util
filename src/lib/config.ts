@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export interface AppConfig {
 	video_extensions: string[];
+	audio_extensions: string[];
 	image_extensions: string[];
 	video_presets: { value: string; label: string }[];
 	image_formats: { value: string; label: string }[];
@@ -19,6 +20,7 @@ export interface AppConfig {
 // 导出全局配置变量，初始化为空对象以防止解构报错
 export const DEFAULT_CONFIG: AppConfig = {
 	video_extensions: [],
+	audio_extensions: [],
 	image_extensions: [],
 	video_presets: [],
 	image_formats: [],

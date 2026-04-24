@@ -1,4 +1,4 @@
-use crate::config::{AppConfig, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
+use crate::config::{AppConfig, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
@@ -14,6 +14,7 @@ use tauri_plugin_store::StoreExt;
 
 const SYSTEM_INFO_STORE_PATH: &str = "settings.json";
 const SYSTEM_INFO_STATIC_STORE_KEY: &str = "systemInfoStatic";
+const TRANSCRIPTION_OUTPUT_DIR: &str = "Media Utility/transcripts";
 
 pub fn get_formatted_output_path(
     input_path: String,
@@ -38,19 +39,64 @@ pub fn get_formatted_output_path(
         Some(e) => e.to_string(),
     };
 
-    let timestamp = chrono::Utc::now().timestamp_millis().to_string();
+    let now = chrono::Local::now();
+    let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+    let millis = now.timestamp_subsec_millis();
     let output_dir = parent.join("media-convert");
     if !output_dir.exists() {
         std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
     }
 
-    let new_filename = format!("{}_{}_{}.{}", stem, operation, timestamp, ext);
+    let new_filename = if operation == "transcript" {
+        format!("{}-{:03}.{}", timestamp, millis, ext)
+    } else {
+        format!("{}_{}_{}.{}", stem, operation, timestamp, ext)
+    };
     let output_path = output_dir.join(new_filename);
 
     Ok(output_path
         .to_str()
         .ok_or("Invalid output path")?
         .to_string())
+}
+
+pub fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+fn ensure_transcription_output_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .resolve(
+            TRANSCRIPTION_OUTPUT_DIR,
+            tauri::path::BaseDirectory::Document,
+        )
+        .map_err(|e: tauri::Error| e.to_string())?;
+
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+
+    Ok(dir)
+}
+
+pub fn get_transcription_output_dir(app: AppHandle) -> Result<String, String> {
+    ensure_transcription_output_dir(&app)?
+        .to_str()
+        .map(|v| v.to_string())
+        .ok_or("Invalid transcription output directory".to_string())
+}
+
+pub fn get_transcription_output_path(app: AppHandle) -> Result<String, String> {
+    let output_dir = ensure_transcription_output_dir(&app)?;
+    let now = chrono::Local::now();
+    let datetime = now.format("%Y-%m-%d_%H-%M-%S");
+    let millis = now.timestamp_subsec_millis();
+    let output_path = output_dir.join(format!("{datetime}-{millis:03}.txt"));
+    output_path
+        .to_str()
+        .map(|v| v.to_string())
+        .ok_or("Invalid transcription output path".to_string())
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -277,10 +323,17 @@ fn save_cached_static_system_info(
 pub async fn scan_directory(path: String, mode: String) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     let mut stack = vec![std::path::PathBuf::from(path)];
-    let target_exts = if mode == "video" {
+    let target_exts: Vec<&str> = if mode == "video" {
+        VIDEO_EXTENSIONS.to_vec()
+    } else if mode == "transcribe" {
+        // ASR accepts both video and audio inputs.
         VIDEO_EXTENSIONS
+            .iter()
+            .chain(AUDIO_EXTENSIONS.iter())
+            .copied()
+            .collect()
     } else {
-        IMAGE_EXTENSIONS
+        IMAGE_EXTENSIONS.to_vec()
     };
 
     while let Some(current_path) = stack.pop() {

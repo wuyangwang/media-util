@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +17,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
 	Monitor,
 	Moon,
@@ -25,12 +29,13 @@ import {
 	Zap,
 	Cpu,
 	Copy,
+	FileText,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useAppSettings } from "@/lib/store";
+import { useAppSettings, useTranscriptionSettings } from "@/lib/store";
 import { toast } from "sonner";
 import { useUIStore } from "@/hooks/useUIStore";
 
@@ -46,6 +51,22 @@ function Settings() {
 		theme: savedTheme,
 		setTheme: setSavedTheme,
 	} = useAppSettings();
+	const { modelId, setModelId } = useTranscriptionSettings();
+	const [models, setModels] = useState<
+		{
+			id: string;
+			label: string;
+			downloaded: boolean;
+			status: string;
+			path?: string;
+		}[]
+	>([]);
+	const [downloadProgressByModel, setDownloadProgressByModel] = useState<
+		Record<string, number>
+	>({});
+	const [downloadStateByModel, setDownloadStateByModel] = useState<
+		Record<string, string>
+	>({});
 	const systemInfo = useUIStore((state) => state.systemInfo);
 	const systemInfoLoading = useUIStore((state) => state.systemInfoLoading);
 	const fetchSystemInfo = useUIStore((state) => state.fetchSystemInfo);
@@ -88,6 +109,81 @@ function Settings() {
 		}, 0);
 		return () => window.clearTimeout(timer);
 	}, [fetchSystemInfo]);
+
+	const refreshTranscriptionModels = useCallback(async () => {
+		try {
+			const statuses = await invoke<
+				{
+					id: string;
+					label: string;
+					downloaded: boolean;
+					status: string;
+					path?: string;
+				}[]
+			>("get_transcription_models_status");
+			setModels(statuses);
+		} catch (error) {
+			toast.error(`读取转写模型状态失败: ${error}`);
+		}
+	}, []);
+
+	const handleDownloadModel = useCallback(
+		async (targetModelId: string) => {
+			try {
+				setDownloadStateByModel((prev) => ({
+					...prev,
+					[targetModelId]: "downloading",
+				}));
+				setDownloadProgressByModel((prev) => ({
+					...prev,
+					[targetModelId]: 0,
+				}));
+
+				await invoke("download_transcription_model", {
+					modelId: targetModelId,
+				});
+				await refreshTranscriptionModels();
+				toast.success("模型下载完成");
+			} catch (error) {
+				setDownloadStateByModel((prev) => ({
+					...prev,
+					[targetModelId]: "failed",
+				}));
+				toast.error(`模型下载失败: ${error}`);
+			}
+		},
+		[refreshTranscriptionModels],
+	);
+
+	useEffect(() => {
+		refreshTranscriptionModels();
+	}, [refreshTranscriptionModels]);
+
+	useEffect(() => {
+		let unlistenFn: (() => void) | undefined;
+		listen<{
+			model_id: string;
+			progress: number;
+			status: string;
+			message?: string;
+		}>("model-download-progress", (event) => {
+			const { model_id, progress, status } = event.payload;
+			setDownloadProgressByModel((prev) => ({
+				...prev,
+				[model_id]: progress,
+			}));
+			setDownloadStateByModel((prev) => ({
+				...prev,
+				[model_id]: status,
+			}));
+		}).then((fn) => {
+			unlistenFn = fn;
+		});
+
+		return () => {
+			unlistenFn?.();
+		};
+	}, []);
 
 	const formatBytes = useCallback((bytes: number) => {
 		if (!bytes) {
@@ -356,6 +452,94 @@ function Settings() {
 									{sysInfo.gpuModel}
 								</p>
 							</div>
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="settings-animate">
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2">
+							<FileText className="size-5" />
+							转写设置
+						</CardTitle>
+						<CardDescription>
+							在此管理模型下载与默认转写参数，转写页面会直接使用这些配置。
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="flex flex-wrap items-center gap-4">
+							<span className="text-sm font-medium shrink-0 text-foreground">
+								当前启用模型:
+							</span>
+							<div className="w-[220px]">
+								<Select
+									value={modelId}
+									onValueChange={(value) =>
+										setModelId(
+											value as
+												| "whisper-medium"
+												| "whisper-large"
+												| "sense-voice",
+										)
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="选择模型" />
+									</SelectTrigger>
+									<SelectContent>
+										{models.map((model) => (
+											<SelectItem key={model.id} value={model.id}>
+												{model.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<Badge
+								variant={
+									models.find((model) => model.id === modelId)?.downloaded
+										? "secondary"
+										: "outline"
+								}
+							>
+								{models.find((model) => model.id === modelId)?.downloaded
+									? "可用"
+									: "未下载"}
+							</Badge>
+						</div>
+
+						<div className="space-y-3">
+							{models.map((model) => (
+								<div
+									key={model.id}
+									className="rounded-md border bg-muted/20 p-3 space-y-2"
+								>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<div className="flex items-center gap-2">
+											<span className="text-sm font-medium">{model.label}</span>
+											<Badge
+												variant={model.downloaded ? "secondary" : "outline"}
+											>
+												{model.downloaded ? "已下载" : "未下载"}
+											</Badge>
+										</div>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => handleDownloadModel(model.id)}
+											disabled={
+												downloadStateByModel[model.id] === "downloading"
+											}
+										>
+											下载/更新
+										</Button>
+									</div>
+									<Progress value={downloadProgressByModel[model.id] || 0} />
+									<div className="text-[11px] text-muted-foreground">
+										状态: {downloadStateByModel[model.id] || model.status}
+									</div>
+								</div>
+							))}
 						</div>
 					</CardContent>
 				</Card>
