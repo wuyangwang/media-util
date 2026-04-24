@@ -148,23 +148,27 @@ args.push("-threads".to_string());
 args.push(worker_threads.to_string());
 ```
 
-## 14. 全局拖拽文件分流 (Tauri v2)
-在根路由或全局布局中监听文件拖入事件，根据后缀名自动跳转并分发任务：
-```typescript
-import { getCurrentWebview } from "@tauri-apps/api/webview";
+## 15. 本地语音转写 (Whisper / SenseVoice)
+基于 `transcribe-rs` 实现本地 AI 语音转写：
+- **模型文件管理**：模型存储在应用数据目录下。转写前需通过 `get_transcription_models_status` 检查模型是否已下载。
+- **双版本输出**：转写结果应同时保存为纯文本 (`.txt`) 和带时间戳的版本 (`.timestamped.txt`)。
+- **UI 反馈**：转写是耗时操作，需通过 `emit_progress` 实时向前端发送进度和状态。
 
-useEffect(() => {
-  const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-    const payload = event.payload as any; // 适配 Tauri v2 内部 Event 结构
-    if (payload.type === 'drop') {
-      const paths = payload.paths;
-      // 1. 解析后缀并分流 (视频/图片)
-      // 2. 调用 useNavigate 跳转
-      // 3. 调用 Store 添加任务
-    }
-  });
-  return () => { unlisten.then(fn => fn()); };
-}, []);
+## 16. Rust 异步确认对话框 (Tauri v2)
+使用 `tauri-plugin-dialog` 实现非阻塞的确认对话框：
+```rust
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+pub async fn confirm_action(app: tauri::AppHandle, message: String) -> Result<bool, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .confirm(message)
+        .show(move |confirmed| {
+            let _ = tx.send(confirmed);
+        });
+    rx.await.map_err(|e| e.to_string())
+}
 ```
-注意：Tauri v2 的 `onDragDropEvent` 回调参数是 `Event<DragDropEvent>`，需要通过 `event.payload` 访问具体信息。
+注意：必须在 `async` 命令中使用 `oneshot` 通道来等待回调结果，以避免阻塞主线程。
 

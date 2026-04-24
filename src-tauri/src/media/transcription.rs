@@ -122,21 +122,34 @@ fn resolve_sense_voice_model_dir(path: PathBuf) -> Result<PathBuf, String> {
     }
 }
 
+fn format_timestamp(seconds: f64) -> String {
+    let hours = (seconds / 3600.0).floor() as u32;
+    let minutes = ((seconds % 3600.0) / 60.0).floor() as u32;
+    let secs = (seconds % 60.0).floor() as u32;
+    format!("{:02}:{:02}:{:02}", hours, minutes, secs)
+}
+
+#[derive(Serialize)]
+pub struct TranscriptionOutput {
+    pub timestamped: String,
+    pub plain: String,
+}
+
 fn run_transcription(
     model_id: TranscriptionModelId,
     model_path: PathBuf,
     wav_path: PathBuf,
     language: Option<String>,
     translate_to_english: bool,
-) -> Result<String, String> {
+) -> Result<TranscriptionOutput, String> {
     let samples = transcribe_rs::audio::read_wav_samples(&wav_path).map_err(|e| e.to_string())?;
 
-    match model_id {
+    let result = match model_id {
         TranscriptionModelId::WhisperMedium | TranscriptionModelId::WhisperLarge => {
             use transcribe_rs::whisper_cpp::{WhisperEngine, WhisperInferenceParams};
 
             let mut model = WhisperEngine::load(&model_path).map_err(|e| e.to_string())?;
-            let result = model
+            model
                 .transcribe_with(
                     &samples,
                     &WhisperInferenceParams {
@@ -145,8 +158,7 @@ fn run_transcription(
                         ..Default::default()
                     },
                 )
-                .map_err(|e| e.to_string())?;
-            Ok(result.text)
+                .map_err(|e| e.to_string())?
         }
         TranscriptionModelId::SenseVoice => {
             use transcribe_rs::onnx::sense_voice::SenseVoiceModel;
@@ -156,7 +168,7 @@ fn run_transcription(
             let sense_model_dir = resolve_sense_voice_model_dir(model_path)?;
             let mut model = SenseVoiceModel::load(&sense_model_dir, &Quantization::Int8)
                 .map_err(|e| e.to_string())?;
-            let result = model
+            model
                 .transcribe_with(
                     &samples,
                     &SenseVoiceParams {
@@ -164,12 +176,84 @@ fn run_transcription(
                         ..Default::default()
                     },
                 )
-                .map_err(|e| e.to_string())?;
-            Ok(result.text)
+                .map_err(|e| e.to_string())?
         }
+    };
+
+    let mut timestamped = String::new();
+    let mut plain_raw = String::new();
+    let mut last_end = 0.0;
+    
+    for segment in result.segments {
+        let text = segment.text.trim();
+        if text.is_empty() {
+            continue;
+        }
+
+        // Timestamped version logic
+        if !timestamped.is_empty() && segment.start - last_end > 3.0 {
+            timestamped.push_str("\n\n");
+        } else if !timestamped.is_empty() {
+            timestamped.push('\n');
+        }
+        timestamped.push_str(&format!("[{}] {}", format_timestamp(segment.start), text));
+
+        // Plain version: just collect text with spaces
+        if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
+            plain_raw.push(' ');
+        }
+        plain_raw.push_str(text);
+
+        last_end = segment.end;
+    }
+
+    // Process plain text to split by punctuation
+    let mut plain = String::new();
+    let punctuation = ['。', '？', '！', '；', '!', '?', ';'];
+    let mut current_pos = 0;
+    let chars: Vec<char> = plain_raw.chars().collect();
+    
+    while current_pos < chars.len() {
+        let c = chars[current_pos];
+        plain.push(c);
+        
+        // Handle English period separately to avoid splitting decimal numbers or abbreviations (simplistic)
+        let is_period = c == '.';
+        let is_other_punc = punctuation.contains(&c);
+        
+        if is_other_punc || is_period {
+            // Check if next char is a space or end of string
+            let next_is_space_or_end = if current_pos + 1 < chars.len() {
+                chars[current_pos + 1].is_whitespace()
+            } else {
+                true
+            };
+
+            if next_is_space_or_end {
+                plain.push('\n');
+                // Skip following whitespace
+                while current_pos + 1 < chars.len() && chars[current_pos + 1].is_whitespace() {
+                    current_pos += 1;
+                }
+            }
+        }
+        current_pos += 1;
+    }
+
+    if timestamped.is_empty() {
+        Ok(TranscriptionOutput {
+            timestamped: result.text.clone(),
+            plain: result.text,
+        })
+    } else {
+        Ok(TranscriptionOutput {
+            timestamped,
+            plain: plain.trim().to_string(),
+        })
     }
 }
 
+#[tauri::command]
 pub async fn transcribe_media(
     app: AppHandle,
     id: String,
@@ -178,7 +262,7 @@ pub async fn transcribe_media(
     model_id: String,
     language: Option<String>,
     translate_to_english: bool,
-) -> Result<(), String> {
+) -> Result<TranscriptionOutput, String> {
     let parsed_model = TranscriptionModelId::parse(&model_id)?;
 
     emit_progress(&app, &id, 5.0, "preparing", None, None);
@@ -199,7 +283,7 @@ pub async fn transcribe_media(
 
     let wav_for_task = temp_wav.clone();
     let model_for_task = model_path.clone();
-    let text = tauri::async_runtime::spawn_blocking(move || {
+    let output = tauri::async_runtime::spawn_blocking(move || {
         run_transcription(
             parsed_model,
             model_for_task,
@@ -216,11 +300,17 @@ pub async fn transcribe_media(
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
     }
-    fs::write(&output_path, text).map_err(|e| e.to_string())?;
+    
+    // Default save plain text to file (as it's cleaner)
+    fs::write(&output_path, &output.plain).map_err(|e| e.to_string())?;
+    
+    // Also save a timestamped version next to it
+    let timestamped_path = format!("{}.timestamped.txt", output_path);
+    fs::write(timestamped_path, &output.timestamped).map_err(|e| e.to_string())?;
 
     let _ = fs::remove_file(&temp_wav);
 
     emit_progress(&app, &id, 100.0, "completed", Some(output_path), None);
 
-    Ok(())
+    Ok(output)
 }

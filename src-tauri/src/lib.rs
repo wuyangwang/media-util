@@ -30,6 +30,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            media::confirm_delete,
             media::convert_video,
             media::convert_video_queued,
             media::update_concurrency,

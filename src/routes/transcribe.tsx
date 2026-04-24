@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, FileAudio, FileVideo, FolderOpen, Play } from "lucide-react";
+import { Copy, FileAudio, FileVideo, FolderOpen, Play, Trash2 } from "lucide-react";
 
 import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
@@ -22,7 +22,7 @@ import {
 import { useDragDropPaths } from "@/hooks/useDragDropPaths";
 import { usePickMediaInputs } from "@/hooks/usePickMediaInputs";
 import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
-import { useTaskStore } from "@/hooks/useTaskStore";
+import { useTaskStore, type TranscribeTask } from "@/hooks/useTaskStore";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTranscriptionSettings } from "@/lib/store";
 
@@ -30,22 +30,9 @@ export const Route = createFileRoute("/transcribe")({
 	component: TranscribePage,
 });
 
-type TranscribeTaskStatus =
-	| "pending"
-	| "preparing"
-	| "normalizing_audio"
-	| "transcribing"
-	| "completed"
-	| "failed";
-
-interface TranscribeTask {
-	id: string;
-	path: string;
-	fileName: string;
-	status: TranscribeTaskStatus;
-	progress: number;
-	outputPath?: string;
-	log?: string;
+interface TranscriptionOutput {
+	timestamped: string;
+	plain: string;
 }
 
 interface ModelStatus {
@@ -67,15 +54,15 @@ function TranscribePage() {
 	const [isScanning, setIsScanning] = useState(false);
 	const [models, setModels] = useState<ModelStatus[]>([]);
 	const [translateToEnglish, setTranslateToEnglish] = useState(false);
+	const [showTimestamps, setShowTimestamps] = useState(false);
 	const [transcriptOutputDir, setTranscriptOutputDir] = useState<string>();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const { modelId } = useTranscriptionSettings();
-	const task = useTaskStore(
-		(state) => state.transcribeTask,
-	) as TranscribeTask | null;
+	const task = useTaskStore((state) => state.transcribeTask);
 	const isProcessing = useTaskStore((state) => state.transcribeProcessing);
 	const setTask = useTaskStore((state) => state.setTranscribeTask);
 	const setProcessing = useTaskStore((state) => state.setTranscribeProcessing);
+	const clearTask = useTaskStore((state) => state.clearTranscribeTask);
 
 	const extensions = useMemo(
 		() => [
@@ -203,7 +190,7 @@ function TranscribePage() {
 					: prev,
 			);
 
-			await invoke("transcribe_media", {
+			const output = await invoke<TranscriptionOutput>("transcribe_media", {
 				id: task.id,
 				inputPath: task.path,
 				outputPath,
@@ -211,6 +198,18 @@ function TranscribePage() {
 				language: null,
 				translateToEnglish: modelId.startsWith("whisper") && translateToEnglish,
 			});
+
+			setTask((prev) =>
+				prev && prev.id === task.id
+					? {
+							...prev,
+							status: "completed",
+							progress: 100,
+							transcript: output.plain,
+							transcriptTimestamped: output.timestamped,
+						}
+					: prev,
+			);
 		} catch (error) {
 			setTask((prev) =>
 				prev && prev.id === task.id
@@ -222,6 +221,7 @@ function TranscribePage() {
 						}
 					: prev,
 			);
+		} finally {
 			setProcessing(false);
 		}
 	}, [
@@ -300,11 +300,13 @@ function TranscribePage() {
 			<main className="flex flex-1 flex-col gap-6 overflow-hidden p-6">
 				<Card className="shrink-0 header-animate">
 					<CardContent className="flex items-center justify-between gap-4 p-4">
-						<div className="flex items-center gap-3">
-							<span className="text-sm font-medium">当前模型:</span>
-							<span className="text-sm text-muted-foreground">
-								{selectedModelStatus?.label || modelId}
-							</span>
+						<div className="flex flex-col gap-1">
+							<div className="flex items-center gap-2">
+								<span className="text-sm font-medium">当前模型:</span>
+								<span className="text-sm text-muted-foreground">
+									{selectedModelStatus?.label || modelId}
+								</span>
+							</div>
 							<span className="text-xs text-muted-foreground">
 								{MODEL_DESCRIPTIONS[modelId] || "通用语音转写模型。"}
 							</span>
@@ -380,28 +382,64 @@ function TranscribePage() {
 										</div>
 									)}
 									{task.status === "completed" && (
-										<div className="mt-3 whitespace-pre-line text-xs leading-5 text-emerald-600">
-											{"转写成功\n可点击下方按钮复制文本"}
+										<div className="mt-3 space-y-2">
+											<div className="flex items-center justify-between">
+												<div className="text-xs text-emerald-600 font-medium">
+													转写成功，文本已保存
+												</div>
+												<div className="flex items-center gap-2">
+													<span className="text-[10px] text-muted-foreground">
+														显示时间戳
+													</span>
+													<input
+														type="checkbox"
+														checked={showTimestamps}
+														onChange={(e) => setShowTimestamps(e.target.checked)}
+														className="size-3 accent-emerald-600"
+													/>
+												</div>
+											</div>
+											<div className="whitespace-pre-line rounded border bg-background p-3 text-xs leading-5 text-foreground max-h-[300px] overflow-y-auto">
+												{showTimestamps
+													? task.transcriptTimestamped || "无内容"
+													: task.transcript || "无内容"}
+											</div>
 										</div>
 									)}
 								</div>
-								<div className="shrink-0 space-y-2">
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={handleStartTask}
-										disabled={
-											isAnyProcessing ||
-											[
-												"preparing",
-												"normalizing_audio",
-												"transcribing",
-											].includes(task.status)
-										}
-									>
-										<Play className="mr-1 size-4" />
-										开始
-									</Button>
+								<div className="shrink-0 flex flex-col gap-2">
+									<div className="flex items-center gap-2">
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={handleStartTask}
+											disabled={
+												isAnyProcessing ||
+												[
+													"preparing",
+													"normalizing_audio",
+													"transcribing",
+												].includes(task.status)
+											}
+										>
+											<Play className="mr-1 size-4" />
+											开始
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+											onClick={clearTask}
+											disabled={
+												isAnyProcessing ||
+												["preparing", "normalizing_audio", "transcribing"].includes(
+													task.status,
+												)
+											}
+										>
+											<Trash2 className="size-4" />
+										</Button>
+									</div>
 									<Button
 										variant="ghost"
 										size="sm"
