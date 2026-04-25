@@ -1,5 +1,6 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
 	Play,
 	Image as ImageIcon,
@@ -120,97 +121,99 @@ function RootComponent() {
 	});
 
 	return (
-		<div className="flex h-screen w-full overflow-hidden bg-background font-sans antialiased">
-			{/* Sidebar */}
-			<aside
-				ref={sidebarRef}
-				className={cn(
-					"window-surface m-2 mr-0 flex flex-col transition-all duration-200",
-					isSidebarCollapsed ? "w-14" : "w-56",
-				)}
-			>
-				<div
+		<TooltipProvider>
+			<div className="flex h-screen w-full overflow-hidden bg-background font-sans antialiased">
+				{/* Sidebar */}
+				<aside
+					ref={sidebarRef}
 					className={cn(
-						"window-toolbar flex h-12 items-center gap-2",
-						isSidebarCollapsed ? "justify-center" : "justify-between px-3",
+						"window-surface m-2 mr-0 flex flex-col transition-all duration-200",
+						isSidebarCollapsed ? "w-14" : "w-56",
 					)}
 				>
-					{!isSidebarCollapsed && showSidebarTitle && (
-						<div className="flex items-center gap-2">
-							<Film className="size-4 text-primary" />
-							<h1 className="text-sm font-semibold tracking-normal">
-								媒体工具
-							</h1>
+					<div
+						className={cn(
+							"window-toolbar flex h-12 items-center gap-2",
+							isSidebarCollapsed ? "justify-center" : "justify-between px-3",
+						)}
+					>
+						{!isSidebarCollapsed && showSidebarTitle && (
+							<div className="flex items-center gap-2">
+								<Film className="size-4 text-primary" />
+								<h1 className="text-sm font-semibold tracking-normal">
+									媒体工具
+								</h1>
+							</div>
+						)}
+						<button
+							onClick={toggleSidebar}
+							className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						>
+							{isSidebarCollapsed ? (
+								<PanelLeftOpen size={16} />
+							) : (
+								<PanelLeftClose size={16} />
+							)}
+						</button>
+					</div>
+					<nav className="flex-1 space-y-1 p-2">
+						<SidebarLink
+							to="/overview"
+							label="概览"
+							icon={LayoutGrid}
+							isCollapsed={isSidebarCollapsed}
+						/>
+						<SidebarLink
+							to="/videos"
+							label="视频"
+							icon={Play}
+							isCollapsed={isSidebarCollapsed}
+						/>
+						<SidebarLink
+							to="/images"
+							label="图片"
+							icon={ImageIcon}
+							isCollapsed={isSidebarCollapsed}
+						/>
+						<SidebarLink
+							to="/transcribe"
+							label="转文字"
+							icon={Mic2}
+							isCollapsed={isSidebarCollapsed}
+						/>
+						<SidebarLink
+							to="/settings"
+							label="设置"
+							icon={Settings2}
+							isCollapsed={isSidebarCollapsed}
+						/>
+					</nav>
+					{!isSidebarCollapsed && (
+						<div className="window-toolbar p-2 text-center text-[10px] font-medium tracking-wide text-muted-foreground">
+							v{import.meta.env.APP_VERSION}
 						</div>
 					)}
-					<button
-						onClick={toggleSidebar}
-						className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-					>
-						{isSidebarCollapsed ? (
-							<PanelLeftOpen size={16} />
-						) : (
-							<PanelLeftClose size={16} />
-						)}
-					</button>
-				</div>
-				<nav className="flex-1 space-y-1 p-2">
-					<SidebarLink
-						to="/overview"
-						label="概览"
-						icon={LayoutGrid}
-						isCollapsed={isSidebarCollapsed}
-					/>
-					<SidebarLink
-						to="/videos"
-						label="视频"
-						icon={Play}
-						isCollapsed={isSidebarCollapsed}
-					/>
-					<SidebarLink
-						to="/images"
-						label="图片"
-						icon={ImageIcon}
-						isCollapsed={isSidebarCollapsed}
-					/>
-					<SidebarLink
-						to="/transcribe"
-						label="转文字"
-						icon={Mic2}
-						isCollapsed={isSidebarCollapsed}
-					/>
-					<SidebarLink
-						to="/settings"
-						label="设置"
-						icon={Settings2}
-						isCollapsed={isSidebarCollapsed}
-					/>
-				</nav>
-				{!isSidebarCollapsed && (
-					<div className="window-toolbar p-2 text-center text-[10px] font-medium tracking-wide text-muted-foreground">
-						v{import.meta.env.APP_VERSION}
-					</div>
-				)}
-			</aside>
+				</aside>
 
-			{/* Main Content */}
-			<main ref={contentRef} className="m-2 ml-2 flex min-w-0 flex-1 flex-col">
-				<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
-					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<Film className="size-3.5" />
-						<span className="font-medium">媒体工具桌面工作区</span>
-					</div>
-					<div className="text-[11px] text-muted-foreground">
-						拖拽文件到窗口可快速添加任务
-					</div>
-				</header>
-				<section className="window-surface mt-2 min-h-0 flex-1 overflow-y-auto">
-					<Outlet />
-				</section>
-			</main>
+				{/* Main Content */}
+				<main ref={contentRef} className="m-2 ml-2 flex min-w-0 flex-1 flex-col">
+					<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
+						<div className="flex items-center gap-2 text-xs text-muted-foreground">
+							<Film className="size-3.5" />
+							<span className="font-medium">媒体工具桌面工作区</span>
+						</div>
+						<div className="text-[11px] text-muted-foreground">
+							拖拽文件到窗口可快速添加任务
+						</div>
+					</header>
+					<section className="window-surface mt-2 min-h-0 flex-1 overflow-y-auto">
+						<Outlet />
+					</section>
+				</main>
 
-			<Toaster position="bottom-right" duration={2200} />
-		</div>
+				<Toaster position="bottom-right" duration={2200} />
+			</div>
+		</TooltipProvider>
 	);
 }
 
