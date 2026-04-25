@@ -56,22 +56,6 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Install LLVM
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "17"
-    
-      - name: Set LIBCLANG_PATH
-        run: echo "LIBCLANG_PATH=$env:LLVM_PATH\bin" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      - name: Install Vulkan SDK (Windows x64)
-        if: runner.os == 'Windows'
-        uses: humbletim/install-vulkan-sdk@v1.2
-        with:
-          version: 1.4.309.0
-          cache: true
-          
       # 构建
       - name: Build Windows app
         run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
