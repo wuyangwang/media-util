@@ -62,7 +62,9 @@ jobs:
         env:
           CI: true
           # 配合 Cargo.toml 中的 incremental = true
-          CARGO_INCREMENTAL: 1
+          CARGO_INCREMENTAL: 1          
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       # 发布
       - name: Create GitHub Release
