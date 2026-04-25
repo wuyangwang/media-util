@@ -1,8 +1,25 @@
+import { useGSAP } from "@gsap/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import gsap from "gsap";
+import {
+	Copy,
+	Cpu,
+	ExternalLink,
+	FileText,
+	FolderOpen,
+	Info,
+	Monitor,
+	Moon,
+	Sun,
+	Zap,
+} from "lucide-react";
 import { useTheme } from "next-themes";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -11,6 +28,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import {
 	Select,
 	SelectContent,
@@ -18,27 +36,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import {
-	Monitor,
-	Moon,
-	Sun,
-	FolderOpen,
-	Info,
-	ExternalLink,
-	Zap,
-	Cpu,
-	Copy,
-	FileText,
-} from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { useRef, useCallback, useEffect, useState } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { useAppSettings, useTranscriptionSettings } from "@/lib/store";
-import { toast } from "sonner";
 import { useUIStore } from "@/hooks/useUIStore";
+import { useAppSettings, useTranscriptionSettings } from "@/lib/store";
 
 const MODEL_DESCRIPTIONS: Record<string, string> = {
 	"whisper-medium": "平衡速度与准确度，适合大多数日常转写任务。",
@@ -320,7 +319,7 @@ function Settings() {
 									value={mounted ? savedTheme || nextTheme : "system"}
 									onValueChange={handleThemeChange}
 								>
-									<SelectTrigger className="w-full">
+									<SelectTrigger className="w-[180px]">
 										<SelectValue placeholder="选择主题" />
 									</SelectTrigger>
 									<SelectContent>
@@ -363,9 +362,9 @@ function Settings() {
 								</span>
 								<Select
 									value={concurrency.toString()}
-									onValueChange={(v) => setConcurrency(parseInt(v))}
+									onValueChange={(v) => setConcurrency(parseInt(v, 10))}
 								>
-									<SelectTrigger className="w-full">
+									<SelectTrigger className="w-[180px]">
 										<SelectValue placeholder="并发任务数" />
 									</SelectTrigger>
 									<SelectContent>
@@ -549,7 +548,7 @@ function Settings() {
 								variant="outline"
 								size="sm"
 								onClick={() =>
-									invoke("get_transcription_output_dir").then((dir) =>
+									invoke("get_transcription_models_dir").then((dir) =>
 										revealItemInDir(dir as string),
 									)
 								}
@@ -629,7 +628,7 @@ function Settings() {
 							关于应用
 						</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-2">
+					<CardContent className="space-y-3">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">应用版本:</span>
 							<span className="font-medium text-foreground">
@@ -637,14 +636,43 @@ function Settings() {
 							</span>
 						</div>
 						<div className="flex justify-between text-sm">
-							<span className="text-muted-foreground">核心引擎:</span>
+							<span className="text-muted-foreground">桌面框架:</span>
 							<span className="font-medium text-foreground">
-								FFmpeg & Rust image crate
+								Tauri v2 (Rust)
 							</span>
+						</div>
+						<div className="flex justify-between text-sm">
+							<span className="text-muted-foreground">多媒体引擎:</span>
+							<span className="font-medium text-foreground">
+								FFmpeg & FFprobe
+							</span>
+						</div>
+						<div className="flex justify-between items-start text-sm">
+							<span className="text-muted-foreground shrink-0">
+								Rust 核心库:
+							</span>
+							<div className="flex flex-wrap justify-end gap-1.5 ml-4">
+								{[
+									"image",
+									"photon-rs",
+									"oxipng",
+									"mozjpeg",
+									"transcribe-rs",
+								].map((pkg) => (
+									<Badge
+										key={pkg}
+										variant="outline"
+										className="text-[10px] font-mono px-1.5 py-0 h-5 bg-muted/30"
+									>
+										{pkg}
+									</Badge>
+								))}
+							</div>
 						</div>
 						<div className="flex justify-between items-center text-sm pt-2 border-t border-muted">
 							<span className="text-muted-foreground">开源社区:</span>
 							<Button
+								type="button"
 								variant="link"
 								size="sm"
 								className="h-auto p-0 text-primary font-medium flex items-center gap-1.5"

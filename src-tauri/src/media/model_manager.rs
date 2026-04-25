@@ -96,7 +96,7 @@ fn model_meta(model_id: TranscriptionModelId) -> ModelMeta {
         .expect("known model")
 }
 
-fn models_root(app: &AppHandle) -> Result<PathBuf, String> {
+pub fn models_root(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .resolve(MODELS_ROOT_DIR, BaseDirectory::AppData)

@@ -223,6 +223,11 @@ pub fn batch_to_zip(file_paths: Vec<String>, output_zip_path: String) -> Result<
 }
 
 #[tauri::command]
+pub fn get_transcription_models_dir(app: tauri::AppHandle) -> Result<String, String> {
+    model_manager::models_root(&app).map(|p| p.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 pub fn get_transcription_models_status(
     app: tauri::AppHandle,
 ) -> Result<Vec<TranscriptionModelStatus>, String> {

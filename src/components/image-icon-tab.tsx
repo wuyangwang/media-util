@@ -19,7 +19,7 @@ export function ImageIconTab({
 				先选择目标平台，再根据输入图片生成对应图标。每个任务完成后输出一个 ZIP
 				压缩包。
 			</p>
-			<div className="grid gap-2 md:grid-cols-2">
+			<div className="grid gap-2 grid-cols-1">
 				{APP_ICON_PRESETS.map((preset) => (
 					<Button
 						key={preset.platform}
@@ -34,18 +34,27 @@ export function ImageIconTab({
 								: "border-border",
 						)}
 					>
-						<div className="mb-1 flex w-full items-center justify-between">
-							<span className="text-xs font-semibold">{preset.platform}</span>
-							<span className="font-mono text-[10px] uppercase text-muted-foreground">
+						<div className="mb-2 flex flex-col items-start gap-0.5">
+							<span className="text-sm font-bold text-foreground">
+								{preset.platform}
+							</span>
+							<span className="font-mono text-[10px] font-medium uppercase text-muted-foreground/70">
 								{preset.format}
 							</span>
 						</div>
-						<p className="text-[11px] text-muted-foreground">
+						<p className="text-[11px] leading-relaxed text-muted-foreground/90">
 							{preset.description}
 						</p>
-						<p className="mt-2 font-mono text-[10px] text-muted-foreground/80 break-words">
-							{preset.sizes.map((size) => `${size}x${size}`).join(" · ")}
-						</p>
+						<div className="mt-3 flex flex-wrap gap-1.5">
+							{preset.sizes.map((size) => (
+								<span
+									key={size}
+									className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground"
+								>
+									{size}x{size}
+								</span>
+							))}
+						</div>
 					</Button>
 				))}
 			</div>

@@ -50,6 +50,7 @@ pub fn run() {
             media::get_formatted_output_path,
             media::get_transcription_output_dir,
             media::get_transcription_output_path,
+            media::get_transcription_models_dir,
             media::read_text_file,
             media::get_transcription_models_status,
             media::download_transcription_model,
