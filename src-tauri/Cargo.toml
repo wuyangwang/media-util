@@ -52,6 +52,7 @@ tar = "0.4"
 incremental = true # 开启增量编译，加快开发环境编译速度
 
 [profile.release]
+incremental = true # 开启增量编译，配合 CI 缓存提速
 panic = "abort"   # 发生 panic 时直接终止，减小二进制体积
 codegen-units = 1 # 限制代码生成单元为 1，以获得更好的全局优化
 lto = true        # 开启链接时优化 (Link Time Optimization)
