@@ -62,3 +62,6 @@ strip = true      # 自动剥离二进制文件中的符号信息，大幅减小
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+
+[target.'cfg(windows)'.dependencies]
+transcribe-rs = { version = "0.3.11", default-features = false, features = ["whisper-vulkan", "ort-directml"] }

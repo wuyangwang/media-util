@@ -62,7 +62,10 @@ export function ImageIconTab({
 										</span>
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent className="flex flex-col gap-1.5 p-3" side="top">
+								<TooltipContent
+									className="flex flex-col gap-1.5 p-3"
+									side="top"
+								>
 									<div className="flex items-center justify-between gap-4">
 										<span className="text-xs font-bold">{preset.platform}</span>
 										<span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase text-primary">

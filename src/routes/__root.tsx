@@ -196,7 +196,10 @@ function RootComponent() {
 				</aside>
 
 				{/* Main Content */}
-				<main ref={contentRef} className="m-2 ml-2 flex min-w-0 flex-1 flex-col">
+				<main
+					ref={contentRef}
+					className="m-2 ml-2 flex min-w-0 flex-1 flex-col"
+				>
 					<header className="window-surface window-toolbar flex h-10 shrink-0 items-center justify-between px-3">
 						<div className="flex items-center gap-2 text-xs text-muted-foreground">
 							<Film className="size-3.5" />
