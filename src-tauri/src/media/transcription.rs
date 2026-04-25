@@ -148,6 +148,11 @@ fn run_transcription(
         TranscriptionModelId::WhisperMedium | TranscriptionModelId::WhisperLarge => {
             use transcribe_rs::whisper_cpp::{WhisperEngine, WhisperInferenceParams};
 
+            #[cfg(windows)]
+            {
+                transcribe_rs::set_whisper_accelerator(transcribe_rs::WhisperAccelerator::Auto);
+            }
+
             let mut model = WhisperEngine::load(&model_path).map_err(|e| e.to_string())?;
             model
                 .transcribe_with(
@@ -164,6 +169,11 @@ fn run_transcription(
             use transcribe_rs::onnx::sense_voice::SenseVoiceModel;
             use transcribe_rs::onnx::sense_voice::SenseVoiceParams;
             use transcribe_rs::onnx::Quantization;
+
+            #[cfg(windows)]
+            {
+                transcribe_rs::set_ort_accelerator(transcribe_rs::OrtAccelerator::DirectMl);
+            }
 
             let sense_model_dir = resolve_sense_voice_model_dir(model_path)?;
             let mut model = SenseVoiceModel::load(&sense_model_dir, &Quantization::Int8)
@@ -183,7 +193,7 @@ fn run_transcription(
     let mut timestamped = String::new();
     let mut plain_raw = String::new();
     let mut last_end = 0.0;
-    
+
     for segment in result.segments.into_iter().flatten() {
         let text = segment.text.trim();
         if text.is_empty() {
@@ -196,7 +206,11 @@ fn run_transcription(
         } else if !timestamped.is_empty() {
             timestamped.push('\n');
         }
-        timestamped.push_str(&format!("[{}] {}", format_timestamp(segment.start as f64), text));
+        timestamped.push_str(&format!(
+            "[{}] {}",
+            format_timestamp(segment.start as f64),
+            text
+        ));
 
         // Plain version: just collect text with spaces
         if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
@@ -212,15 +226,15 @@ fn run_transcription(
     let punctuation = ['。', '？', '！', '；', '!', '?', ';'];
     let mut current_pos = 0;
     let chars: Vec<char> = plain_raw.chars().collect();
-    
+
     while current_pos < chars.len() {
         let c = chars[current_pos];
         plain.push(c);
-        
+
         // Handle English period separately to avoid splitting decimal numbers or abbreviations (simplistic)
         let is_period = c == '.';
         let is_other_punc = punctuation.contains(&c);
-        
+
         if is_other_punc || is_period {
             // Check if next char is a space or end of string
             let next_is_space_or_end = if current_pos + 1 < chars.len() {
@@ -299,10 +313,10 @@ pub async fn transcribe_media(
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
     }
-    
+
     // Default save plain text to file (as it's cleaner)
     fs::write(&output_path, &output.plain).map_err(|e| e.to_string())?;
-    
+
     // Also save a timestamped version next to it
     let timestamped_path = format!("{}.timestamped.txt", output_path);
     fs::write(timestamped_path, &output.timestamped).map_err(|e| e.to_string())?;

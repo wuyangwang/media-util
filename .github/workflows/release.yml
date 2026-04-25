@@ -38,12 +38,14 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # ⭐⭐⭐ 核心优化：Rust 缓存
+      # ⭐⭐⭐ 核心优化：针对 Tauri 目录结构的 Rust 缓存
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            src-tauri -> target
+          # 明确指向 Tauri 的 Rust 源码目录
+          workspaces: "src-tauri -> target"
+          # 增加 prefix-key 防止缓存冲突，并确保 CI 环境下能正确恢复
+          prefix-key: "v1-rust"
           cache-on-failure: true
 
       # 读取版本号
@@ -59,6 +61,8 @@ jobs:
         run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
         env:
           CI: true
+          # 配合 Cargo.toml 中的 incremental = true
+          CARGO_INCREMENTAL: 1
 
       # 发布
       - name: Create GitHub Release
