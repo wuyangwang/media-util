@@ -19,6 +19,7 @@ import { useUIStore } from "@/hooks/useUIStore";
 import { invoke } from "@tauri-apps/api/core";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { listen } from "@tauri-apps/api/event";
+import { VersionDisplay } from "@/components/version-display";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -188,11 +189,7 @@ function RootComponent() {
 							isCollapsed={isSidebarCollapsed}
 						/>
 					</nav>
-					{!isSidebarCollapsed && (
-						<div className="window-toolbar p-2 text-center text-[10px] font-medium tracking-wide text-muted-foreground">
-							v{import.meta.env.APP_VERSION}
-						</div>
-					)}
+					<VersionDisplay isCollapsed={isSidebarCollapsed} />
 				</aside>
 
 				{/* Main Content */}

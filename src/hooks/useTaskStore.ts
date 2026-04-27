@@ -151,27 +151,10 @@ export const useTaskStore = create<TaskState>()(
 			name: "task-storage",
 			onRehydrateStorage: () => (state) => {
 				if (state) {
-					// 自动重置启动时卡在中间状态的任务
-					state.setVideoTasks((prev) =>
-						prev.map((t) =>
-							t.status === "converting" || t.status === "processing"
-								? { ...t, status: "pending", progress: 0 }
-								: t,
-						),
-					);
-					state.setTranscribeTask((prev) =>
-						prev &&
-						(prev.status === "transcribing" ||
-							prev.status === "preparing" ||
-							prev.status === "normalizing_audio")
-							? { ...prev, status: "pending", progress: 0 }
-							: prev,
-					);
-					state.setImageTasks((prev) =>
-						prev.map((t) =>
-							t.status === "processing" ? { ...t, status: "pending" } : t,
-						),
-					);
+					// 应用启动时清空所有任务列表
+					state.setImageTasks([]);
+					state.setVideoTasks([]);
+					state.setTranscribeTask(null);
 					// 确保应用启动时处理状态为 false
 					state.setVideoProcessing(false);
 					state.setImageProcessing(false);

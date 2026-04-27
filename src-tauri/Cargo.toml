@@ -64,4 +64,5 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
 
 [target.'cfg(windows)'.dependencies]
-transcribe-rs = { version = "0.3.11", default-features = false, features = ["ort-directml"] }
+transcribe-rs = { version = "0.3.11", features = ["whisper-vulkan", "ort-directml"] }
+# transcribe-rs = { version = "0.3.11", default-features = false, features = ["ort-directml"] }
