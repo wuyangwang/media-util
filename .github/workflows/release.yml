@@ -94,6 +94,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
           echo "CARGO_TARGET_DIR=$targetDir" >> $env:GITHUB_ENV
 
+      - uses: ilammy/msvc-dev-cmd@v1
+      
       # 使用 tauri-action 进行构建和发布
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
@@ -102,6 +104,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           CARGO_BUILD_JOBS: 1
+          CL: /FS
         with:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'
