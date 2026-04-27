@@ -73,15 +73,15 @@ jobs:
           version: 1.4.309.0
           cache: true
 
-      - name: Cache trusted-signing-cli
-        id: cache-tsc
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/trusted-signing-cli*
-          key: trusted-signing-cli-${{ env.TSC_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+            #      - name: Cache trusted-signing-cli
+        #        id: cache-tsc
+          #        uses: actions/cache@v4
+          #        with:
+          #          path: ~/.cargo/bin/trusted-signing-cli*
+            #          key: trusted-signing-cli-${{ env.TSC_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
-      - name: Install trusted-signing-cli
-        run: cargo install trusted-signing-cli@${{ env.TSC_VERSION }}
+            #- name: Install trusted-signing-cli
+            #        run: cargo install trusted-signing-cli@${{ env.TSC_VERSION }}
 
       # whisper-rs-sys cmake builds create paths that exceed Windows MAX_PATH
       # (260 chars). Shorten the target dir to keep paths under the limit.
@@ -101,6 +101,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_BUILD_JOBS: 1
         with:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'
