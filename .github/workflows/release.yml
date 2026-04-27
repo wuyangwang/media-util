@@ -48,33 +48,17 @@ jobs:
           prefix-key: "v1-rust"
           cache-on-failure: true
 
-      # 读取版本号
-      - name: Get version from package.json
-        id: pkg
-        shell: bash
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      # 构建
-      - name: Build Windows app
-        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
-        env:
-          CI: true
-          # 配合 Cargo.toml 中的 incremental = true
-          CARGO_INCREMENTAL: 1          
-          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # 发布
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.pkg.outputs.version }}
-          name: v${{ steps.pkg.outputs.version }}
-          files: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
-          overwrite: true
+      # 使用 tauri-action 进行构建和发布
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "v__VERSION__"
+          releaseBody: "See the assets below to download the latest version."
+          releaseDraft: false
+          prerelease: false
+          args: --target x86_64-pc-windows-msvc --bundles nsis,msi
