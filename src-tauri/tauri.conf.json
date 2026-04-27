@@ -32,7 +32,7 @@
 			"endpoints": [
 				"https://github.com/wuyangwang/media-util/releases/latest/download/latest.json"
 			],
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3MzkxN0I0QkJBMDc0NkMKUldSc2RLQzd0QmM1dDNNaWdLS3F1WjVmUWYyL3U5clE1N1hVSXUvM0dlUDJwZklBUlg4UmFGYTUK"
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhEMUYxOEIwNDMwMUYzNjIKUldSaTh3RkRzQmdmamRXY1piZlNxMjU2em5KbHRwTTZuajcxMnc2RnpyNjJoVVY1UVU4cnJZY0sK"
 		},
 		"single-instance": null
 	},
