@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  TSC_VERSION: "0.9.0"
+  
 jobs:
   build:
     runs-on: windows-latest
@@ -65,14 +68,12 @@ jobs:
           cache-on-failure: true
 
       - name: Install Vulkan SDK (Windows x64)
-        if: contains(inputs.platform, 'windows')
         uses: humbletim/install-vulkan-sdk@v1.2
         with:
           version: 1.4.309.0
           cache: true
 
       - name: Cache trusted-signing-cli
-        if: contains(inputs.platform, 'windows') && inputs.sign-binaries
         id: cache-tsc
         uses: actions/cache@v4
         with:
@@ -80,7 +81,6 @@ jobs:
           key: trusted-signing-cli-${{ env.TSC_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
       - name: Install trusted-signing-cli
-        if: contains(inputs.platform, 'windows') && inputs.sign-binaries && steps.cache-tsc.outputs.cache-hit != 'true'
         run: cargo install trusted-signing-cli@${{ env.TSC_VERSION }}
 
       # whisper-rs-sys cmake builds create paths that exceed Windows MAX_PATH
