@@ -150,7 +150,7 @@ fn run_transcription(
 
             #[cfg(windows)]
             {
-                // transcribe_rs::set_whisper_accelerator(transcribe_rs::WhisperAccelerator::Auto);
+                transcribe_rs::set_whisper_accelerator(transcribe_rs::WhisperAccelerator::Auto);
             }
 
             let mut model = WhisperEngine::load(&model_path).map_err(|e| e.to_string())?;
