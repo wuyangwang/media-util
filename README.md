@@ -28,6 +28,10 @@
 - 后端：Rust
 - 媒体引擎：FFmpeg / FFprobe（Tauri sidecar）
 
+## 致谢
+本项目的发展离不开开源社区的支持，特别感谢：
+- [Handy](https://github.com/cjpais/Handy)：提供了优秀的实现思路，特别是其 ASR 模型的下载地址。
+
 ## 本地开发
 ```bash
 pnpm install
@@ -77,3 +81,7 @@ pnpm build
 - [x] 全局拖拽文件分流
 - [x] 主题切换（浅色/深色/系统）
 - [x] Windows 安装包发布链路
+
+## 开源协议
+本项目采用 [MIT License](LICENSE) 开源协议。
+Copyright (c) 2026 @tardis
