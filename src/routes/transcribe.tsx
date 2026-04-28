@@ -30,8 +30,10 @@ import { useDragDropPaths } from "@/hooks/useDragDropPaths";
 import { usePickMediaInputs } from "@/hooks/usePickMediaInputs";
 import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
 import { useTaskStore, type TranscribeTask } from "@/hooks/useTaskStore";
+import { useTaskTimer } from "@/hooks/useTaskTimer";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTranscriptionSettings } from "@/lib/store";
+import { cn, formatDuration } from "@/lib/utils";
 
 export const Route = createFileRoute("/transcribe")({
 	component: TranscribePage,
@@ -85,6 +87,12 @@ function TranscribePage() {
 		(task
 			? ["preparing", "normalizing_audio", "transcribing"].includes(task.status)
 			: false);
+
+	const displayDuration = useTaskTimer({
+		isActive: isAnyProcessing,
+		startTime: task?.startTime,
+		finalDuration: task?.duration,
+	});
 
 	const selectedModelStatus = useMemo(
 		() => models.find((model) => model.id === modelId),
@@ -183,6 +191,7 @@ function TranscribePage() {
 		}
 
 		setProcessing(true);
+		const startTime = Date.now();
 		try {
 			const outputPath = await invoke<string>("get_transcription_output_path");
 			setTask((prev) =>
@@ -193,6 +202,8 @@ function TranscribePage() {
 							progress: 1,
 							outputPath,
 							log: undefined,
+							duration: undefined,
+							startTime,
 						}
 					: prev,
 			);
@@ -206,6 +217,10 @@ function TranscribePage() {
 				translateToEnglish: modelId.startsWith("whisper") && translateToEnglish,
 			});
 
+			const endTime = Date.now();
+			const durationSeconds = Math.floor((endTime - startTime) / 1000);
+			const formattedDuration = formatDuration(durationSeconds);
+
 			setTask((prev) =>
 				prev && prev.id === task.id
 					? {
@@ -214,6 +229,7 @@ function TranscribePage() {
 							progress: 100,
 							transcript: output.plain,
 							transcriptTimestamped: output.timestamped,
+							duration: formattedDuration,
 						}
 					: prev,
 			);
@@ -379,8 +395,20 @@ function TranscribePage() {
 											{task.fileName}
 										</span>
 									</div>
-									<div className="text-xs text-muted-foreground">
-										状态: {task.status}
+									<div className="text-xs text-muted-foreground flex items-center gap-3">
+										<span>状态: {task.status}</span>
+										{displayDuration && (
+											<span
+												className={cn(
+													"font-medium",
+													task.status === "completed"
+														? "text-emerald-600"
+														: "text-amber-600",
+												)}
+											>
+												耗时: {displayDuration}
+											</span>
+										)}
 									</div>
 									<Progress value={task.progress} className="mt-2" />
 									{task.log && (

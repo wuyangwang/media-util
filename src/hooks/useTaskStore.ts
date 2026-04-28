@@ -30,6 +30,8 @@ export interface TranscribeTask {
 	log?: string;
 	transcript?: string;
 	transcriptTimestamped?: string;
+	duration?: string;
+	startTime?: number;
 }
 
 export interface VideoProgressPayload {
