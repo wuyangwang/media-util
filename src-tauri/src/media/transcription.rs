@@ -153,6 +153,12 @@ fn run_transcription(
                 transcribe_rs::set_whisper_accelerator(transcribe_rs::WhisperAccelerator::Auto);
             }
 
+            let initial_prompt = if !translate_to_english {
+                Some("优先转写为简体中文".to_string())
+            } else {
+                None
+            };
+
             let mut model = WhisperEngine::load(&model_path).map_err(|e| e.to_string())?;
             model
                 .transcribe_with(
@@ -160,6 +166,7 @@ fn run_transcription(
                     &WhisperInferenceParams {
                         language,
                         translate: translate_to_english,
+                        initial_prompt,
                         ..Default::default()
                     },
                 )
