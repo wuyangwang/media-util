@@ -2,19 +2,90 @@ use ab_glyph::{FontArc, PxScale};
 use image::{DynamicImage, GenericImageView, Rgba};
 use imageproc::drawing::{draw_hollow_rect_mut, draw_text_mut};
 use imageproc::rect::Rect;
-use ndarray::{Array4, Ix4, ArrayViewD};
+use ndarray::{Array4, ArrayViewD, Ix4};
 use std::cmp::Ordering;
 
 pub const COCO_CLASSES: [&str; 80] = [
-    "人", "自行车", "汽车", "摩托车", "飞机", "公交车", "火车", "卡车", "船", "红绿灯",
-    "消防栓", "停止标志", "停车收费表", "长凳", "鸟", "猫", "狗", "马", "羊", "牛",
-    "大象", "熊", "斑马", "长颈鹿", "背包", "雨伞", "手提包", "领带", "手提箱", "飞盘",
-    "滑雪板", "单板滑雪", "运动球", "风筝", "棒球棒", "棒球手套", "滑板", "冲浪板",
-    "网球拍", "瓶子", "红酒杯", "杯子", "叉子", "刀", "勺子", "碗", "香蕉", "苹果",
-    "三明治", "橙子", "西兰花", "胡萝卜", "热狗", "皮萨", "甜甜圈", "蛋糕", "椅子", "沙发",
-    "盆栽", "床", "餐桌", "厕所", "电视", "笔记本电脑", "鼠标", "遥控器", "键盘", "手机",
-    "微波炉", "烤箱", "烤面包机", "洗手池", "冰箱", "书", "时钟", "花瓶", "剪刀", "泰迪熊",
-    "吹风机", "牙刷",
+    "人",
+    "自行车",
+    "汽车",
+    "摩托车",
+    "飞机",
+    "公交车",
+    "火车",
+    "卡车",
+    "船",
+    "红绿灯",
+    "消防栓",
+    "停止标志",
+    "停车收费表",
+    "长凳",
+    "鸟",
+    "猫",
+    "狗",
+    "马",
+    "羊",
+    "牛",
+    "大象",
+    "熊",
+    "斑马",
+    "长颈鹿",
+    "背包",
+    "雨伞",
+    "手提包",
+    "领带",
+    "手提箱",
+    "飞盘",
+    "滑雪板",
+    "单板滑雪",
+    "运动球",
+    "风筝",
+    "棒球棒",
+    "棒球手套",
+    "滑板",
+    "冲浪板",
+    "网球拍",
+    "瓶子",
+    "红酒杯",
+    "杯子",
+    "叉子",
+    "刀",
+    "勺子",
+    "碗",
+    "香蕉",
+    "苹果",
+    "三明治",
+    "橙子",
+    "西兰花",
+    "胡萝卜",
+    "热狗",
+    "皮萨",
+    "甜甜圈",
+    "蛋糕",
+    "椅子",
+    "沙发",
+    "盆栽",
+    "床",
+    "餐桌",
+    "厕所",
+    "电视",
+    "笔记本电脑",
+    "鼠标",
+    "遥控器",
+    "键盘",
+    "手机",
+    "微波炉",
+    "烤箱",
+    "烤面包机",
+    "洗手池",
+    "冰箱",
+    "书",
+    "时钟",
+    "花瓶",
+    "剪刀",
+    "泰迪熊",
+    "吹风机",
+    "牙刷",
 ];
 
 #[derive(Debug)]
@@ -39,7 +110,8 @@ impl YoloDetector {
 
     pub fn preprocess(&self, img: &DynamicImage) -> (Array4<f32>, f32, f32) {
         let (img_width, img_height) = img.dimensions();
-        let scale = (self.width as f32 / img_width as f32).min(self.height as f32 / img_height as f32);
+        let scale =
+            (self.width as f32 / img_width as f32).min(self.height as f32 / img_height as f32);
         let nw = (img_width as f32 * scale) as u32;
         let nh = (img_height as f32 * scale) as u32;
 
@@ -104,7 +176,11 @@ impl YoloDetector {
         self.non_max_suppression(detections, iou_threshold)
     }
 
-    fn non_max_suppression(&self, mut detections: Vec<Detection>, iou_threshold: f32) -> Vec<Detection> {
+    fn non_max_suppression(
+        &self,
+        mut detections: Vec<Detection>,
+        iou_threshold: f32,
+    ) -> Vec<Detection> {
         detections.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
         let mut result = Vec::new();
 
@@ -134,7 +210,12 @@ impl YoloDetector {
         intersection / union
     }
 
-    pub fn draw_detections(&self, img: &mut DynamicImage, detections: &[Detection], font_data: &[u8]) {
+    pub fn draw_detections(
+        &self,
+        img: &mut DynamicImage,
+        detections: &[Detection],
+        font_data: &[u8],
+    ) {
         let mut rgba_img = img.to_rgba8();
         let font = FontArc::try_from_vec(font_data.to_vec()).expect("Failed to load font");
         let scale = PxScale::from(24.0);
@@ -144,7 +225,7 @@ impl YoloDetector {
                 .of_size((det.x2 - det.x1) as u32, (det.y2 - det.y1) as u32);
 
             draw_hollow_rect_mut(&mut rgba_img, rect, Rgba([255, 0, 0, 255]));
-            
+
             let label = format!("{}: {:.2}", COCO_CLASSES[det.class_id], det.score);
             draw_text_mut(
                 &mut rgba_img,

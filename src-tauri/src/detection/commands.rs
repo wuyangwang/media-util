@@ -1,6 +1,6 @@
 use crate::detection::processor::{DetectionProcessor, DetectionProgress};
-use tauri::{command, AppHandle, Emitter, Manager};
 use tauri::path::BaseDirectory;
+use tauri::{command, AppHandle, Emitter, Manager};
 
 #[command]
 pub async fn detect_objects(
@@ -9,20 +9,32 @@ pub async fn detect_objects(
     input_path: String,
     is_video: bool,
 ) -> Result<String, String> {
-    let model_path = app.path().resolve("resources/models/yolo11s.onnx", BaseDirectory::Resource)
+    let model_path = app
+        .path()
+        .resolve("resources/models/yolo11s.onnx", BaseDirectory::Resource)
         .map_err(|e| e.to_string())?
         .to_string_lossy()
         .to_string();
 
-    let font_path = app.path().resolve("resources/fonts/NotoSerifSC-Medium.ttf", BaseDirectory::Resource)
+    let font_path = app
+        .path()
+        .resolve(
+            "resources/fonts/NotoSerifSC-Medium.ttf",
+            BaseDirectory::Resource,
+        )
         .map_err(|e| e.to_string())?;
-    
+
     let font_data = std::fs::read(font_path).map_err(|e| format!("Failed to read font: {}", e))?;
 
     // Create a unique output directory for this task
     let now = chrono::Local::now();
     let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
-    let output_dir = app.path().resolve(format!("media-detection/{}", timestamp), BaseDirectory::Document)
+    let output_dir = app
+        .path()
+        .resolve(
+            format!("media-detection/{}", timestamp),
+            BaseDirectory::Document,
+        )
         .map_err(|e| e.to_string())?;
 
     if !output_dir.exists() {
@@ -38,7 +50,13 @@ pub async fn detect_objects(
         let id_clone = id.clone();
         tokio::spawn(async move {
             let res = processor
-                .process_video(id_clone.clone(), input_path, output_dir_str, model_path, font_data)
+                .process_video(
+                    id_clone.clone(),
+                    input_path,
+                    output_dir_str,
+                    model_path,
+                    font_data,
+                )
                 .await;
             if let Err(e) = res {
                 // Emit failure

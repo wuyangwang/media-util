@@ -40,7 +40,7 @@ impl DetectionProcessor {
         let (original_width, original_height) = (img.width(), img.height());
 
         let (input_tensor, scale_x, _) = detector.preprocess(&img);
-        
+
         let shape: Vec<i64> = input_tensor.shape().iter().map(|&x| x as i64).collect();
         let data: Box<[f32]> = input_tensor.into_raw_vec().into_boxed_slice();
         let input_value = Value::from_array((shape, data)).map_err(|e| e.to_string())?;
@@ -57,8 +57,14 @@ impl DetectionProcessor {
         let shape_vec: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
         let output_view = ArrayView::from_shape(shape_vec, data).map_err(|e| e.to_string())?;
 
-        let detections =
-            detector.postprocess(output_view.into_dyn(), scale_x, original_width, original_height, 0.25, 0.45);
+        let detections = detector.postprocess(
+            output_view.into_dyn(),
+            scale_x,
+            original_width,
+            original_height,
+            0.25,
+            0.45,
+        );
 
         detector.draw_detections(&mut img, &detections, &font_data);
 
@@ -120,7 +126,7 @@ impl DetectionProcessor {
             .map(|e| e.path())
             .filter(|p| p.extension().map_or(false, |ext| ext == "jpg"))
             .collect();
-        
+
         frames.sort();
 
         let total_frames = frames.len();
@@ -131,7 +137,7 @@ impl DetectionProcessor {
             let mut img = image::open(&frame_path).map_err(|e| e.to_string())?;
             let (original_width, original_height) = (img.width(), img.height());
             let (input_tensor, scale_x, _) = detector.preprocess(&img);
-            
+
             let shape: Vec<i64> = input_tensor.shape().iter().map(|&x| x as i64).collect();
             let data: Box<[f32]> = input_tensor.into_raw_vec().into_boxed_slice();
             let input_value = Value::from_array((shape, data)).map_err(|e| e.to_string())?;
@@ -140,16 +146,22 @@ impl DetectionProcessor {
                 .session
                 .run([input_value.into()])
                 .map_err(|e| e.to_string())?;
-            
+
             let (shape, data) = outputs[0]
                 .try_extract_tensor::<f32>()
                 .map_err(|e| e.to_string())?;
-            
+
             let shape_vec: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
             let output_view = ArrayView::from_shape(shape_vec, data).map_err(|e| e.to_string())?;
-                
-            let detections =
-                detector.postprocess(output_view.into_dyn(), scale_x, original_width, original_height, 0.25, 0.45);
+
+            let detections = detector.postprocess(
+                output_view.into_dyn(),
+                scale_x,
+                original_width,
+                original_height,
+                0.25,
+                0.45,
+            );
 
             detector.draw_detections(&mut img, &detections, &font_data);
             img.save(&frame_path).map_err(|e| e.to_string())?;

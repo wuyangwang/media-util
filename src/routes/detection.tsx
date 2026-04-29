@@ -41,7 +41,7 @@ function Detection() {
 				const fileName = path.split(/[\\/]/).pop() || "";
 				const ext = fileName.split(".").pop()?.toLowerCase() || "";
 				const is_video = DEFAULT_CONFIG.video_extensions.includes(ext);
-				
+
 				const newTask: DetectionTask = {
 					id: Math.random().toString(36).substring(2, 9),
 					path,
@@ -57,7 +57,7 @@ function Detection() {
 	);
 
 	const { isDragActive } = useDragDropPaths(handleAddPaths);
-	
+
 	const checkProcessing = useCallback(() => {
 		if (processing) {
 			toast.error("正在处理中，请稍候");
@@ -68,31 +68,41 @@ function Detection() {
 
 	const { handlePickFiles, handlePickDir } = usePickMediaInputs({
 		modeLabel: "媒体文件",
-		extensions: [...DEFAULT_CONFIG.image_extensions, ...DEFAULT_CONFIG.video_extensions],
+		extensions: [
+			...DEFAULT_CONFIG.image_extensions,
+			...DEFAULT_CONFIG.video_extensions,
+		],
 		checkProcessing,
 		handleAddPaths,
 	});
 
-	const handleStartTask = useCallback(async (task: DetectionTask) => {
-		updateTask(task.id, { status: "processing", progress: 0 });
-		try {
-			const result = await invoke<string>("detect_objects", {
-				id: task.id,
-				inputPath: task.path,
-				isVideo: task.is_video,
-			});
-			
-			if (!task.is_video) {
-				updateTask(task.id, { status: "completed", progress: 100, resultPath: result });
+	const handleStartTask = useCallback(
+		async (task: DetectionTask) => {
+			updateTask(task.id, { status: "processing", progress: 0 });
+			try {
+				const result = await invoke<string>("detect_objects", {
+					id: task.id,
+					inputPath: task.path,
+					isVideo: task.is_video,
+				});
+
+				if (!task.is_video) {
+					updateTask(task.id, {
+						status: "completed",
+						progress: 100,
+						resultPath: result,
+					});
+				}
+			} catch (err) {
+				updateTask(task.id, { status: "failed", log: String(err) });
+				toast.error(`检测失败: ${err}`);
 			}
-		} catch (err) {
-			updateTask(task.id, { status: "failed", log: String(err) });
-			toast.error(`检测失败: ${err}`);
-		}
-	}, [updateTask]);
+		},
+		[updateTask],
+	);
 
 	const startBatch = useCallback(async () => {
-		const pendingTasks = tasks.filter(t => t.status === "pending");
+		const pendingTasks = tasks.filter((t) => t.status === "pending");
 		if (pendingTasks.length === 0) {
 			toast.info("没有待处理的任务");
 			return;
@@ -115,7 +125,10 @@ function Detection() {
 	}, []);
 
 	return (
-		<div ref={containerRef} className="relative flex h-full flex-col bg-background">
+		<div
+			ref={containerRef}
+			className="relative flex h-full flex-col bg-background"
+		>
 			<DragDropOverlay
 				active={isDragActive}
 				title="松开鼠标开始检测"
@@ -166,7 +179,9 @@ function Detection() {
 											)}
 										</div>
 										<div className="min-w-0 flex-1">
-											<h3 className="truncate text-sm font-semibold">{task.fileName}</h3>
+											<h3 className="truncate text-sm font-semibold">
+												{task.fileName}
+											</h3>
 											<p className="truncate font-mono text-[10px] text-muted-foreground/50">
 												{task.path}
 											</p>
@@ -174,11 +189,21 @@ function Detection() {
 									</div>
 
 									<div className="flex items-center gap-2">
-										<TaskStatusBadge 
-											status={task.status === "processing" ? "converting" : task.status} 
-											label={task.status === "processing" ? "检测中" : 
-												   task.status === "completed" ? "已完成" : 
-												   task.status === "failed" ? "失败" : "待处理"} 
+										<TaskStatusBadge
+											status={
+												task.status === "processing"
+													? "converting"
+													: task.status
+											}
+											label={
+												task.status === "processing"
+													? "检测中"
+													: task.status === "completed"
+														? "已完成"
+														: task.status === "failed"
+															? "失败"
+															: "待处理"
+											}
 										/>
 										<Button
 											size="icon"
@@ -194,7 +219,9 @@ function Detection() {
 												size="icon"
 												variant="ghost"
 												className="size-8"
-												onClick={() => handleOpenFolder(task.resultPath || task.path)}
+												onClick={() =>
+													handleOpenFolder(task.resultPath || task.path)
+												}
 											>
 												<FolderOpen className="size-4" />
 											</Button>
@@ -215,7 +242,9 @@ function Detection() {
 								{task.status === "completed" && task.resultPath && (
 									<div className="mt-3 flex items-center gap-2 text-[11px] text-primary">
 										<FolderOpen className="size-3" />
-										<span className="truncate">结果保存至: {task.resultPath}</span>
+										<span className="truncate">
+											结果保存至: {task.resultPath}
+										</span>
 									</div>
 								)}
 							</div>

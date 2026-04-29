@@ -41,10 +41,7 @@
 		"targets": ["nsis", "msi"],
 		"createUpdaterArtifacts": true,
 		"externalBin": ["binaries/ffmpeg", "binaries/ffprobe"],
-		"resources": [
-			"resources/fonts/*",
-			"resources/models/*"
-		],
+		"resources": ["resources/fonts/*", "resources/models/*"],
 		"icon": ["icons/128x128@2x.png", "icons/icon.ico"]
 	}
 }
