@@ -10,6 +10,7 @@ import {
 	LayoutGrid,
 	PanelLeftClose,
 	PanelLeftOpen,
+	Scan,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRef, useEffect, useState } from "react";
@@ -180,6 +181,12 @@ function RootComponent() {
 							to="/transcribe"
 							label="转文字"
 							icon={Mic2}
+							isCollapsed={isSidebarCollapsed}
+						/>
+						<SidebarLink
+							to="/detection"
+							label="目标检测"
+							icon={Scan}
 							isCollapsed={isSidebarCollapsed}
 						/>
 						<SidebarLink
