@@ -14,6 +14,7 @@ import { Route as TranscribeRouteImport } from "./routes/transcribe";
 import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as OverviewRouteImport } from "./routes/overview";
 import { Route as ImagesRouteImport } from "./routes/images";
+import { Route as DetectionRouteImport } from "./routes/detection";
 import { Route as IndexRouteImport } from "./routes/index";
 
 const VideosRoute = VideosRouteImport.update({
@@ -41,6 +42,11 @@ const ImagesRoute = ImagesRouteImport.update({
 	path: "/images",
 	getParentRoute: () => rootRouteImport,
 } as any);
+const DetectionRoute = DetectionRouteImport.update({
+	id: "/detection",
+	path: "/detection",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
 	id: "/",
 	path: "/",
@@ -49,6 +55,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
 	"/": typeof IndexRoute;
+	"/detection": typeof DetectionRoute;
 	"/images": typeof ImagesRoute;
 	"/overview": typeof OverviewRoute;
 	"/settings": typeof SettingsRoute;
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
 	"/": typeof IndexRoute;
+	"/detection": typeof DetectionRoute;
 	"/images": typeof ImagesRoute;
 	"/overview": typeof OverviewRoute;
 	"/settings": typeof SettingsRoute;
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
 	__root__: typeof rootRouteImport;
 	"/": typeof IndexRoute;
+	"/detection": typeof DetectionRoute;
 	"/images": typeof ImagesRoute;
 	"/overview": typeof OverviewRoute;
 	"/settings": typeof SettingsRoute;
@@ -76,16 +85,25 @@ export interface FileRouteTypes {
 	fileRoutesByFullPath: FileRoutesByFullPath;
 	fullPaths:
 		| "/"
+		| "/detection"
 		| "/images"
 		| "/overview"
 		| "/settings"
 		| "/transcribe"
 		| "/videos";
 	fileRoutesByTo: FileRoutesByTo;
-	to: "/" | "/images" | "/overview" | "/settings" | "/transcribe" | "/videos";
+	to:
+		| "/"
+		| "/detection"
+		| "/images"
+		| "/overview"
+		| "/settings"
+		| "/transcribe"
+		| "/videos";
 	id:
 		| "__root__"
 		| "/"
+		| "/detection"
 		| "/images"
 		| "/overview"
 		| "/settings"
@@ -95,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
 	IndexRoute: typeof IndexRoute;
+	DetectionRoute: typeof DetectionRoute;
 	ImagesRoute: typeof ImagesRoute;
 	OverviewRoute: typeof OverviewRoute;
 	SettingsRoute: typeof SettingsRoute;
@@ -139,6 +158,13 @@ declare module "@tanstack/react-router" {
 			preLoaderRoute: typeof ImagesRouteImport;
 			parentRoute: typeof rootRouteImport;
 		};
+		"/detection": {
+			id: "/detection";
+			path: "/detection";
+			fullPath: "/detection";
+			preLoaderRoute: typeof DetectionRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
 		"/": {
 			id: "/";
 			path: "/";
@@ -151,6 +177,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
 	IndexRoute: IndexRoute,
+	DetectionRoute: DetectionRoute,
 	ImagesRoute: ImagesRoute,
 	OverviewRoute: OverviewRoute,
 	SettingsRoute: SettingsRoute,

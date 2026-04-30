@@ -1,4 +1,5 @@
 pub mod config;
+mod detection;
 mod media;
 
 use tauri::{
@@ -55,7 +56,8 @@ pub fn run() {
             media::get_transcription_models_status,
             media::download_transcription_model,
             media::delete_transcription_model,
-            media::transcribe_media
+            media::transcribe_media,
+            detection::detect_objects
         ])
         .setup(|app| {
             // 从 Store 加载并发配置

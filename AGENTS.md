@@ -14,10 +14,11 @@ Tech stack: Tauri v2 + React 19 + TypeScript + Rust + FFmpeg/FFprobe sidecar.
 - Media engine: FFmpeg/FFprobe sidecar binaries
 
 ## High-Priority Paths
-- `src/routes/` (overview/videos/images/settings pages)
+- `src/routes/` (overview/videos/images/settings/detection pages)
 - `src/hooks/` (scan/queue and related hooks)
 - `src-tauri/src/media.rs` (media processing core)
 - `src-tauri/src/media/transcription.rs` (local AI transcription core)
+- `src-tauri/src/detection/` (AI object detection core)
 - `src-tauri/capabilities/` (permissions and tray config)
 - `src-tauri/tauri.conf.json` (bundle config + `externalBin`)
 - `.github/workflows/release.yml` (Windows release pipeline)
