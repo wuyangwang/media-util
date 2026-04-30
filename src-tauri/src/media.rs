@@ -15,7 +15,7 @@ pub use crate::config::AppConfig;
 pub use model_manager::TranscriptionModelStatus;
 pub use shared::{MediaInfo, SystemInfo};
 pub use transcription::TranscriptionOutput;
-pub use video::AppQueue;
+pub use video::{recommended_queue_concurrency, AppQueue};
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 

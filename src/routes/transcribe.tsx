@@ -34,6 +34,7 @@ import { useTaskTimer } from "@/hooks/useTaskTimer";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTranscriptionSettings } from "@/lib/store";
 import { cn, formatDuration } from "@/lib/utils";
+import { diagnoseTaskError } from "@/lib/error-diagnosis";
 
 export const Route = createFileRoute("/transcribe")({
 	component: TranscribePage,
@@ -234,6 +235,7 @@ function TranscribePage() {
 					: prev,
 			);
 		} catch (error) {
+			const diagnosis = diagnoseTaskError(error);
 			setTask((prev) =>
 				prev && prev.id === task.id
 					? {
@@ -243,6 +245,9 @@ function TranscribePage() {
 							log: String(error),
 						}
 					: prev,
+			);
+			toast.error(
+				`转写失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`,
 			);
 		} finally {
 			setProcessing(false);
@@ -412,8 +417,13 @@ function TranscribePage() {
 									</div>
 									<Progress value={task.progress} className="mt-2" />
 									{task.log && (
-										<div className="mt-2 text-xs text-destructive line-clamp-2">
-											{task.log}
+										<div className="mt-2 rounded border border-destructive/25 bg-destructive/5 p-2 text-xs">
+											<div className="text-destructive">
+												失败原因：{diagnoseTaskError(task.log).reason}
+											</div>
+											<div className="mt-1 text-muted-foreground">
+												建议：{diagnoseTaskError(task.log).suggestion}
+											</div>
 										</div>
 									)}
 									{task.status === "completed" && (

@@ -1,4 +1,5 @@
 use crate::config::Preset;
+use crate::runtime;
 use log::{error, info};
 use regex::Regex;
 use serde::Serialize;
@@ -11,6 +12,10 @@ use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 use tokio::sync::{RwLock, Semaphore};
 
 use super::shared::{get_media_info, MediaInfo};
+
+pub fn recommended_queue_concurrency() -> usize {
+    runtime::recommended_queue_concurrency()
+}
 
 #[derive(Clone, Serialize)]
 struct ProgressPayload {
@@ -46,24 +51,28 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String,
         return Ok(thumb_path_str);
     }
 
+    let args = vec![
+        "-threads".to_string(),
+        runtime::worker_threads_reserve_one_core().to_string(),
+        "-ss".to_string(),
+        "00:00:01".to_string(),
+        "-i".to_string(),
+        path.clone(),
+        "-vframes".to_string(),
+        "1".to_string(),
+        "-f".to_string(),
+        "image2".to_string(),
+        "-s".to_string(),
+        "320x180".to_string(),
+        "-y".to_string(),
+        thumb_path_str.clone(),
+    ];
+
     let output = app
         .shell()
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
-        .args([
-            "-ss",
-            "00:00:01",
-            "-i",
-            &path,
-            "-vframes",
-            "1",
-            "-f",
-            "image2",
-            "-s",
-            "320x180",
-            "-y",
-            &thumb_path_str,
-        ])
+        .args(args)
         .output()
         .await
         .map_err(|e| e.to_string())?;
@@ -110,7 +119,9 @@ pub async fn update_concurrency(
     queue: tauri::State<'_, AppQueue>,
     limit: usize,
 ) -> Result<(), String> {
-    queue.update_limit(limit).await;
+    let normalized = limit.clamp(1, 8);
+    queue.update_limit(normalized).await;
+    runtime::set_configured_concurrency(normalized);
     Ok(())
 }
 
@@ -169,12 +180,12 @@ pub async fn convert_video(
         args.push("-c:a".to_string());
         args.push(params.acodec.to_string());
     } else {
-        let threads = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1);
-        let worker_threads = if threads > 1 { threads - 1 } else { 1 };
         args.push("-threads".to_string());
-        args.push(worker_threads.to_string());
+        args.push(runtime::worker_threads_reserve_one_core().to_string());
+        args.push("-filter_threads".to_string());
+        args.push(runtime::ffmpeg_filter_threads().to_string());
+        args.push("-filter_complex_threads".to_string());
+        args.push(runtime::ffmpeg_filter_threads().to_string());
 
         if let (Some(w), Some(h)) = (params.width, params.height) {
             args.push("-vf".to_string());

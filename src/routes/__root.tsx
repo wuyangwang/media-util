@@ -19,8 +19,10 @@ import gsap from "gsap";
 import { useUIStore } from "@/hooks/useUIStore";
 import { invoke } from "@tauri-apps/api/core";
 import { useTaskStore } from "@/hooks/useTaskStore";
+import { useDetectionStore } from "@/hooks/useDetectionStore";
 import { listen } from "@tauri-apps/api/event";
 import { VersionDisplay } from "@/components/version-display";
+import { toast } from "sonner";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -34,6 +36,12 @@ function RootComponent() {
 	const setTranscribeTask = useTaskStore((s) => s.setTranscribeTask);
 	const setTranscribeProcessing = useTaskStore(
 		(s) => s.setTranscribeProcessing,
+	);
+	const consumeTaskRecoveredCount = useTaskStore(
+		(s) => s.consumeRecoveredCount,
+	);
+	const consumeDetectionRecoveredCount = useDetectionStore(
+		(s) => s.consumeRecoveredCount,
 	);
 
 	useEffect(() => {
@@ -63,6 +71,14 @@ function RootComponent() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
+
+	useEffect(() => {
+		const restoredCount =
+			consumeTaskRecoveredCount() + consumeDetectionRecoveredCount();
+		if (restoredCount > 0) {
+			toast.success(`已恢复 ${restoredCount} 个任务，可继续处理`);
+		}
+	}, [consumeDetectionRecoveredCount, consumeTaskRecoveredCount]);
 
 	useEffect(() => {
 		let mounted = true;
