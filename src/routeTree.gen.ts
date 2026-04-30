@@ -8,182 +8,182 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as VideosRouteImport } from "./routes/videos";
-import { Route as TranscribeRouteImport } from "./routes/transcribe";
-import { Route as SettingsRouteImport } from "./routes/settings";
-import { Route as OverviewRouteImport } from "./routes/overview";
-import { Route as ImagesRouteImport } from "./routes/images";
-import { Route as DetectionRouteImport } from "./routes/detection";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideosRouteImport } from './routes/videos'
+import { Route as TranscribeRouteImport } from './routes/transcribe'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as OverviewRouteImport } from './routes/overview'
+import { Route as ImagesRouteImport } from './routes/images'
+import { Route as DetectionRouteImport } from './routes/detection'
+import { Route as IndexRouteImport } from './routes/index'
 
 const VideosRoute = VideosRouteImport.update({
-	id: "/videos",
-	path: "/videos",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TranscribeRoute = TranscribeRouteImport.update({
-	id: "/transcribe",
-	path: "/transcribe",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/transcribe',
+  path: '/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
-	id: "/settings",
-	path: "/settings",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OverviewRoute = OverviewRouteImport.update({
-	id: "/overview",
-	path: "/overview",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ImagesRoute = ImagesRouteImport.update({
-	id: "/images",
-	path: "/images",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/images',
+  path: '/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DetectionRoute = DetectionRouteImport.update({
-	id: "/detection",
-	path: "/detection",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/detection',
+  path: '/detection',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
-	id: "/",
-	path: "/",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-	"/": typeof IndexRoute;
-	"/detection": typeof DetectionRoute;
-	"/images": typeof ImagesRoute;
-	"/overview": typeof OverviewRoute;
-	"/settings": typeof SettingsRoute;
-	"/transcribe": typeof TranscribeRoute;
-	"/videos": typeof VideosRoute;
+  '/': typeof IndexRoute
+  '/detection': typeof DetectionRoute
+  '/images': typeof ImagesRoute
+  '/overview': typeof OverviewRoute
+  '/settings': typeof SettingsRoute
+  '/transcribe': typeof TranscribeRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
-	"/": typeof IndexRoute;
-	"/detection": typeof DetectionRoute;
-	"/images": typeof ImagesRoute;
-	"/overview": typeof OverviewRoute;
-	"/settings": typeof SettingsRoute;
-	"/transcribe": typeof TranscribeRoute;
-	"/videos": typeof VideosRoute;
+  '/': typeof IndexRoute
+  '/detection': typeof DetectionRoute
+  '/images': typeof ImagesRoute
+  '/overview': typeof OverviewRoute
+  '/settings': typeof SettingsRoute
+  '/transcribe': typeof TranscribeRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
-	__root__: typeof rootRouteImport;
-	"/": typeof IndexRoute;
-	"/detection": typeof DetectionRoute;
-	"/images": typeof ImagesRoute;
-	"/overview": typeof OverviewRoute;
-	"/settings": typeof SettingsRoute;
-	"/transcribe": typeof TranscribeRoute;
-	"/videos": typeof VideosRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/detection': typeof DetectionRoute
+  '/images': typeof ImagesRoute
+  '/overview': typeof OverviewRoute
+  '/settings': typeof SettingsRoute
+  '/transcribe': typeof TranscribeRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
-	fileRoutesByFullPath: FileRoutesByFullPath;
-	fullPaths:
-		| "/"
-		| "/detection"
-		| "/images"
-		| "/overview"
-		| "/settings"
-		| "/transcribe"
-		| "/videos";
-	fileRoutesByTo: FileRoutesByTo;
-	to:
-		| "/"
-		| "/detection"
-		| "/images"
-		| "/overview"
-		| "/settings"
-		| "/transcribe"
-		| "/videos";
-	id:
-		| "__root__"
-		| "/"
-		| "/detection"
-		| "/images"
-		| "/overview"
-		| "/settings"
-		| "/transcribe"
-		| "/videos";
-	fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/detection'
+    | '/images'
+    | '/overview'
+    | '/settings'
+    | '/transcribe'
+    | '/videos'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/detection'
+    | '/images'
+    | '/overview'
+    | '/settings'
+    | '/transcribe'
+    | '/videos'
+  id:
+    | '__root__'
+    | '/'
+    | '/detection'
+    | '/images'
+    | '/overview'
+    | '/settings'
+    | '/transcribe'
+    | '/videos'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-	IndexRoute: typeof IndexRoute;
-	DetectionRoute: typeof DetectionRoute;
-	ImagesRoute: typeof ImagesRoute;
-	OverviewRoute: typeof OverviewRoute;
-	SettingsRoute: typeof SettingsRoute;
-	TranscribeRoute: typeof TranscribeRoute;
-	VideosRoute: typeof VideosRoute;
+  IndexRoute: typeof IndexRoute
+  DetectionRoute: typeof DetectionRoute
+  ImagesRoute: typeof ImagesRoute
+  OverviewRoute: typeof OverviewRoute
+  SettingsRoute: typeof SettingsRoute
+  TranscribeRoute: typeof TranscribeRoute
+  VideosRoute: typeof VideosRoute
 }
 
-declare module "@tanstack/react-router" {
-	interface FileRoutesByPath {
-		"/videos": {
-			id: "/videos";
-			path: "/videos";
-			fullPath: "/videos";
-			preLoaderRoute: typeof VideosRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/transcribe": {
-			id: "/transcribe";
-			path: "/transcribe";
-			fullPath: "/transcribe";
-			preLoaderRoute: typeof TranscribeRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/settings": {
-			id: "/settings";
-			path: "/settings";
-			fullPath: "/settings";
-			preLoaderRoute: typeof SettingsRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/overview": {
-			id: "/overview";
-			path: "/overview";
-			fullPath: "/overview";
-			preLoaderRoute: typeof OverviewRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/images": {
-			id: "/images";
-			path: "/images";
-			fullPath: "/images";
-			preLoaderRoute: typeof ImagesRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/detection": {
-			id: "/detection";
-			path: "/detection";
-			fullPath: "/detection";
-			preLoaderRoute: typeof DetectionRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/": {
-			id: "/";
-			path: "/";
-			fullPath: "/";
-			preLoaderRoute: typeof IndexRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-	}
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/transcribe': {
+      id: '/transcribe'
+      path: '/transcribe'
+      fullPath: '/transcribe'
+      preLoaderRoute: typeof TranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/images': {
+      id: '/images'
+      path: '/images'
+      fullPath: '/images'
+      preLoaderRoute: typeof ImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/detection': {
+      id: '/detection'
+      path: '/detection'
+      fullPath: '/detection'
+      preLoaderRoute: typeof DetectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-	IndexRoute: IndexRoute,
-	DetectionRoute: DetectionRoute,
-	ImagesRoute: ImagesRoute,
-	OverviewRoute: OverviewRoute,
-	SettingsRoute: SettingsRoute,
-	TranscribeRoute: TranscribeRoute,
-	VideosRoute: VideosRoute,
-};
+  IndexRoute: IndexRoute,
+  DetectionRoute: DetectionRoute,
+  ImagesRoute: ImagesRoute,
+  OverviewRoute: OverviewRoute,
+  SettingsRoute: SettingsRoute,
+  TranscribeRoute: TranscribeRoute,
+  VideosRoute: VideosRoute,
+}
 export const routeTree = rootRouteImport
-	._addFileChildren(rootRouteChildren)
-	._addFileTypes<FileRouteTypes>();
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
