@@ -7,7 +7,14 @@ import { listen } from "@tauri-apps/api/event";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Scan, FolderOpen, Trash2, ImageIcon, PlayCircle } from "lucide-react";
+import {
+	Scan,
+	FolderOpen,
+	Trash2,
+	ImageIcon,
+	PlayCircle,
+	Square,
+} from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
@@ -171,6 +178,16 @@ function Detection() {
 					);
 					return;
 				}
+				if (payload.status === "Cancelled") {
+					updateTask(payload.id, {
+						status: "failed",
+						progress: 0,
+						log: "Cancelled",
+					});
+					setProcessing(false);
+					toast.info("任务已取消");
+					return;
+				}
 				updateTask(payload.id, {
 					status: "processing",
 					progress: payload.progress,
@@ -271,6 +288,18 @@ function Detection() {
 			setProcessing(false);
 		},
 		[checkProcessing, handleStartTask, setProcessing],
+	);
+
+	const handleCancelTask = useCallback(
+		async (task: DetectionTask) => {
+			try {
+				updateTask(task.id, { log: "Cancelling..." });
+				await invoke("cancel_detection", { id: task.id });
+			} catch (err) {
+				toast.error(`取消失败: ${err}`);
+			}
+		},
+		[updateTask],
 	);
 
 	const resolveRevealTarget = useCallback((task: DetectionTask) => {
@@ -427,6 +456,17 @@ function Detection() {
 											status={task.status}
 											onStart={() => handleRunTask(task)}
 										/>
+										{task.status === "processing" && (
+											<Button
+												size="icon"
+												variant="ghost"
+												className="size-8"
+												title="取消检测"
+												onClick={() => handleCancelTask(task)}
+											>
+												<Square className="size-4 text-amber-600" />
+											</Button>
+										)}
 										<Button
 											size="icon"
 											variant="ghost"

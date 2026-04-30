@@ -69,6 +69,8 @@ pub fn run() {
                 .and_then(|v| v.as_u64())
                 .unwrap_or(media::recommended_queue_concurrency() as u64)
                 as usize;
+            let concurrency = concurrency.clamp(1, 8);
+            runtime::set_configured_concurrency(concurrency);
 
             let queue = app.state::<media::AppQueue>();
             tauri::async_runtime::block_on(async move {
