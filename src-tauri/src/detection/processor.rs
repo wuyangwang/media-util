@@ -7,6 +7,11 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
@@ -103,6 +108,23 @@ impl DetectionProcessor {
         Ok(detections)
     }
 
+    fn update_stats_for_frame(
+        stats: &mut HashMap<usize, (u64, u64, f32)>,
+        detections: &[Detection],
+    ) {
+        let mut frame_classes = HashSet::new();
+        for det in detections {
+            let entry = stats.entry(det.class_id).or_insert((0, 0, 0.0));
+            entry.0 += 1;
+            entry.2 += det.score;
+            frame_classes.insert(det.class_id);
+        }
+        for class_id in frame_classes {
+            let entry = stats.entry(class_id).or_insert((0, 0, 0.0));
+            entry.1 += 1;
+        }
+    }
+
     pub async fn process_image(
         &self,
         _id: String,
@@ -137,17 +159,7 @@ impl DetectionProcessor {
             )?;
 
             let mut stats = HashMap::new();
-            let mut frame_classes = HashSet::new();
-            for det in &detections {
-                let entry = stats.entry(det.class_id).or_insert((0, 0, 0.0));
-                entry.0 += 1;
-                entry.2 += det.score;
-                frame_classes.insert(det.class_id);
-            }
-            for class_id in frame_classes {
-                let entry = stats.entry(class_id).or_insert((0, 0, 0.0));
-                entry.1 += 1;
-            }
+            Self::update_stats_for_frame(&mut stats, &detections);
 
             Ok::<(PathBuf, HashMap<usize, (u64, u64, f32)>), String>((output_path, stats))
         })
@@ -168,7 +180,9 @@ impl DetectionProcessor {
         sample_every: u32,
         score_threshold: f32,
         iou_threshold: f32,
+        cancel_token: Arc<AtomicBool>,
     ) -> Result<(), String> {
+        let task_start = Instant::now();
         let output_dir_path = Path::new(&output_dir);
         if !output_dir_path.exists() {
             std::fs::create_dir_all(output_dir_path).map_err(|e| e.to_string())?;
@@ -203,114 +217,171 @@ impl DetectionProcessor {
             .map_err(|e| e.to_string())?;
 
         let (mut rx, _child_proc) = child;
-
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Terminated(_) = event {
-                break;
-            }
-        }
-
-        let output_dir_buf = PathBuf::from(output_dir_path);
-        let frames: Vec<_> = tauri::async_runtime::spawn_blocking(move || {
-            let mut frames: Vec<_> = std::fs::read_dir(&output_dir_buf)
-                .map_err(|e| e.to_string())?
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|ext| ext == "jpg"))
-                .collect();
-            frames.sort();
-            Ok::<Vec<PathBuf>, String>(frames)
-        })
-        .await
-        .map_err(|e| e.to_string())??;
-
-        let total_frames = frames.len();
-        if total_frames == 0 {
-            return Err("No frames extracted for detection".to_string());
-        }
-
-        let worker_count = runtime::recommended_queue_concurrency()
-            .min(total_frames)
-            .max(1);
+        let worker_count = runtime::detection_worker_count(usize::MAX);
         let ort_threads_per_worker =
             (runtime::worker_threads_reserve_one_core() / worker_count).max(1);
-        let indexed_frames: Vec<(usize, PathBuf)> = frames.into_iter().enumerate().collect();
+        let (result_tx, result_rx) =
+            mpsc::channel::<Result<(usize, PathBuf, Vec<Detection>), String>>();
+        let mut worker_senders = Vec::with_capacity(worker_count);
+        let mut worker_handles: Vec<JoinHandle<Result<(), String>>> =
+            Vec::with_capacity(worker_count);
 
-        let mut processed = tauri::async_runtime::spawn_blocking(move || {
-            let mut handles = Vec::with_capacity(worker_count);
+        for _ in 0..worker_count {
+            let (task_tx, task_rx) = mpsc::channel::<Option<(usize, PathBuf)>>();
+            worker_senders.push(task_tx);
 
-            for worker_idx in 0..worker_count {
-                let model_path = model_path.clone();
-                let font_data = font_data.clone();
-                let worker_frames: Vec<(usize, PathBuf)> = indexed_frames
-                    .iter()
-                    .filter(|(idx, _)| idx % worker_count == worker_idx)
-                    .map(|(idx, path)| (*idx, path.clone()))
-                    .collect();
-
-                handles.push(std::thread::spawn(move || {
-                    let mut engine =
-                        InferenceEngine::new_with_threads(&model_path, ort_threads_per_worker)?;
-                    let detector = YoloDetector::new(640, 640);
-                    let mut results = Vec::with_capacity(worker_frames.len());
-
-                    for (idx, frame_path) in worker_frames {
-                        let detections = Self::run_detection_on_image(
-                            &mut engine,
-                            &detector,
-                            &frame_path,
-                            &font_data,
-                            score_threshold,
-                            iou_threshold,
-                        )?;
-                        results.push((idx, frame_path, detections));
+            let model_path = model_path.clone();
+            let font_data = font_data.clone();
+            let result_tx = result_tx.clone();
+            let cancel_token = cancel_token.clone();
+            worker_handles.push(std::thread::spawn(move || -> Result<(), String> {
+                let mut engine =
+                    InferenceEngine::new_with_threads(&model_path, ort_threads_per_worker)?;
+                let detector = YoloDetector::new(640, 640);
+                while let Ok(task) = task_rx.recv() {
+                    let Some((idx, frame_path)) = task else {
+                        break;
+                    };
+                    if cancel_token.load(Ordering::Relaxed) {
+                        break;
                     }
+                    let detections = Self::run_detection_on_image(
+                        &mut engine,
+                        &detector,
+                        &frame_path,
+                        &font_data,
+                        score_threshold,
+                        iou_threshold,
+                    )?;
+                    if result_tx.send(Ok((idx, frame_path, detections))).is_err() {
+                        break;
+                    }
+                }
+                Ok(())
+            }));
+        }
+        drop(result_tx);
 
-                    Ok::<Vec<(usize, PathBuf, Vec<Detection>)>, String>(results)
-                }));
-            }
-
-            let mut merged = Vec::new();
-            for handle in handles {
-                let worker_results = handle
-                    .join()
-                    .map_err(|_| "Detection worker panicked".to_string())??;
-                merged.extend(worker_results);
-            }
-
-            merged.sort_by_key(|(idx, _, _)| *idx);
-            Ok::<Vec<(usize, PathBuf, Vec<Detection>)>, String>(merged)
-        })
-        .await
-        .map_err(|e| e.to_string())??;
-
+        let mut extraction_done = false;
+        let mut seen: HashSet<PathBuf> = HashSet::new();
+        let mut pending: HashMap<usize, (PathBuf, Vec<Detection>)> = HashMap::new();
         let mut stats: HashMap<usize, (u64, u64, f32)> = HashMap::new();
-        for (i, (_idx, frame_path, detections)) in processed.drain(..).enumerate() {
-            let mut frame_classes = HashSet::new();
-            for det in &detections {
-                let entry = stats.entry(det.class_id).or_insert((0, 0, 0.0));
-                entry.0 += 1;
-                entry.2 += det.score;
-                frame_classes.insert(det.class_id);
-            }
-            for class_id in frame_classes {
-                let entry = stats.entry(class_id).or_insert((0, 0, 0.0));
-                entry.1 += 1;
+        let mut next_frame_index = 0usize;
+        let mut dispatched = 0usize;
+        let mut processed = 0usize;
+        let mut rr = 0usize;
+
+        log::info!(
+            "detection start id={} workers={} ort_threads_per_worker={}",
+            id,
+            worker_count,
+            ort_threads_per_worker
+        );
+
+        while !extraction_done || processed < dispatched {
+            if cancel_token.load(Ordering::Relaxed) {
+                break;
             }
 
-            let progress = (i + 1) as f64 / total_frames as f64 * 100.0;
+            tokio::select! {
+                event = rx.recv(), if !extraction_done => {
+                    if let Some(CommandEvent::Terminated(_)) = event {
+                        extraction_done = true;
+                    }
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(120)) => {
+                    let mut new_frames: Vec<PathBuf> = std::fs::read_dir(output_dir_path)
+                        .map_err(|e| e.to_string())?
+                        .filter_map(|e| e.ok())
+                        .map(|e| e.path())
+                        .filter(|p| p.extension().is_some_and(|ext| ext == "jpg"))
+                        .filter(|p| !seen.contains(p))
+                        .collect();
+                    new_frames.sort();
+
+                    for frame_path in new_frames {
+                        seen.insert(frame_path.clone());
+                        let idx = next_frame_index;
+                        next_frame_index += 1;
+                        let sender = &worker_senders[rr % worker_count];
+                        rr += 1;
+                        sender
+                            .send(Some((idx, frame_path)))
+                            .map_err(|_| "Failed to dispatch detection frame task".to_string())?;
+                        dispatched += 1;
+                    }
+                }
+            }
+
+            while let Ok(result) = result_rx.try_recv() {
+                let (idx, frame_path, detections) = result?;
+                pending.insert(idx, (frame_path, detections));
+            }
+
+            while let Some((frame_path, detections)) = pending.remove(&processed) {
+                Self::update_stats_for_frame(&mut stats, &detections);
+                processed += 1;
+                let denominator = if extraction_done {
+                    dispatched.max(1)
+                } else {
+                    (dispatched + worker_count).max(1)
+                };
+                let progress = if extraction_done {
+                    processed as f64 / denominator as f64 * 100.0
+                } else {
+                    (processed as f64 / denominator as f64 * 90.0).min(90.0)
+                };
+                let status = if extraction_done {
+                    format!("Processing frame {}/{}", processed, dispatched)
+                } else {
+                    format!("Processing frame {} (streaming)", processed)
+                };
+                let _ = self.app.emit(
+                    "detection-progress",
+                    DetectionProgress {
+                        id: id.clone(),
+                        progress,
+                        status,
+                        result_path: Some(frame_path.to_string_lossy().to_string()),
+                    },
+                );
+            }
+        }
+
+        for sender in &worker_senders {
+            let _ = sender.send(None);
+        }
+        for handle in worker_handles {
+            handle
+                .join()
+                .map_err(|_| "Detection worker panicked".to_string())??;
+        }
+
+        if cancel_token.load(Ordering::Relaxed) {
             let _ = self.app.emit(
                 "detection-progress",
                 DetectionProgress {
                     id: id.clone(),
-                    progress,
-                    status: format!("Processing frame {}/{}", i + 1, total_frames),
-                    result_path: Some(frame_path.to_string_lossy().to_string()),
+                    progress: 0.0,
+                    status: "Cancelled".to_string(),
+                    result_path: None,
                 },
             );
+            return Ok(());
+        }
+
+        if dispatched == 0 {
+            return Err("No frames extracted for detection".to_string());
         }
 
         let _ = self.write_class_stats_csv(output_dir_path, &stats)?;
+        log::info!(
+            "detection completed id={} frames={} workers={} elapsed_ms={}",
+            id,
+            dispatched,
+            worker_count,
+            task_start.elapsed().as_millis()
+        );
 
         let _ = self.app.emit(
             "detection-progress",

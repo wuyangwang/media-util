@@ -1,4 +1,5 @@
 use crate::detection::processor::{DetectionProcessor, DetectionProgress};
+use crate::detection::task_control;
 use tauri::path::BaseDirectory;
 use tauri::{command, AppHandle, Emitter, Manager};
 
@@ -12,6 +13,8 @@ pub async fn detect_objects(
     score_threshold: Option<f32>,
     iou_threshold: Option<f32>,
 ) -> Result<String, String> {
+    let cancel_token = task_control::register(&id);
+
     let model_path = app
         .path()
         .resolve("resources/models/yolo11s.onnx", BaseDirectory::Resource)
@@ -65,8 +68,10 @@ pub async fn detect_objects(
                     sample_every,
                     score_threshold,
                     iou_threshold,
+                    cancel_token,
                 )
                 .await;
+            task_control::clear(&id_clone);
             if let Err(e) = res {
                 // Emit failure
                 let _ = app_clone.emit(
@@ -82,9 +87,9 @@ pub async fn detect_objects(
         });
         Ok(output_dir.to_string_lossy().to_string())
     } else {
-        let result_path = processor
+        let result = processor
             .process_image(
-                id,
+                id.clone(),
                 input_path,
                 output_dir_str,
                 model_path,
@@ -92,7 +97,17 @@ pub async fn detect_objects(
                 score_threshold,
                 iou_threshold,
             )
-            .await?;
-        Ok(result_path)
+            .await;
+        task_control::clear(&id);
+        result
+    }
+}
+
+#[command]
+pub fn cancel_detection(id: String) -> Result<(), String> {
+    if task_control::cancel(&id) {
+        Ok(())
+    } else {
+        Err("Detection task not found".to_string())
     }
 }

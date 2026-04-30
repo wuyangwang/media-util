@@ -58,7 +58,8 @@ pub fn run() {
             media::download_transcription_model,
             media::delete_transcription_model,
             media::transcribe_media,
-            detection::detect_objects
+            detection::detect_objects,
+            detection::cancel_detection
         ])
         .setup(|app| {
             // 从 Store 加载并发配置
