@@ -1,5 +1,6 @@
 use crate::config::AUDIO_EXTENSIONS;
 use crate::media::model_manager::{self, TranscriptionModelId};
+use crate::runtime;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -68,22 +69,27 @@ async fn normalize_audio_to_wav(
         .ok_or("Invalid temporary wav path")?
         .to_string();
 
-    let mut args = vec!["-i", input_path];
+    let mut args = vec![
+        "-threads".to_string(),
+        runtime::worker_threads_reserve_one_core().to_string(),
+        "-i".to_string(),
+        input_path.to_string(),
+    ];
 
     // Video path includes video stream; audio path uses the same normalization.
     if !is_audio_file(Path::new(input_path)) {
-        args.push("-vn");
+        args.push("-vn".to_string());
     }
 
     args.extend([
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-c:a",
-        "pcm_s16le",
-        "-y",
-        &temp_wav_str,
+        "-ac".to_string(),
+        "1".to_string(),
+        "-ar".to_string(),
+        "16000".to_string(),
+        "-c:a".to_string(),
+        "pcm_s16le".to_string(),
+        "-y".to_string(),
+        temp_wav_str,
     ]);
 
     let output = app

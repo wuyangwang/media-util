@@ -1,6 +1,7 @@
 pub mod config;
 mod detection;
 mod media;
+mod runtime;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -25,7 +26,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .manage(media::AppQueue::new(2)) // 初始默认值
+        .manage(media::AppQueue::new(media::recommended_queue_concurrency()))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -65,7 +66,8 @@ pub fn run() {
             let concurrency = store
                 .get("concurrency")
                 .and_then(|v| v.as_u64())
-                .unwrap_or(2) as usize;
+                .unwrap_or(media::recommended_queue_concurrency() as u64)
+                as usize;
 
             let queue = app.state::<media::AppQueue>();
             tauri::async_runtime::block_on(async move {

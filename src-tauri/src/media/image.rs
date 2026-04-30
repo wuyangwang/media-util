@@ -1,4 +1,5 @@
 use crate::config::IMAGE_SIZE_PRESETS;
+use crate::runtime;
 use image::GenericImageView;
 use std::fs::File;
 use std::path::Path;
@@ -10,11 +11,23 @@ pub(super) async fn load_image(app: &AppHandle, path: &str) -> Result<image::Dyn
         return Ok(img);
     }
 
+    let args = vec![
+        "-threads".to_string(),
+        runtime::worker_threads_reserve_one_core().to_string(),
+        "-i".to_string(),
+        path.to_string(),
+        "-f".to_string(),
+        "image2pipe".to_string(),
+        "-vcodec".to_string(),
+        "png".to_string(),
+        "pipe:1".to_string(),
+    ];
+
     let output = app
         .shell()
         .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
-        .args(["-i", path, "-f", "image2pipe", "-vcodec", "png", "pipe:1"])
+        .args(args)
         .output()
         .await
         .map_err(|e| e.to_string())?;

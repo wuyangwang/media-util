@@ -1,4 +1,5 @@
 use crate::config::{AppConfig, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
+use crate::runtime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
@@ -577,11 +578,7 @@ fn get_cpu_info() -> (String, usize) {
             ],
         )
         .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or_else(|| {
-            std::thread::available_parallelism()
-                .map(usize::from)
-                .unwrap_or(0)
-        });
+        .unwrap_or_else(runtime::cpu_cores);
 
         return (cpu_model, cpu_cores);
     }
@@ -594,11 +591,7 @@ fn get_cpu_info() -> (String, usize) {
 
         let cpu_cores = read_command_output("sysctl", &["-n", "hw.logicalcpu"])
             .and_then(|value| value.parse::<usize>().ok())
-            .unwrap_or_else(|| {
-                std::thread::available_parallelism()
-                    .map(usize::from)
-                    .unwrap_or(0)
-            });
+            .unwrap_or_else(runtime::cpu_cores);
 
         return (cpu_model, cpu_cores);
     }
@@ -612,20 +605,13 @@ fn get_cpu_info() -> (String, usize) {
             .map(ToString::to_string)
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let cpu_cores = std::thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(0);
+        let cpu_cores = runtime::cpu_cores();
 
         return (cpu_model, cpu_cores);
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    (
-        "Unknown".to_string(),
-        std::thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(0),
-    )
+    ("Unknown".to_string(), runtime::cpu_cores())
 }
 
 fn get_disk_info() -> (u64, u64) {
