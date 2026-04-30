@@ -14,6 +14,7 @@ import { useTaskPageAnimations } from "@/hooks/useTaskPageAnimations";
 import { TaskPageToolbar } from "@/components/task-page-toolbar";
 import { TaskEmptyState } from "@/components/task-empty-state";
 import { TaskStatusBadge } from "@/components/task-status-badge";
+import { TaskStartButton } from "@/components/task-start-button";
 import { useDetectionStore, DetectionTask } from "@/hooks/useDetectionStore";
 import { Progress } from "@/components/ui/progress";
 
@@ -35,29 +36,6 @@ function Detection() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	useTaskPageAnimations(containerRef, tasks.length);
 
-	const handleAddPaths = useCallback(
-		async (paths: string[]) => {
-			for (const path of paths) {
-				const fileName = path.split(/[\\/]/).pop() || "";
-				const ext = fileName.split(".").pop()?.toLowerCase() || "";
-				const is_video = DEFAULT_CONFIG.video_extensions.includes(ext);
-
-				const newTask: DetectionTask = {
-					id: Math.random().toString(36).substring(2, 9),
-					path,
-					fileName,
-					is_video,
-					status: "pending",
-					progress: 0,
-				};
-				addTask(newTask);
-			}
-		},
-		[addTask],
-	);
-
-	const { isDragActive } = useDragDropPaths(handleAddPaths);
-
 	const checkProcessing = useCallback(() => {
 		if (processing) {
 			toast.error("正在处理中，请稍候");
@@ -65,16 +43,6 @@ function Detection() {
 		}
 		return false;
 	}, [processing]);
-
-	const { handlePickFiles, handlePickDir } = usePickMediaInputs({
-		modeLabel: "媒体文件",
-		extensions: [
-			...DEFAULT_CONFIG.image_extensions,
-			...DEFAULT_CONFIG.video_extensions,
-		],
-		checkProcessing,
-		handleAddPaths,
-	});
 
 	const handleStartTask = useCallback(
 		async (task: DetectionTask) => {
@@ -101,18 +69,78 @@ function Detection() {
 		[updateTask],
 	);
 
+	const handleAddPaths = useCallback(
+		async (paths: string[]) => {
+			if (checkProcessing()) return;
+			if (paths.length === 0) return;
+			if (paths.length > 1) {
+				toast.info("每次只能添加一个文件");
+			}
+
+			const path = paths[0];
+			const fileName = path.split(/[\\/]/).pop() || "";
+			const ext = fileName.split(".").pop()?.toLowerCase() || "";
+			const isImage = DEFAULT_CONFIG.image_extensions.includes(ext);
+			const isVideo = DEFAULT_CONFIG.video_extensions.includes(ext);
+			if (!isImage && !isVideo) {
+				toast.error("不支持文件夹或该文件类型，请选择单个图片或视频文件");
+				return;
+			}
+
+			const newTask: DetectionTask = {
+				id: Math.random().toString(36).substring(2, 9),
+				path,
+				fileName,
+				is_video: isVideo,
+				status: "pending",
+				progress: 0,
+			};
+			addTask(newTask);
+		},
+		[addTask, checkProcessing],
+	);
+
+	const { isDragActive } = useDragDropPaths(handleAddPaths);
+
+	const { handlePickFiles } = usePickMediaInputs({
+		modeLabel: "媒体文件",
+		extensions: [
+			...DEFAULT_CONFIG.image_extensions,
+			...DEFAULT_CONFIG.video_extensions,
+		],
+		checkProcessing,
+		handleAddPaths,
+		multipleFiles: false,
+	});
+
+	const handlePickDirDisabled = useCallback(async () => {
+		toast.info("目标检测仅支持单个文件上传，不支持目录");
+	}, []);
+
 	const startBatch = useCallback(async () => {
-		const pendingTasks = tasks.filter((t) => t.status === "pending");
-		if (pendingTasks.length === 0) {
-			toast.info("没有待处理的任务");
+		if (tasks.length > 0) {
+			toast.info("顶部批量开始已关闭，请在任务行点击开始");
 			return;
 		}
-		setProcessing(true);
-		for (const task of pendingTasks) {
+	}, [tasks.length]);
+
+	const handleRunTask = useCallback(
+		async (task: DetectionTask) => {
+			if (checkProcessing()) return;
+			setProcessing(true);
 			await handleStartTask(task);
+			setProcessing(false);
+		},
+		[checkProcessing, handleStartTask, setProcessing],
+	);
+
+	const resolveRevealTarget = useCallback((task: DetectionTask) => {
+		const path = task.resultPath || task.outputPath || task.path;
+		if (path === task.path) {
+			return task.path.replace(/[\\/][^\\/]+$/, "");
 		}
-		setProcessing(false);
-	}, [tasks, handleStartTask, setProcessing]);
+		return path;
+	}, []);
 
 	const handleOpenFolder = useCallback(async (path?: string) => {
 		if (path) {
@@ -140,12 +168,14 @@ function Detection() {
 				descriptionScanning="正在扫描..."
 				pickFilesLabel="添加媒体"
 				pickDirLabel="添加目录"
+				showPickDirButton={false}
+				showStartBatchButton={false}
 				isScanning={false}
 				isProcessing={processing}
 				isAnyProcessing={processing}
 				hasTasks={tasks.length > 0}
 				onPickFiles={handlePickFiles}
-				onPickDir={handlePickDir}
+				onPickDir={handlePickDirDisabled}
 				onStartBatch={startBatch}
 				onClearTasks={clearTasks}
 			/>
@@ -205,6 +235,10 @@ function Detection() {
 															: "待处理"
 											}
 										/>
+										<TaskStartButton
+											status={task.status}
+											onStart={() => handleRunTask(task)}
+										/>
 										<Button
 											size="icon"
 											variant="ghost"
@@ -219,9 +253,7 @@ function Detection() {
 												size="icon"
 												variant="ghost"
 												className="size-8"
-												onClick={() =>
-													handleOpenFolder(task.resultPath || task.path)
-												}
+												onClick={() => handleOpenFolder(resolveRevealTarget(task))}
 											>
 												<FolderOpen className="size-4" />
 											</Button>
