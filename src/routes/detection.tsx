@@ -45,7 +45,10 @@ function Detection() {
 	const [iouThreshold, setIouThreshold] = useState(0.45);
 	useTaskPageAnimations(containerRef, tasks.length);
 
-	const clampedSampleEvery = useMemo(() => Math.max(1, sampleEvery), [sampleEvery]);
+	const clampedSampleEvery = useMemo(
+		() => Math.max(1, sampleEvery),
+		[sampleEvery],
+	);
 	const clampedScoreThreshold = useMemo(
 		() => Math.min(0.99, Math.max(0.01, scoreThreshold)),
 		[scoreThreshold],
@@ -109,13 +112,19 @@ function Detection() {
 					outputPath: task.is_video ? result : undefined,
 				});
 				if (!task.is_video) {
-					updateTask(task.id, { status: "completed", progress: 100, resultPath: result });
+					updateTask(task.id, {
+						status: "completed",
+						progress: 100,
+						resultPath: result,
+					});
 					await loadClassStats(task.id, result);
 				}
 			} catch (err) {
 				updateTask(task.id, { status: "failed", log: String(err) });
 				const diagnosis = diagnoseTaskError(err);
-				toast.error(`检测失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`);
+				toast.error(
+					`检测失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`,
+				);
 			}
 		},
 		[
@@ -157,7 +166,9 @@ function Detection() {
 					});
 					setProcessing(false);
 					const diagnosis = diagnoseTaskError(payload.status);
-					toast.error(`检测失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`);
+					toast.error(
+						`检测失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`,
+					);
 					return;
 				}
 				updateTask(payload.id, {
@@ -182,7 +193,9 @@ function Detection() {
 			return;
 		}
 		try {
-			const csvContent = await invoke<string>("read_text_file", { path: csvPath });
+			const csvContent = await invoke<string>("read_text_file", {
+				path: csvPath,
+			});
 			const output = await save({
 				filters: [{ name: "CSV", extensions: ["csv"] }],
 				defaultPath: `${task.fileName.replace(/\.[^/.]+$/, "")}_detection_stats.csv`,
@@ -310,7 +323,9 @@ function Detection() {
 				<Card className="window-surface shrink-0">
 					<CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-3">
 						<label className="space-y-1">
-							<div className="text-xs text-muted-foreground">视频采样间隔（每 N 帧）</div>
+							<div className="text-xs text-muted-foreground">
+								视频采样间隔（每 N 帧）
+							</div>
 							<Input
 								type="number"
 								min={1}
@@ -320,26 +335,34 @@ function Detection() {
 							/>
 						</label>
 						<label className="space-y-1">
-							<div className="text-xs text-muted-foreground">置信度阈值（0.01 - 0.99）</div>
+							<div className="text-xs text-muted-foreground">
+								置信度阈值（0.01 - 0.99）
+							</div>
 							<Input
 								type="number"
 								min={0.01}
 								max={0.99}
 								step={0.01}
 								value={scoreThreshold}
-								onChange={(e) => setScoreThreshold(Number(e.target.value) || 0.25)}
+								onChange={(e) =>
+									setScoreThreshold(Number(e.target.value) || 0.25)
+								}
 								disabled={processing}
 							/>
 						</label>
 						<label className="space-y-1">
-							<div className="text-xs text-muted-foreground">IoU 阈值（0.01 - 0.99）</div>
+							<div className="text-xs text-muted-foreground">
+								IoU 阈值（0.01 - 0.99）
+							</div>
 							<Input
 								type="number"
 								min={0.01}
 								max={0.99}
 								step={0.01}
 								value={iouThreshold}
-								onChange={(e) => setIouThreshold(Number(e.target.value) || 0.45)}
+								onChange={(e) =>
+									setIouThreshold(Number(e.target.value) || 0.45)
+								}
 								disabled={processing}
 							/>
 						</label>
@@ -418,7 +441,9 @@ function Detection() {
 												size="icon"
 												variant="ghost"
 												className="size-8"
-												onClick={() => handleOpenFolder(resolveRevealTarget(task))}
+												onClick={() =>
+													handleOpenFolder(resolveRevealTarget(task))
+												}
 											>
 												<FolderOpen className="size-4" />
 											</Button>
@@ -436,14 +461,15 @@ function Detection() {
 									</div>
 								)}
 
-								{task.status === "completed" && (task.resultPath || task.outputPath) && (
-									<div className="mt-3 flex items-center gap-2 text-[11px] text-primary">
-										<FolderOpen className="size-3" />
-										<span className="truncate">
-											结果保存至: {task.resultPath || task.outputPath}
-										</span>
-									</div>
-								)}
+								{task.status === "completed" &&
+									(task.resultPath || task.outputPath) && (
+										<div className="mt-3 flex items-center gap-2 text-[11px] text-primary">
+											<FolderOpen className="size-3" />
+											<span className="truncate">
+												结果保存至: {task.resultPath || task.outputPath}
+											</span>
+										</div>
+									)}
 								{task.status === "completed" && (
 									<div className="mt-2">
 										<Button
@@ -463,10 +489,14 @@ function Detection() {
 										</div>
 										<div className="space-y-1 text-[11px] text-muted-foreground">
 											{task.classStats.map((s) => (
-												<div key={`${task.id}-${s.classId}`} className="flex items-center justify-between gap-2">
+												<div
+													key={`${task.id}-${s.classId}`}
+													className="flex items-center justify-between gap-2"
+												>
 													<span className="truncate">{s.className}</span>
 													<span className="shrink-0">
-														检测 {s.detections} 次 / 命中 {s.frameHits} 帧 / 置信度 {s.avgConfidence.toFixed(2)}
+														检测 {s.detections} 次 / 命中 {s.frameHits} 帧 /
+														置信度 {s.avgConfidence.toFixed(2)}
 													</span>
 												</div>
 											))}

@@ -37,7 +37,9 @@ function RootComponent() {
 	const setTranscribeProcessing = useTaskStore(
 		(s) => s.setTranscribeProcessing,
 	);
-	const consumeTaskRecoveredCount = useTaskStore((s) => s.consumeRecoveredCount);
+	const consumeTaskRecoveredCount = useTaskStore(
+		(s) => s.consumeRecoveredCount,
+	);
 	const consumeDetectionRecoveredCount = useDetectionStore(
 		(s) => s.consumeRecoveredCount,
 	);

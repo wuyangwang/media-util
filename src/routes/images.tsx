@@ -159,9 +159,7 @@ function Images() {
 			} catch (err) {
 				setTasks((prev) =>
 					prev.map((t) =>
-						t.id === task.id
-							? { ...t, status: "failed", log: String(err) }
-							: t,
+						t.id === task.id ? { ...t, status: "failed", log: String(err) } : t,
 					),
 				);
 				const diagnosis = diagnoseTaskError(err);

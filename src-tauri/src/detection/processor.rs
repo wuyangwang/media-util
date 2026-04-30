@@ -34,8 +34,11 @@ impl DetectionProcessor {
     ) -> Result<String, String> {
         let csv_path = output_dir.join("detection_stats.csv");
         let mut file = std::fs::File::create(&csv_path).map_err(|e| e.to_string())?;
-        writeln!(file, "class_id,class_name,detections,frame_hits,avg_confidence")
-            .map_err(|e| e.to_string())?;
+        writeln!(
+            file,
+            "class_id,class_name,detections,frame_hits,avg_confidence"
+        )
+        .map_err(|e| e.to_string())?;
 
         let mut entries: Vec<_> = stats.iter().collect();
         entries.sort_by_key(|(class_id, _)| **class_id);

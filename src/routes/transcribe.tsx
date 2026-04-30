@@ -246,7 +246,9 @@ function TranscribePage() {
 						}
 					: prev,
 			);
-			toast.error(`转写失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`);
+			toast.error(
+				`转写失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`,
+			);
 		} finally {
 			setProcessing(false);
 		}
