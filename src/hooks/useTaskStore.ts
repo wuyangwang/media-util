@@ -48,9 +48,12 @@ interface TaskState {
 	imageProcessing: boolean;
 	videoProcessing: boolean;
 	transcribeProcessing: boolean;
+	recoveredCount: number;
+	setRecoveredCount: (count: number) => void;
 	setImageProcessing: (processing: boolean) => void;
 	setVideoProcessing: (processing: boolean) => void;
 	setTranscribeProcessing: (processing: boolean) => void;
+	consumeRecoveredCount: () => number;
 	setImageTasks: (
 		tasks: ImageTask[] | ((prev: ImageTask[]) => ImageTask[]),
 	) => void;
@@ -82,10 +85,20 @@ export const useTaskStore = create<TaskState>()(
 			imageProcessing: false,
 			videoProcessing: false,
 			transcribeProcessing: false,
+			recoveredCount: 0,
+			setRecoveredCount: (recoveredCount) => set({ recoveredCount }),
 			setImageProcessing: (imageProcessing) => set({ imageProcessing }),
 			setVideoProcessing: (videoProcessing) => set({ videoProcessing }),
 			setTranscribeProcessing: (transcribeProcessing) =>
 				set({ transcribeProcessing }),
+			consumeRecoveredCount: () => {
+				let count = 0;
+				set((state) => {
+					count = state.recoveredCount;
+					return { recoveredCount: 0 };
+				});
+				return count;
+			},
 			setImageTasks: (tasks) =>
 				set((state) => ({
 					imageTasks:
@@ -153,14 +166,44 @@ export const useTaskStore = create<TaskState>()(
 			name: "task-storage",
 			onRehydrateStorage: () => (state) => {
 				if (state) {
-					// 应用启动时清空所有任务列表
-					state.setImageTasks([]);
-					state.setVideoTasks([]);
-					state.setTranscribeTask(null);
-					// 确保应用启动时处理状态为 false
+					let recoveredCount = 0;
+					// 应用重启后保留任务，并将中断中的任务恢复为可继续状态
+					state.setImageTasks((prev) =>
+						prev.map((task) =>
+							task.status === "processing" || task.status === "converting"
+								? ((recoveredCount += 1), { ...task, status: "pending" })
+								: task,
+						),
+					);
+					state.setVideoTasks((prev) =>
+						prev.map((task) =>
+							task.status === "processing" || task.status === "converting"
+								? ((recoveredCount += 1),
+									{ ...task, status: "pending", progress: 0 })
+								: task,
+						),
+					);
+					state.setTranscribeTask((prev) => {
+						if (!prev) return null;
+						if (prev.status === "completed" || prev.status === "failed") {
+							return prev;
+						}
+						recoveredCount += 1;
+						return {
+							...prev,
+							status: "pending",
+							progress: 0,
+							startTime: undefined,
+						};
+					});
+
+					// 应用启动时处理标记统一复位
 					state.setVideoProcessing(false);
 					state.setImageProcessing(false);
 					state.setTranscribeProcessing(false);
+					if (recoveredCount > 0) {
+						state.setRecoveredCount(recoveredCount);
+					}
 				}
 			},
 		},

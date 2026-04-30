@@ -28,6 +28,7 @@ import { TaskStatusBadge } from "@/components/task-status-badge";
 import { TaskItemActions } from "@/components/task-item-actions";
 import { TaskStartButton } from "@/components/task-start-button";
 import { MediaPreviewDialog } from "@/components/media-preview-dialog";
+import { diagnoseTaskError } from "@/lib/error-diagnosis";
 
 export const Route = createFileRoute("/videos")({
 	component: Videos,
@@ -351,8 +352,18 @@ function Videos() {
 												<p className="text-[10px] text-muted-foreground/50 truncate font-mono mt-1">
 													{task.path}
 												</p>
+										</div>
+										{task.status === "failed" && task.log && (
+											<div className="mt-2 rounded border border-destructive/25 bg-destructive/5 p-2 text-[11px]">
+												<div className="text-destructive">
+													失败原因：{diagnoseTaskError(task.log).reason}
+												</div>
+												<div className="mt-1 text-muted-foreground">
+													建议：{diagnoseTaskError(task.log).suggestion}
+												</div>
 											</div>
-											<TaskItemActions
+										)}
+										<TaskItemActions
 												statusBadge={
 													<TaskStatusBadge
 														status={task.status}

@@ -1,8 +1,10 @@
 use crate::detection::engine::InferenceEngine;
-use crate::detection::yolo::YoloDetector;
+use crate::detection::yolo::{Detection, YoloDetector, COCO_CLASSES};
 use ndarray::ArrayView;
 use ort::value::Value;
 use serde::Serialize;
+use std::collections::{HashMap, HashSet};
+use std::io::Write;
 use std::path::Path;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::process::CommandEvent;
@@ -25,6 +27,53 @@ impl DetectionProcessor {
         Self { app }
     }
 
+    fn write_class_stats_csv(
+        &self,
+        output_dir: &Path,
+        stats: &HashMap<usize, (u64, u64, f32)>,
+    ) -> Result<String, String> {
+        let csv_path = output_dir.join("detection_stats.csv");
+        let mut file = std::fs::File::create(&csv_path).map_err(|e| e.to_string())?;
+        writeln!(file, "class_id,class_name,detections,frame_hits,avg_confidence")
+            .map_err(|e| e.to_string())?;
+
+        let mut entries: Vec<_> = stats.iter().collect();
+        entries.sort_by_key(|(class_id, _)| **class_id);
+        for (class_id, (detections, frame_hits, score_sum)) in entries {
+            let avg_conf = if *detections > 0 {
+                *score_sum as f64 / *detections as f64
+            } else {
+                0.0
+            };
+            let class_name = COCO_CLASSES.get(*class_id).copied().unwrap_or("unknown");
+            writeln!(
+                file,
+                "{},{},{},{},{:.4}",
+                class_id, class_name, detections, frame_hits, avg_conf
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Ok(csv_path.to_string_lossy().to_string())
+    }
+
+    fn update_stats_for_frame(
+        &self,
+        detections: &[Detection],
+        stats: &mut HashMap<usize, (u64, u64, f32)>,
+    ) {
+        let mut frame_classes = HashSet::new();
+        for det in detections {
+            let entry = stats.entry(det.class_id).or_insert((0, 0, 0.0));
+            entry.0 += 1;
+            entry.2 += det.score;
+            frame_classes.insert(det.class_id);
+        }
+        for class_id in frame_classes {
+            let entry = stats.entry(class_id).or_insert((0, 0, 0.0));
+            entry.1 += 1;
+        }
+    }
+
     pub async fn process_image(
         &self,
         _id: String,
@@ -32,6 +81,8 @@ impl DetectionProcessor {
         output_dir: String,
         model_path: String,
         font_data: Vec<u8>,
+        score_threshold: f32,
+        iou_threshold: f32,
     ) -> Result<String, String> {
         let mut engine = InferenceEngine::new(&model_path)?;
         let detector = YoloDetector::new(640, 640);
@@ -62,9 +113,11 @@ impl DetectionProcessor {
             scale_x,
             original_width,
             original_height,
-            0.25,
-            0.45,
+            score_threshold,
+            iou_threshold,
         );
+        let mut stats = HashMap::new();
+        self.update_stats_for_frame(&detections, &mut stats);
 
         detector.draw_detections(&mut img, &detections, &font_data);
 
@@ -73,6 +126,7 @@ impl DetectionProcessor {
             .ok_or("Invalid input path")?;
         let output_path = Path::new(&output_dir).join(file_name);
         img.save(&output_path).map_err(|e| e.to_string())?;
+        let _ = self.write_class_stats_csv(Path::new(&output_dir), &stats)?;
 
         Ok(output_path.to_string_lossy().to_string())
     }
@@ -84,6 +138,9 @@ impl DetectionProcessor {
         output_dir: String,
         model_path: String,
         font_data: Vec<u8>,
+        sample_every: u32,
+        score_threshold: f32,
+        iou_threshold: f32,
     ) -> Result<(), String> {
         let output_dir_path = Path::new(&output_dir);
         if !output_dir_path.exists() {
@@ -99,7 +156,7 @@ impl DetectionProcessor {
                 "-i",
                 &input_path,
                 "-vf",
-                "select='not(mod(n,5))',setpts=N/FRAME_RATE/TB",
+                &format!("select='not(mod(n,{sample_every}))',setpts=N/FRAME_RATE/TB"),
                 "-vsync",
                 "vfr",
                 "-q:v",
@@ -132,6 +189,7 @@ impl DetectionProcessor {
         let total_frames = frames.len();
         let mut engine = InferenceEngine::new(&model_path)?;
         let detector = YoloDetector::new(640, 640);
+        let mut stats: HashMap<usize, (u64, u64, f32)> = HashMap::new();
 
         for (i, frame_path) in frames.into_iter().enumerate() {
             let mut img = image::open(&frame_path).map_err(|e| e.to_string())?;
@@ -159,9 +217,10 @@ impl DetectionProcessor {
                 scale_x,
                 original_width,
                 original_height,
-                0.25,
-                0.45,
+                score_threshold,
+                iou_threshold,
             );
+            self.update_stats_for_frame(&detections, &mut stats);
 
             detector.draw_detections(&mut img, &detections, &font_data);
             img.save(&frame_path).map_err(|e| e.to_string())?;
@@ -177,6 +236,7 @@ impl DetectionProcessor {
                 },
             );
         }
+        let _ = self.write_class_stats_csv(output_dir_path, &stats)?;
 
         let _ = self.app.emit(
             "detection-progress",
@@ -184,7 +244,7 @@ impl DetectionProcessor {
                 id: id.clone(),
                 progress: 100.0,
                 status: "Completed".to_string(),
-                result_path: None,
+                result_path: Some(output_dir.to_string()),
             },
         );
 

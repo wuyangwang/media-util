@@ -10,13 +10,24 @@ export interface DetectionTask {
 	progress: number;
 	outputPath?: string;
 	resultPath?: string;
+	csvPath?: string;
+	classStats?: Array<{
+		classId: number;
+		className: string;
+		detections: number;
+		frameHits: number;
+		avgConfidence: number;
+	}>;
 	log?: string;
 }
 
 interface DetectionState {
 	tasks: DetectionTask[];
 	processing: boolean;
+	recoveredCount: number;
+	setRecoveredCount: (count: number) => void;
 	setProcessing: (processing: boolean) => void;
+	consumeRecoveredCount: () => number;
 	setTasks: (
 		tasks: DetectionTask[] | ((prev: DetectionTask[]) => DetectionTask[]),
 	) => void;
@@ -31,7 +42,17 @@ export const useDetectionStore = create<DetectionState>()(
 		(set) => ({
 			tasks: [],
 			processing: false,
+			recoveredCount: 0,
+			setRecoveredCount: (recoveredCount) => set({ recoveredCount }),
 			setProcessing: (processing) => set({ processing }),
+			consumeRecoveredCount: () => {
+				let count = 0;
+				set((state) => {
+					count = state.recoveredCount;
+					return { recoveredCount: 0 };
+				});
+				return count;
+			},
 			setTasks: (tasks) =>
 				set((state) => ({
 					tasks: typeof tasks === "function" ? tasks(state.tasks) : tasks,
@@ -56,8 +77,19 @@ export const useDetectionStore = create<DetectionState>()(
 			name: "detection-storage",
 			onRehydrateStorage: () => (state) => {
 				if (state) {
-					state.setTasks([]);
+					let recoveredCount = 0;
+					state.setTasks((prev) =>
+						prev.map((task) =>
+							task.status === "processing"
+								? ((recoveredCount += 1),
+									{ ...task, status: "pending", progress: 0 })
+								: task,
+						),
+					);
 					state.setProcessing(false);
+					if (recoveredCount > 0) {
+						state.setRecoveredCount(recoveredCount);
+					}
 				}
 			},
 		},

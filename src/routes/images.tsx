@@ -31,6 +31,7 @@ import { TaskStartButton } from "@/components/task-start-button";
 import { ImageIconTab } from "@/components/image-icon-tab";
 import { APP_ICON_PRESETS } from "@/lib/icon-presets";
 import { MediaPreviewDialog } from "@/components/media-preview-dialog";
+import { diagnoseTaskError } from "@/lib/error-diagnosis";
 
 export const Route = createFileRoute("/images")({
 	component: Images,
@@ -157,9 +158,16 @@ function Images() {
 				);
 			} catch (err) {
 				setTasks((prev) =>
-					prev.map((t) => (t.id === task.id ? { ...t, status: "failed" } : t)),
+					prev.map((t) =>
+						t.id === task.id
+							? { ...t, status: "failed", log: String(err) }
+							: t,
+					),
 				);
-				toast.error(`任务 ${task.fileName} 失败: ${err}`);
+				const diagnosis = diagnoseTaskError(err);
+				toast.error(
+					`任务 ${task.fileName} 失败：${diagnosis.reason}。建议：${diagnosis.suggestion}`,
+				);
 				throw err;
 			}
 		},
@@ -546,6 +554,16 @@ function Images() {
 										<p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/50">
 											{task.path}
 										</p>
+										{task.status === "failed" && task.log && (
+											<div className="mt-2 rounded border border-destructive/25 bg-destructive/5 p-2 text-[11px]">
+												<div className="text-destructive">
+													失败原因：{diagnoseTaskError(task.log).reason}
+												</div>
+												<div className="mt-1 text-muted-foreground">
+													建议：{diagnoseTaskError(task.log).suggestion}
+												</div>
+											</div>
+										)}
 									</div>
 								</div>
 

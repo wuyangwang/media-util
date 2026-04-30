@@ -1,4 +1,7 @@
-use ort::{ep, session::Session};
+use ort::{
+    ep,
+    session::{builder::GraphOptimizationLevel, Session},
+};
 use std::path::Path;
 
 pub struct InferenceEngine {
@@ -8,6 +11,11 @@ pub struct InferenceEngine {
 impl InferenceEngine {
     pub fn new<P: AsRef<Path>>(model_path: P) -> Result<Self, String> {
         let mut builder = Session::builder().map_err(|e| e.to_string())?;
+        builder = builder
+            .with_optimization_level(GraphOptimizationLevel::Level3)
+            .map_err(|e| e.to_string())?
+            .with_intra_threads(4)
+            .map_err(|e| e.to_string())?;
 
         #[cfg(target_os = "windows")]
         {

@@ -8,6 +8,9 @@ pub async fn detect_objects(
     id: String,
     input_path: String,
     is_video: bool,
+    sample_every: Option<u32>,
+    score_threshold: Option<f32>,
+    iou_threshold: Option<f32>,
 ) -> Result<String, String> {
     let model_path = app
         .path()
@@ -43,6 +46,9 @@ pub async fn detect_objects(
 
     let output_dir_str = output_dir.to_string_lossy().to_string();
     let processor = DetectionProcessor::new(app.clone());
+    let sample_every = sample_every.unwrap_or(5).max(1);
+    let score_threshold = score_threshold.unwrap_or(0.25).clamp(0.01, 0.99);
+    let iou_threshold = iou_threshold.unwrap_or(0.45).clamp(0.01, 0.99);
 
     if is_video {
         // Run video detection in background
@@ -56,6 +62,9 @@ pub async fn detect_objects(
                     output_dir_str,
                     model_path,
                     font_data,
+                    sample_every,
+                    score_threshold,
+                    iou_threshold,
                 )
                 .await;
             if let Err(e) = res {
@@ -74,7 +83,15 @@ pub async fn detect_objects(
         Ok(output_dir.to_string_lossy().to_string())
     } else {
         let result_path = processor
-            .process_image(id, input_path, output_dir_str, model_path, font_data)
+            .process_image(
+                id,
+                input_path,
+                output_dir_str,
+                model_path,
+                font_data,
+                score_threshold,
+                iou_threshold,
+            )
             .await?;
         Ok(result_path)
     }
