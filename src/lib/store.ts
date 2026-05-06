@@ -82,8 +82,10 @@ export function useAppSettings() {
 }
 
 export type TranscriptionModelId =
+	| "funasr-nano-int8"
 	| "whisper-medium"
 	| "whisper-large"
+	| "sense-voice-int8"
 	| "sense-voice";
 
 export function useTranscriptionSettings() {

@@ -11,8 +11,10 @@ const READY_MARKER_FILE: &str = ".ready";
 
 #[derive(Debug, Clone, Copy)]
 pub enum TranscriptionModelId {
+    FunAsrNanoInt8,
     WhisperMedium,
     WhisperLarge,
+    SenseVoiceInt8,
     SenseVoice,
 }
 
@@ -51,16 +53,25 @@ enum ModelKind {
 impl TranscriptionModelId {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
+            "funasr-nano-int8" => Ok(Self::FunAsrNanoInt8),
             "whisper-medium" => Ok(Self::WhisperMedium),
             "whisper-large" => Ok(Self::WhisperLarge),
+            "sense-voice-int8" => Ok(Self::SenseVoiceInt8),
             "sense-voice" => Ok(Self::SenseVoice),
             _ => Err(format!("Unsupported model id: {value}")),
         }
     }
 }
 
-fn all_models() -> [ModelMeta; 3] {
+fn all_models() -> [ModelMeta; 4] {
     [
+        ModelMeta {
+            id: TranscriptionModelId::FunAsrNanoInt8,
+            id_str: "funasr-nano-int8",
+            label: "FunAsr Nano (Int8)",
+            url: "https://www.modelscope.cn/models/wuyangwang/funasr-nano/resolve/master/funasr-nano-int8.tar.gz",
+            kind: ModelKind::TarGzDir,
+        },
         ModelMeta {
             id: TranscriptionModelId::WhisperMedium,
             id_str: "whisper-medium",
@@ -80,12 +91,21 @@ fn all_models() -> [ModelMeta; 3] {
             },
         },
         ModelMeta {
-            id: TranscriptionModelId::SenseVoice,
-            id_str: "sense-voice",
-            label: "SenseVoice",
+            id: TranscriptionModelId::SenseVoiceInt8,
+            id_str: "sense-voice-int8",
+            label: "SenseVoice (Int8)",
             url: "https://blob.handy.computer/sense-voice-int8.tar.gz",
             kind: ModelKind::TarGzDir,
         },
+        /*
+        ModelMeta {
+            id: TranscriptionModelId::SenseVoice,
+            id_str: "sense-voice",
+            label: "SenseVoice (Full)",
+            url: "", // Reserved for future use
+            kind: ModelKind::TarGzDir,
+        },
+        */
     ]
 }
 

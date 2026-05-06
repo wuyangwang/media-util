@@ -178,7 +178,9 @@ fn run_transcription(
                 )
                 .map_err(|e| e.to_string())?
         }
-        TranscriptionModelId::SenseVoice => {
+        TranscriptionModelId::SenseVoice
+        | TranscriptionModelId::SenseVoiceInt8
+        | TranscriptionModelId::FunAsrNanoInt8 => {
             use transcribe_rs::onnx::sense_voice::SenseVoiceModel;
             use transcribe_rs::onnx::sense_voice::SenseVoiceParams;
             use transcribe_rs::onnx::Quantization;
@@ -188,9 +190,16 @@ fn run_transcription(
                 transcribe_rs::set_ort_accelerator(transcribe_rs::OrtAccelerator::DirectMl);
             }
 
+            let quant = match model_id {
+                TranscriptionModelId::SenseVoiceInt8 | TranscriptionModelId::FunAsrNanoInt8 => {
+                    Quantization::Int8
+                }
+                _ => Quantization::FP32,
+            };
+
             let sense_model_dir = resolve_sense_voice_model_dir(model_path)?;
-            let mut model = SenseVoiceModel::load(&sense_model_dir, &Quantization::Int8)
-                .map_err(|e| e.to_string())?;
+            let mut model =
+                SenseVoiceModel::load(&sense_model_dir, &quant).map_err(|e| e.to_string())?;
             model
                 .transcribe_with(
                     &samples,
