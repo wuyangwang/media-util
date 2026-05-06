@@ -33,6 +33,8 @@ import { useTaskStore, type TranscribeTask } from "@/hooks/useTaskStore";
 import { useTaskTimer } from "@/hooks/useTaskTimer";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTranscriptionSettings } from "@/lib/store";
+import type { TranscriptionModelId } from "@/lib/models";
+import { TRANSCRIPTION_MODEL_DESCRIPTIONS } from "@/lib/models";
 import { cn, formatDuration } from "@/lib/utils";
 import { diagnoseTaskError } from "@/lib/error-diagnosis";
 
@@ -52,15 +54,6 @@ interface ModelStatus {
 	status: string;
 	path?: string;
 }
-
-const MODEL_DESCRIPTIONS: Record<string, string> = {
-	"funasr-nano-int8":
-		"阿里 FunAsr Nano 轻量版，专门针对中文语音优化，极速识别。",
-	"whisper-medium": "平衡速度与准确度，适合大多数日常转写任务。",
-	"whisper-large": "准确率更高，适合复杂语音或高质量识别场景。",
-	"sense-voice-int8": "SenseVoice 轻量化版本，适合快速转写，资源占用低。",
-	"sense-voice": "SenseVoice 全量版本，提供更高精度的转写效果。",
-};
 
 function TranscribePage() {
 	const navigate = useNavigate();
@@ -338,9 +331,11 @@ function TranscribePage() {
 									{selectedModelStatus?.label || modelId}
 								</span>
 							</div>
-							<span className="text-xs text-muted-foreground">
-								{MODEL_DESCRIPTIONS[modelId] || "通用语音转写模型。"}
-							</span>
+							<p className="text-xs text-muted-foreground mt-1">
+								{TRANSCRIPTION_MODEL_DESCRIPTIONS[
+									modelId as TranscriptionModelId
+								] || "通用语音转写模型。"}
+							</p>
 						</div>
 						<div className="flex items-center gap-2">
 							<span className="text-xs text-muted-foreground">
