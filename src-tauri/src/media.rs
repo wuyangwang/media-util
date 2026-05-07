@@ -51,6 +51,11 @@ pub fn read_text_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn write_text_file(path: String, content: String) -> Result<(), String> {
+    shared::write_text_file(path, content)
+}
+
+#[tauri::command]
 pub fn get_transcription_output_dir(app: tauri::AppHandle) -> Result<String, String> {
     shared::get_transcription_output_dir(app)
 }

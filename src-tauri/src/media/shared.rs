@@ -65,6 +65,10 @@ pub fn read_text_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
+pub fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
 fn ensure_transcription_output_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = app
         .path()
