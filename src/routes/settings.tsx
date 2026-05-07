@@ -626,8 +626,10 @@ function Settings() {
 					<CardContent className="space-y-3">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">应用版本:</span>
-							<span className="font-medium text-foreground">
-								v{import.meta.env.APP_VERSION}
+							<span className="font-medium text-foreground uppercase">
+								v{import.meta.env.APP_VERSION}-{import.meta.env.APP_GIT_HASH}
+								{import.meta.env.APP_ENV !== "prod" &&
+									` (${import.meta.env.APP_ENV})`}
 							</span>
 						</div>
 						<div className="flex justify-between text-sm">

@@ -110,7 +110,7 @@ fn transcription_model_meta(model_id: TranscriptionModelId) -> ModelMeta {
 pub fn models_root(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
-        .resolve(MODELS_ROOT_DIR, BaseDirectory::AppLocalData)
+        .resolve(MODELS_ROOT_DIR, BaseDirectory::AppData)
         .map_err(|e: tauri::Error| e.to_string())?;
 
     if !dir.exists() {

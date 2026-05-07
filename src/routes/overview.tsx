@@ -41,7 +41,7 @@ function OverviewPage() {
 							to="/overview"
 							icon={LayoutGrid}
 							title="概览"
-							desc={`版本 ${import.meta.env.APP_VERSION}`}
+							desc={`版本 ${import.meta.env.APP_VERSION}${import.meta.env.APP_ENV !== "prod" ? ` (${import.meta.env.APP_ENV})` : ""}`}
 						/>
 					</CardContent>
 				</section>
