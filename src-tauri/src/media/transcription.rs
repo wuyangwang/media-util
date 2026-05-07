@@ -222,11 +222,15 @@ fn run_transcription(
         }
     };
 
-    let mut timestamped = String::new();
-    let mut srt = String::new();
-    let mut plain_raw = String::new();
-    let mut last_end = 0.0;
-    let mut segment_count = 1;
+    struct MergedSegment {
+        text: String,
+        start: f32,
+        end: f32,
+    }
+
+    let mut merged_segments: Vec<MergedSegment> = Vec::new();
+    let mut current_buffer: Option<MergedSegment> = None;
+    let sentence_punc = ['。', '？', '！', '；', '!', '?', ';'];
 
     for segment in result.segments.into_iter().flatten() {
         let text = segment.text.trim();
@@ -234,6 +238,54 @@ fn run_transcription(
             continue;
         }
 
+        if let Some(mut buffer) = current_buffer.take() {
+            let gap = segment.start - buffer.end;
+            let ends_with_punc = sentence_punc.iter().any(|&p| buffer.text.ends_with(p));
+            let too_long = buffer.text.chars().count() > 50;
+
+            if gap < 0.8 && !ends_with_punc && !too_long {
+                if !buffer.text.is_empty()
+                    && !text.starts_with(|c: char| "，。！？；：,.!?;:".contains(c))
+                {
+                    if let (Some(last_char), Some(first_char)) =
+                        (buffer.text.chars().last(), text.chars().next())
+                    {
+                        if last_char.is_ascii_alphanumeric() && first_char.is_ascii_alphanumeric() {
+                            buffer.text.push(' ');
+                        }
+                    }
+                }
+                buffer.text.push_str(text);
+                buffer.end = segment.end;
+                current_buffer = Some(buffer);
+            } else {
+                merged_segments.push(buffer);
+                current_buffer = Some(MergedSegment {
+                    text: text.to_string(),
+                    start: segment.start,
+                    end: segment.end,
+                });
+            }
+        } else {
+            current_buffer = Some(MergedSegment {
+                text: text.to_string(),
+                start: segment.start,
+                end: segment.end,
+            });
+        }
+    }
+
+    if let Some(buffer) = current_buffer {
+        merged_segments.push(buffer);
+    }
+
+    let mut timestamped = String::new();
+    let mut srt = String::new();
+    let mut plain = String::new();
+    let mut last_end = 0.0;
+    let mut segment_count = 1;
+
+    for segment in merged_segments {
         // Timestamped version logic
         if !timestamped.is_empty() && segment.start - last_end > 3.0 {
             timestamped.push_str("\n\n");
@@ -243,7 +295,7 @@ fn run_transcription(
         timestamped.push_str(&format!(
             "[{}] {}",
             format_timestamp(segment.start as f64),
-            text
+            segment.text
         ));
 
         // SRT version logic
@@ -252,50 +304,17 @@ fn run_transcription(
             segment_count,
             format_srt_time(segment.start as f64),
             format_srt_time(segment.end as f64),
-            text
+            segment.text
         ));
         segment_count += 1;
 
-        // Plain version: just collect text with spaces
-        if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
-            plain_raw.push(' ');
+        // Plain version: just collect text with newlines
+        if !plain.is_empty() {
+            plain.push('\n');
         }
-        plain_raw.push_str(text);
+        plain.push_str(&segment.text);
 
         last_end = segment.end;
-    }
-
-    // Process plain text to split by punctuation
-    let mut plain = String::new();
-    let punctuation = ['。', '？', '！', '；', '!', '?', ';'];
-    let mut current_pos = 0;
-    let chars: Vec<char> = plain_raw.chars().collect();
-
-    while current_pos < chars.len() {
-        let c = chars[current_pos];
-        plain.push(c);
-
-        // Handle English period separately to avoid splitting decimal numbers or abbreviations (simplistic)
-        let is_period = c == '.';
-        let is_other_punc = punctuation.contains(&c);
-
-        if is_other_punc || is_period {
-            // Check if next char is a space or end of string
-            let next_is_space_or_end = if current_pos + 1 < chars.len() {
-                chars[current_pos + 1].is_whitespace()
-            } else {
-                true
-            };
-
-            if next_is_space_or_end {
-                plain.push('\n');
-                // Skip following whitespace
-                while current_pos + 1 < chars.len() && chars[current_pos + 1].is_whitespace() {
-                    current_pos += 1;
-                }
-            }
-        }
-        current_pos += 1;
     }
 
     if timestamped.is_empty() {
