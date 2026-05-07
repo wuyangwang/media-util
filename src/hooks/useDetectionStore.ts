@@ -79,12 +79,14 @@ export const useDetectionStore = create<DetectionState>()(
 				if (state) {
 					let recoveredCount = 0;
 					state.setTasks((prev) =>
-						prev.map((task) =>
-							task.status === "processing"
-								? ((recoveredCount += 1),
-									{ ...task, status: "pending", progress: 0 })
-								: task,
-						),
+						prev
+							.filter((task) => task.status !== "completed")
+							.map((task) =>
+								task.status === "processing"
+									? ((recoveredCount += 1),
+										{ ...task, status: "pending", progress: 0 })
+									: task,
+							),
 					);
 					state.setProcessing(false);
 					if (recoveredCount > 0) {

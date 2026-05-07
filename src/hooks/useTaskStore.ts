@@ -168,21 +168,25 @@ export const useTaskStore = create<TaskState>()(
 			onRehydrateStorage: () => (state) => {
 				if (state) {
 					let recoveredCount = 0;
-					// 应用重启后保留任务，并将中断中的任务恢复为可继续状态
+					// 应用重启后保留任务，并将中断中的任务恢复为可继续状态，同时清除已完成的任务
 					state.setImageTasks((prev) =>
-						prev.map((task) =>
-							task.status === "processing" || task.status === "converting"
-								? ((recoveredCount += 1), { ...task, status: "pending" })
-								: task,
-						),
+						prev
+							.filter((task) => task.status !== "completed")
+							.map((task) =>
+								task.status === "processing" || task.status === "converting"
+									? ((recoveredCount += 1), { ...task, status: "pending" })
+									: task,
+							),
 					);
 					state.setVideoTasks((prev) =>
-						prev.map((task) =>
-							task.status === "processing" || task.status === "converting"
-								? ((recoveredCount += 1),
-									{ ...task, status: "pending", progress: 0 })
-								: task,
-						),
+						prev
+							.filter((task) => task.status !== "completed")
+							.map((task) =>
+								task.status === "processing" || task.status === "converting"
+									? ((recoveredCount += 1),
+										{ ...task, status: "pending", progress: 0 })
+									: task,
+							),
 					);
 					state.setTranscribeTask((prev) => {
 						if (!prev) return null;
