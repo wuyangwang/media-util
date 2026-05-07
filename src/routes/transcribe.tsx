@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	Copy,
+	Download,
 	FileAudio,
 	FileVideo,
 	FolderOpen,
@@ -47,6 +49,7 @@ export const Route = createFileRoute("/transcribe")({
 interface TranscriptionOutput {
 	timestamped: string;
 	plain: string;
+	srt: string;
 }
 
 interface ModelStatus {
@@ -228,6 +231,7 @@ function TranscribePage() {
 							progress: 100,
 							transcript: output.plain,
 							transcriptTimestamped: output.timestamped,
+							srt: output.srt,
 							duration: formattedDuration,
 						}
 					: prev,
@@ -269,6 +273,25 @@ function TranscribePage() {
 			toast.success("转写文本已复制");
 		} catch (error) {
 			toast.error(`复制失败: ${error}`);
+		}
+	}, []);
+
+	const handleExportSRT = useCallback(async (task: TranscribeTask) => {
+		if (!task.srt) return;
+		try {
+			const savePath = await save({
+				defaultPath: `${task.fileName}.srt`,
+				filters: [{ name: "Subtitle", extensions: ["srt"] }],
+			});
+			if (savePath) {
+				await invoke("write_text_file", {
+					path: savePath,
+					content: task.srt,
+				});
+				toast.success("字幕导出成功");
+			}
+		} catch (error) {
+			toast.error(`导出失败: ${error}`);
 		}
 	}, []);
 
@@ -511,6 +534,15 @@ function TranscribePage() {
 									>
 										<Copy className="mr-1 size-4" />
 										复制文本
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => handleExportSRT(task)}
+										disabled={task.status !== "completed" || !task.srt}
+									>
+										<Download className="mr-1 size-4" />
+										导出 SRT
 									</Button>
 								</div>
 							</div>

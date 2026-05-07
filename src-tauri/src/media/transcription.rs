@@ -135,10 +135,20 @@ fn format_timestamp(seconds: f64) -> String {
     format!("{:02}:{:02}:{:02}", hours, minutes, secs)
 }
 
+fn format_srt_time(seconds: f64) -> String {
+    let millis = (seconds.fract() * 1000.0).round() as u32;
+    let total_seconds = seconds.floor() as u32;
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let secs = total_seconds % 60;
+    format!("{:02}:{:02}:{:02},{:03}", hours, minutes, secs, millis)
+}
+
 #[derive(Serialize)]
 pub struct TranscriptionOutput {
     pub timestamped: String,
     pub plain: String,
+    pub srt: String,
 }
 
 fn run_transcription(
@@ -213,8 +223,10 @@ fn run_transcription(
     };
 
     let mut timestamped = String::new();
+    let mut srt = String::new();
     let mut plain_raw = String::new();
     let mut last_end = 0.0;
+    let mut segment_count = 1;
 
     for segment in result.segments.into_iter().flatten() {
         let text = segment.text.trim();
@@ -233,6 +245,16 @@ fn run_transcription(
             format_timestamp(segment.start as f64),
             text
         ));
+
+        // SRT version logic
+        srt.push_str(&format!(
+            "{}\n{} --> {}\n{}\n\n",
+            segment_count,
+            format_srt_time(segment.start as f64),
+            format_srt_time(segment.end as f64),
+            text
+        ));
+        segment_count += 1;
 
         // Plain version: just collect text with spaces
         if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
@@ -279,12 +301,14 @@ fn run_transcription(
     if timestamped.is_empty() {
         Ok(TranscriptionOutput {
             timestamped: result.text.clone(),
-            plain: result.text,
+            plain: result.text.clone(),
+            srt: format!("1\n00:00:00,000 --> 00:00:10,000\n{}\n\n", result.text),
         })
     } else {
         Ok(TranscriptionOutput {
             timestamped,
             plain: plain.trim().to_string(),
+            srt,
         })
     }
 }
@@ -342,6 +366,10 @@ pub async fn transcribe_media(
     // Also save a timestamped version next to it
     let timestamped_path = format!("{}.timestamped.txt", output_path);
     fs::write(timestamped_path, &output.timestamped).map_err(|e| e.to_string())?;
+
+    // Save SRT version
+    let srt_path = format!("{}.srt", output_path);
+    fs::write(srt_path, &output.srt).map_err(|e| e.to_string())?;
 
     let _ = fs::remove_file(&temp_wav);
 

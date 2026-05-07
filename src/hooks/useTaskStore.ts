@@ -30,6 +30,7 @@ export interface TranscribeTask {
 	log?: string;
 	transcript?: string;
 	transcriptTimestamped?: string;
+	srt?: string;
 	duration?: string;
 	startTime?: number;
 }
