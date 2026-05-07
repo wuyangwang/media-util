@@ -78,8 +78,9 @@ export function VersionDisplay({ isCollapsed }: VersionDisplayProps) {
 
 	return (
 		<div className="window-toolbar mt-auto flex flex-col items-center gap-2 border-t p-2">
-			<div className="text-[10px] font-medium tracking-wide text-muted-foreground/60">
-				v{import.meta.env.APP_VERSION}
+			<div className="text-[10px] font-medium tracking-wide text-muted-foreground/60 uppercase">
+				v{import.meta.env.APP_VERSION}-{import.meta.env.APP_GIT_HASH}
+				{import.meta.env.APP_ENV !== "prod" && ` (${import.meta.env.APP_ENV})`}
 			</div>
 			{updateAvailable && (
 				<Button

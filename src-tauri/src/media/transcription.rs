@@ -135,10 +135,20 @@ fn format_timestamp(seconds: f64) -> String {
     format!("{:02}:{:02}:{:02}", hours, minutes, secs)
 }
 
+fn format_srt_time(seconds: f64) -> String {
+    let millis = (seconds.fract() * 1000.0).round() as u32;
+    let total_seconds = seconds.floor() as u32;
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let secs = total_seconds % 60;
+    format!("{:02}:{:02}:{:02},{:03}", hours, minutes, secs, millis)
+}
+
 #[derive(Serialize)]
 pub struct TranscriptionOutput {
     pub timestamped: String,
     pub plain: String,
+    pub srt: String,
 }
 
 fn run_transcription(
@@ -178,7 +188,9 @@ fn run_transcription(
                 )
                 .map_err(|e| e.to_string())?
         }
-        TranscriptionModelId::SenseVoice => {
+        TranscriptionModelId::SenseVoice
+        | TranscriptionModelId::SenseVoiceInt8
+        | TranscriptionModelId::FunAsrNanoInt8 => {
             use transcribe_rs::onnx::sense_voice::SenseVoiceModel;
             use transcribe_rs::onnx::sense_voice::SenseVoiceParams;
             use transcribe_rs::onnx::Quantization;
@@ -188,9 +200,16 @@ fn run_transcription(
                 transcribe_rs::set_ort_accelerator(transcribe_rs::OrtAccelerator::DirectMl);
             }
 
+            let quant = match model_id {
+                TranscriptionModelId::SenseVoiceInt8 | TranscriptionModelId::FunAsrNanoInt8 => {
+                    Quantization::Int8
+                }
+                _ => Quantization::FP32,
+            };
+
             let sense_model_dir = resolve_sense_voice_model_dir(model_path)?;
-            let mut model = SenseVoiceModel::load(&sense_model_dir, &Quantization::Int8)
-                .map_err(|e| e.to_string())?;
+            let mut model =
+                SenseVoiceModel::load(&sense_model_dir, &quant).map_err(|e| e.to_string())?;
             model
                 .transcribe_with(
                     &samples,
@@ -203,9 +222,15 @@ fn run_transcription(
         }
     };
 
-    let mut timestamped = String::new();
-    let mut plain_raw = String::new();
-    let mut last_end = 0.0;
+    struct MergedSegment {
+        text: String,
+        start: f32,
+        end: f32,
+    }
+
+    let mut merged_segments: Vec<MergedSegment> = Vec::new();
+    let mut current_buffer: Option<MergedSegment> = None;
+    let sentence_punc = ['。', '？', '！', '；', '!', '?', ';'];
 
     for segment in result.segments.into_iter().flatten() {
         let text = segment.text.trim();
@@ -213,6 +238,54 @@ fn run_transcription(
             continue;
         }
 
+        if let Some(mut buffer) = current_buffer.take() {
+            let gap = segment.start - buffer.end;
+            let ends_with_punc = sentence_punc.iter().any(|&p| buffer.text.ends_with(p));
+            let too_long = buffer.text.chars().count() > 50;
+
+            if gap < 0.8 && !ends_with_punc && !too_long {
+                if !buffer.text.is_empty()
+                    && !text.starts_with(|c: char| "，。！？；：,.!?;:".contains(c))
+                {
+                    if let (Some(last_char), Some(first_char)) =
+                        (buffer.text.chars().last(), text.chars().next())
+                    {
+                        if last_char.is_ascii_alphanumeric() && first_char.is_ascii_alphanumeric() {
+                            buffer.text.push(' ');
+                        }
+                    }
+                }
+                buffer.text.push_str(text);
+                buffer.end = segment.end;
+                current_buffer = Some(buffer);
+            } else {
+                merged_segments.push(buffer);
+                current_buffer = Some(MergedSegment {
+                    text: text.to_string(),
+                    start: segment.start,
+                    end: segment.end,
+                });
+            }
+        } else {
+            current_buffer = Some(MergedSegment {
+                text: text.to_string(),
+                start: segment.start,
+                end: segment.end,
+            });
+        }
+    }
+
+    if let Some(buffer) = current_buffer {
+        merged_segments.push(buffer);
+    }
+
+    let mut timestamped = String::new();
+    let mut srt = String::new();
+    let mut plain = String::new();
+    let mut last_end = 0.0;
+    let mut segment_count = 1;
+
+    for segment in merged_segments {
         // Timestamped version logic
         if !timestamped.is_empty() && segment.start - last_end > 3.0 {
             timestamped.push_str("\n\n");
@@ -222,60 +295,39 @@ fn run_transcription(
         timestamped.push_str(&format!(
             "[{}] {}",
             format_timestamp(segment.start as f64),
-            text
+            segment.text
         ));
 
-        // Plain version: just collect text with spaces
-        if !plain_raw.is_empty() && !plain_raw.ends_with(' ') {
-            plain_raw.push(' ');
+        // SRT version logic
+        srt.push_str(&format!(
+            "{}\n{} --> {}\n{}\n\n",
+            segment_count,
+            format_srt_time(segment.start as f64),
+            format_srt_time(segment.end as f64),
+            segment.text
+        ));
+        segment_count += 1;
+
+        // Plain version: just collect text with newlines
+        if !plain.is_empty() {
+            plain.push('\n');
         }
-        plain_raw.push_str(text);
+        plain.push_str(&segment.text);
 
         last_end = segment.end;
-    }
-
-    // Process plain text to split by punctuation
-    let mut plain = String::new();
-    let punctuation = ['。', '？', '！', '；', '!', '?', ';'];
-    let mut current_pos = 0;
-    let chars: Vec<char> = plain_raw.chars().collect();
-
-    while current_pos < chars.len() {
-        let c = chars[current_pos];
-        plain.push(c);
-
-        // Handle English period separately to avoid splitting decimal numbers or abbreviations (simplistic)
-        let is_period = c == '.';
-        let is_other_punc = punctuation.contains(&c);
-
-        if is_other_punc || is_period {
-            // Check if next char is a space or end of string
-            let next_is_space_or_end = if current_pos + 1 < chars.len() {
-                chars[current_pos + 1].is_whitespace()
-            } else {
-                true
-            };
-
-            if next_is_space_or_end {
-                plain.push('\n');
-                // Skip following whitespace
-                while current_pos + 1 < chars.len() && chars[current_pos + 1].is_whitespace() {
-                    current_pos += 1;
-                }
-            }
-        }
-        current_pos += 1;
     }
 
     if timestamped.is_empty() {
         Ok(TranscriptionOutput {
             timestamped: result.text.clone(),
-            plain: result.text,
+            plain: result.text.clone(),
+            srt: format!("1\n00:00:00,000 --> 00:00:10,000\n{}\n\n", result.text),
         })
     } else {
         Ok(TranscriptionOutput {
             timestamped,
             plain: plain.trim().to_string(),
+            srt,
         })
     }
 }
@@ -293,7 +345,7 @@ pub async fn transcribe_media(
 
     emit_progress(&app, &id, 5.0, "preparing", None, None);
 
-    let model_path = model_manager::get_model_path_if_ready(&app, parsed_model)?;
+    let model_path = model_manager::get_transcription_model_path_if_ready(&app, parsed_model)?;
 
     let temp_dir = ensure_temp_wav_dir(&app)?;
     let temp_wav = temp_dir.join(format!(
@@ -333,6 +385,10 @@ pub async fn transcribe_media(
     // Also save a timestamped version next to it
     let timestamped_path = format!("{}.timestamped.txt", output_path);
     fs::write(timestamped_path, &output.timestamped).map_err(|e| e.to_string())?;
+
+    // Save SRT version
+    let srt_path = format!("{}.srt", output_path);
+    fs::write(srt_path, &output.srt).map_err(|e| e.to_string())?;
 
     let _ = fs::remove_file(&temp_wav);
 

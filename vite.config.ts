@@ -4,15 +4,28 @@ import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import path from "path";
 import pkg from "./package.json";
+import { execSync } from "child_process";
+
+// Get git hash
+let gitHash = "unknown";
+try {
+	gitHash = execSync("git rev-parse --short HEAD").toString().trim();
+} catch (e) {
+	console.warn("Failed to get git hash:", e);
+}
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(async ({ mode }) => ({
 	plugins: [TanStackRouterVite(), react(), tailwindcss()],
 	define: {
 		"import.meta.env.APP_VERSION": JSON.stringify(pkg.version),
+		"import.meta.env.APP_GIT_HASH": JSON.stringify(gitHash),
+		"import.meta.env.APP_ENV": JSON.stringify(
+			mode === "production" ? "prod" : "dev",
+		),
 	},
 	resolve: {
 		alias: {

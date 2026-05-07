@@ -38,12 +38,10 @@ import {
 } from "@/components/ui/select";
 import { useUIStore } from "@/hooks/useUIStore";
 import { useAppSettings, useTranscriptionSettings } from "@/lib/store";
-
-const MODEL_DESCRIPTIONS: Record<string, string> = {
-	"whisper-medium": "平衡速度与准确度，适合大多数日常转写任务。",
-	"whisper-large": "准确率更高，适合复杂语音或高质量识别场景。",
-	"sense-voice": "轻量高效，适合快速转写与资源受限设备。",
-};
+import {
+	TRANSCRIPTION_MODEL_DESCRIPTIONS,
+	type TranscriptionModelId,
+} from "@/lib/models";
 
 export const Route = createFileRoute("/settings")({
 	component: Settings,
@@ -513,12 +511,7 @@ function Settings() {
 								<Select
 									value={modelId}
 									onValueChange={(value) =>
-										setModelId(
-											value as
-												| "whisper-medium"
-												| "whisper-large"
-												| "sense-voice",
-										)
+										setModelId(value as TranscriptionModelId)
 									}
 								>
 									<SelectTrigger>
@@ -593,7 +586,9 @@ function Settings() {
 										<Progress value={downloadProgressByModel[model.id] || 0} />
 									)}
 									<div className="text-[11px] leading-5 text-muted-foreground">
-										{MODEL_DESCRIPTIONS[model.id] || "通用语音转写模型。"}
+										{TRANSCRIPTION_MODEL_DESCRIPTIONS[
+											model.id as TranscriptionModelId
+										] || "通用语音转写模型。"}
 									</div>
 								</div>
 							))}
@@ -631,8 +626,10 @@ function Settings() {
 					<CardContent className="space-y-3">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">应用版本:</span>
-							<span className="font-medium text-foreground">
-								v{import.meta.env.APP_VERSION}
+							<span className="font-medium text-foreground uppercase">
+								v{import.meta.env.APP_VERSION}-{import.meta.env.APP_GIT_HASH}
+								{import.meta.env.APP_ENV !== "prod" &&
+									` (${import.meta.env.APP_ENV})`}
 							</span>
 						</div>
 						<div className="flex justify-between text-sm">

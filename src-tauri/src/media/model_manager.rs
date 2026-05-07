@@ -11,8 +11,10 @@ const READY_MARKER_FILE: &str = ".ready";
 
 #[derive(Debug, Clone, Copy)]
 pub enum TranscriptionModelId {
+    FunAsrNanoInt8,
     WhisperMedium,
     WhisperLarge,
+    SenseVoiceInt8,
     SenseVoice,
 }
 
@@ -51,16 +53,25 @@ enum ModelKind {
 impl TranscriptionModelId {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
+            "funasr-nano-int8" => Ok(Self::FunAsrNanoInt8),
             "whisper-medium" => Ok(Self::WhisperMedium),
             "whisper-large" => Ok(Self::WhisperLarge),
+            "sense-voice-int8" => Ok(Self::SenseVoiceInt8),
             "sense-voice" => Ok(Self::SenseVoice),
-            _ => Err(format!("Unsupported model id: {value}")),
+            _ => Err(format!("Unsupported transcription model id: {value}")),
         }
     }
 }
 
-fn all_models() -> [ModelMeta; 3] {
-    [
+fn all_transcription_models() -> Vec<ModelMeta> {
+    vec![
+        ModelMeta {
+            id: TranscriptionModelId::FunAsrNanoInt8,
+            id_str: "funasr-nano-int8",
+            label: "FunAsr Nano (Int8)",
+            url: "https://www.modelscope.cn/models/wuyangwang/funasr-nano/resolve/master/funasr-nano-int8.tar.gz",
+            kind: ModelKind::TarGzDir,
+        },
         ModelMeta {
             id: TranscriptionModelId::WhisperMedium,
             id_str: "whisper-medium",
@@ -80,17 +91,17 @@ fn all_models() -> [ModelMeta; 3] {
             },
         },
         ModelMeta {
-            id: TranscriptionModelId::SenseVoice,
-            id_str: "sense-voice",
-            label: "SenseVoice",
+            id: TranscriptionModelId::SenseVoiceInt8,
+            id_str: "sense-voice-int8",
+            label: "SenseVoice (Int8)",
             url: "https://blob.handy.computer/sense-voice-int8.tar.gz",
             kind: ModelKind::TarGzDir,
         },
     ]
 }
 
-fn model_meta(model_id: TranscriptionModelId) -> ModelMeta {
-    all_models()
+fn transcription_model_meta(model_id: TranscriptionModelId) -> ModelMeta {
+    all_transcription_models()
         .into_iter()
         .find(|m| std::mem::discriminant(&m.id) == std::mem::discriminant(&model_id))
         .expect("known model")
@@ -109,40 +120,43 @@ pub fn models_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn model_dir(app: &AppHandle, model_id: TranscriptionModelId) -> Result<PathBuf, String> {
-    Ok(models_root(app)?.join(model_meta(model_id).id_str))
+fn transcription_model_dir(
+    app: &AppHandle,
+    model_id: TranscriptionModelId,
+) -> Result<PathBuf, String> {
+    Ok(models_root(app)?.join(transcription_model_meta(model_id).id_str))
 }
 
 fn marker_path(dir: &Path) -> PathBuf {
     dir.join(READY_MARKER_FILE)
 }
 
-fn downloaded_path(app: &AppHandle, meta: &ModelMeta) -> Result<PathBuf, String> {
-    let model_path = model_dir(app, meta.id)?;
+fn transcription_downloaded_path(app: &AppHandle, meta: &ModelMeta) -> Result<PathBuf, String> {
+    let model_path = transcription_model_dir(app, meta.id)?;
     match meta.kind {
         ModelKind::SingleFile { filename } => Ok(model_path.join(filename)),
         ModelKind::TarGzDir => Ok(model_path),
     }
 }
 
-fn is_model_ready(app: &AppHandle, meta: &ModelMeta) -> Result<bool, String> {
-    let target = downloaded_path(app, meta)?;
+fn is_transcription_model_ready(app: &AppHandle, meta: &ModelMeta) -> Result<bool, String> {
+    let target = transcription_downloaded_path(app, meta)?;
     match meta.kind {
         ModelKind::SingleFile { .. } => Ok(target.is_file()),
         ModelKind::TarGzDir => Ok(target.is_dir() && marker_path(&target).is_file()),
     }
 }
 
-pub fn get_model_path_if_ready(
+pub fn get_transcription_model_path_if_ready(
     app: &AppHandle,
     model_id: TranscriptionModelId,
 ) -> Result<PathBuf, String> {
-    let meta = model_meta(model_id);
-    if !is_model_ready(app, &meta)? {
+    let meta = transcription_model_meta(model_id);
+    if !is_transcription_model_ready(app, &meta)? {
         return Err(format!("Model {} is not downloaded yet", meta.id_str));
     }
 
-    downloaded_path(app, &meta)
+    transcription_downloaded_path(app, &meta)
 }
 
 fn emit_download_event(
@@ -182,7 +196,7 @@ fn download_to_file(
         model_id,
         0.0,
         "downloading",
-        Some("Starting download".to_string()),
+        Some(format!("Starting download for {}", model_id)),
     );
 
     let response = ureq::get(url).call().map_err(|e| e.to_string())?;
@@ -241,12 +255,14 @@ fn extract_tar_gz(archive_path: &Path, output_dir: &Path) -> Result<(), String> 
     Ok(())
 }
 
-pub fn list_model_statuses(app: &AppHandle) -> Result<Vec<TranscriptionModelStatus>, String> {
+pub fn list_transcription_model_statuses(
+    app: &AppHandle,
+) -> Result<Vec<TranscriptionModelStatus>, String> {
     let mut result = Vec::new();
 
-    for meta in all_models() {
-        let ready = is_model_ready(app, &meta)?;
-        let path = downloaded_path(app, &meta)?;
+    for meta in all_transcription_models() {
+        let ready = is_transcription_model_ready(app, &meta)?;
+        let path = transcription_downloaded_path(app, &meta)?;
 
         result.push(TranscriptionModelStatus {
             id: meta.id_str.to_string(),
@@ -264,11 +280,11 @@ pub fn list_model_statuses(app: &AppHandle) -> Result<Vec<TranscriptionModelStat
     Ok(result)
 }
 
-pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), String> {
+pub async fn download_transcription_model(app: AppHandle, model_id: String) -> Result<(), String> {
     let id = TranscriptionModelId::parse(&model_id)?;
-    let meta = model_meta(id);
+    let meta = transcription_model_meta(id);
 
-    if is_model_ready(&app, &meta)? {
+    if is_transcription_model_ready(&app, &meta)? {
         emit_download_event(
             &app,
             meta.id_str,
@@ -281,11 +297,11 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
 
     match meta.kind {
         ModelKind::SingleFile { filename } => {
-            let target = model_dir(&app, id)?.join(filename);
+            let target = transcription_model_dir(&app, id)?.join(filename);
             download_to_file(&app, meta.id_str, meta.url, &target)?;
         }
         ModelKind::TarGzDir => {
-            let dir = model_dir(&app, id)?;
+            let dir = transcription_model_dir(&app, id)?;
             let archive_path = dir.with_extension("tar.gz");
 
             download_to_file(&app, meta.id_str, meta.url, &archive_path)?;
@@ -311,9 +327,9 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
     Ok(())
 }
 
-pub fn delete_model(app: &AppHandle, model_id: String) -> Result<(), String> {
+pub fn delete_transcription_model(app: &AppHandle, model_id: String) -> Result<(), String> {
     let id = TranscriptionModelId::parse(&model_id)?;
-    let model_base_dir = model_dir(app, id)?;
+    let model_base_dir = transcription_model_dir(app, id)?;
     if model_base_dir.exists() {
         fs::remove_dir_all(&model_base_dir).map_err(|e| e.to_string())?;
     }
@@ -325,7 +341,7 @@ pub fn delete_model(app: &AppHandle, model_id: String) -> Result<(), String> {
 
     emit_download_event(
         app,
-        model_meta(id).id_str,
+        transcription_model_meta(id).id_str,
         0.0,
         "missing",
         Some("Model deleted".to_string()),

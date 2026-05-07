@@ -1,6 +1,7 @@
 import { load, Store } from "@tauri-apps/plugin-store";
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { TranscriptionModelId } from "./models";
 
 const STORE_PATH = "settings.json";
 let _store: Store | null = null;
@@ -80,11 +81,6 @@ export function useAppSettings() {
 		isLoaded,
 	};
 }
-
-export type TranscriptionModelId =
-	| "whisper-medium"
-	| "whisper-large"
-	| "sense-voice";
 
 export function useTranscriptionSettings() {
 	const [modelId, setModelId, modelLoaded] =

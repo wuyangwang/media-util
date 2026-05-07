@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	Copy,
+	Download,
 	FileAudio,
 	FileVideo,
 	FolderOpen,
+	Loader2,
 	Play,
+	Plus,
 	Trash2,
 } from "lucide-react";
 
@@ -33,6 +37,8 @@ import { useTaskStore, type TranscribeTask } from "@/hooks/useTaskStore";
 import { useTaskTimer } from "@/hooks/useTaskTimer";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { useTranscriptionSettings } from "@/lib/store";
+import type { TranscriptionModelId } from "@/lib/models";
+import { TRANSCRIPTION_MODEL_DESCRIPTIONS } from "@/lib/models";
 import { cn, formatDuration } from "@/lib/utils";
 import { diagnoseTaskError } from "@/lib/error-diagnosis";
 
@@ -43,6 +49,7 @@ export const Route = createFileRoute("/transcribe")({
 interface TranscriptionOutput {
 	timestamped: string;
 	plain: string;
+	srt: string;
 }
 
 interface ModelStatus {
@@ -52,12 +59,6 @@ interface ModelStatus {
 	status: string;
 	path?: string;
 }
-
-const MODEL_DESCRIPTIONS: Record<string, string> = {
-	"whisper-medium": "平衡速度与准确度，适合大多数日常转写任务。",
-	"whisper-large": "准确率更高，适合复杂语音或高质量识别场景。",
-	"sense-voice": "轻量高效，适合快速转写与资源受限设备。",
-};
 
 function TranscribePage() {
 	const navigate = useNavigate();
@@ -230,6 +231,7 @@ function TranscribePage() {
 							progress: 100,
 							transcript: output.plain,
 							transcriptTimestamped: output.timestamped,
+							srt: output.srt,
 							duration: formattedDuration,
 						}
 					: prev,
@@ -274,6 +276,25 @@ function TranscribePage() {
 		}
 	}, []);
 
+	const handleExportSRT = useCallback(async (task: TranscribeTask) => {
+		if (!task.srt) return;
+		try {
+			const savePath = await save({
+				defaultPath: `${task.fileName}.srt`,
+				filters: [{ name: "Subtitle", extensions: ["srt"] }],
+			});
+			if (savePath) {
+				await invoke("write_text_file", {
+					path: savePath,
+					content: task.srt,
+				});
+				toast.success("字幕导出成功");
+			}
+		} catch (error) {
+			toast.error(`导出失败: ${error}`);
+		}
+	}, []);
+
 	const handleOpenTranscriptDir = useCallback(async () => {
 		if (!transcriptOutputDir) return;
 		try {
@@ -312,6 +333,7 @@ function TranscribePage() {
 				descriptionScanning="正在扫描媒体文件，请稍候..."
 				pickFilesLabel="添加媒体"
 				pickDirLabel="添加文件夹"
+				showPickFilesButton={false}
 				showPickDirButton={false}
 				showStartBatchButton={false}
 				showClearButton={false}
@@ -327,20 +349,22 @@ function TranscribePage() {
 
 			<main className="flex flex-1 flex-col gap-6 overflow-hidden p-6">
 				<Card className="shrink-0 header-animate">
-					<CardContent className="flex items-center justify-between gap-4 p-4">
-						<div className="flex flex-col gap-1">
+					<CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+						<div className="flex min-w-[240px] flex-1 flex-col gap-1 max-w-2xl">
 							<div className="flex items-center gap-2">
 								<span className="text-sm font-medium">当前模型:</span>
 								<span className="text-sm text-muted-foreground">
 									{selectedModelStatus?.label || modelId}
 								</span>
 							</div>
-							<span className="text-xs text-muted-foreground">
-								{MODEL_DESCRIPTIONS[modelId] || "通用语音转写模型。"}
-							</span>
+							<p className="text-xs text-muted-foreground mt-1">
+								{TRANSCRIPTION_MODEL_DESCRIPTIONS[
+									modelId as TranscriptionModelId
+								] || "通用语音转写模型。"}
+							</p>
 						</div>
-						<div className="flex items-center gap-2">
-							<span className="text-xs text-muted-foreground">
+						<div className="flex flex-wrap items-center gap-2">
+							<span className="text-xs text-muted-foreground shrink-0">
 								Whisper 输出
 							</span>
 							<Select
@@ -357,7 +381,20 @@ function TranscribePage() {
 								</SelectContent>
 							</Select>
 						</div>
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={handlePickFiles}
+								disabled={isAnyProcessing}
+							>
+								{isScanning ? (
+									<Loader2 className="mr-1 size-4 animate-spin" />
+								) : (
+									<Plus className="mr-1 size-4" />
+								)}
+								添加媒体
+							</Button>
 							<Button
 								variant="outline"
 								size="icon"
@@ -497,6 +534,15 @@ function TranscribePage() {
 									>
 										<Copy className="mr-1 size-4" />
 										复制文本
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => handleExportSRT(task)}
+										disabled={task.status !== "completed" || !task.srt}
+									>
+										<Download className="mr-1 size-4" />
+										导出 SRT
 									</Button>
 								</div>
 							</div>
