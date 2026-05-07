@@ -3,7 +3,9 @@ mod icons;
 #[path = "media/image.rs"]
 mod image;
 #[path = "media/model_manager.rs"]
-mod model_manager;
+pub mod model_manager;
+#[path = "media/resource_manager.rs"]
+pub mod resource_manager;
 #[path = "media/shared.rs"]
 mod shared;
 #[path = "media/transcription.rs"]
@@ -13,6 +15,7 @@ mod video;
 
 pub use crate::config::AppConfig;
 pub use model_manager::TranscriptionModelStatus;
+pub use resource_manager::ResourceStatus;
 pub use shared::{MediaInfo, SystemInfo};
 pub use transcription::TranscriptionOutput;
 pub use video::{recommended_queue_concurrency, AppQueue};
@@ -231,7 +234,7 @@ pub fn get_transcription_models_dir(app: tauri::AppHandle) -> Result<String, Str
 pub fn get_transcription_models_status(
     app: tauri::AppHandle,
 ) -> Result<Vec<TranscriptionModelStatus>, String> {
-    model_manager::list_model_statuses(&app)
+    model_manager::list_transcription_model_statuses(&app)
 }
 
 #[tauri::command]
@@ -239,12 +242,22 @@ pub async fn download_transcription_model(
     app: tauri::AppHandle,
     model_id: String,
 ) -> Result<(), String> {
-    model_manager::download_model(app, model_id).await
+    model_manager::download_transcription_model(app, model_id).await
 }
 
 #[tauri::command]
 pub fn delete_transcription_model(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
-    model_manager::delete_model(&app, model_id)
+    model_manager::delete_transcription_model(&app, model_id)
+}
+
+#[tauri::command]
+pub fn get_detection_resources_status(app: tauri::AppHandle) -> Result<ResourceStatus, String> {
+    Ok(resource_manager::get_status(&app))
+}
+
+#[tauri::command]
+pub async fn download_detection_resource(app: tauri::AppHandle) -> Result<(), String> {
+    resource_manager::download_resources(app).await
 }
 
 #[tauri::command]

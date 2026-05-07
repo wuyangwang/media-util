@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress";
 import { diagnoseTaskError } from "@/lib/error-diagnosis";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DetectionResourceManager } from "@/components/detection-resource-manager";
 
 export const Route = createFileRoute("/detection")({
 	component: Detection,
@@ -349,6 +350,7 @@ function Detection() {
 			/>
 
 			<main className="flex flex-1 flex-col gap-6 overflow-hidden p-6">
+				<DetectionResourceManager />
 				<Card className="window-surface shrink-0">
 					<CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-3">
 						<label className="space-y-1">

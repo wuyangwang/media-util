@@ -15,20 +15,18 @@ pub async fn detect_objects(
 ) -> Result<String, String> {
     let cancel_token = task_control::register(&id);
 
-    let model_path = app
-        .path()
-        .resolve("resources/models/yolo11s.onnx", BaseDirectory::Resource)
-        .map_err(|e| e.to_string())?
+    if !crate::media::resource_manager::is_ready(&app) {
+        return Err(
+            "Detection resources (YOLO model or font) are not ready. Please download them first."
+                .to_string(),
+        );
+    }
+
+    let model_path = crate::media::resource_manager::get_yolo_model_path(&app)?
         .to_string_lossy()
         .to_string();
 
-    let font_path = app
-        .path()
-        .resolve(
-            "resources/fonts/NotoSerifSC-Medium.ttf",
-            BaseDirectory::Resource,
-        )
-        .map_err(|e| e.to_string())?;
+    let font_path = crate::media::resource_manager::get_noto_font_path(&app)?;
 
     let font_data = std::fs::read(font_path).map_err(|e| format!("Failed to read font: {}", e))?;
 

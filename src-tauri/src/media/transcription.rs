@@ -345,7 +345,7 @@ pub async fn transcribe_media(
 
     emit_progress(&app, &id, 5.0, "preparing", None, None);
 
-    let model_path = model_manager::get_model_path_if_ready(&app, parsed_model)?;
+    let model_path = model_manager::get_transcription_model_path_if_ready(&app, parsed_model)?;
 
     let temp_dir = ensure_temp_wav_dir(&app)?;
     let temp_wav = temp_dir.join(format!(

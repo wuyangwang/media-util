@@ -57,6 +57,8 @@ pub fn run() {
             media::get_transcription_models_status,
             media::download_transcription_model,
             media::delete_transcription_model,
+            media::get_detection_resources_status,
+            media::download_detection_resource,
             media::transcribe_media,
             detection::detect_objects,
             detection::cancel_detection
