@@ -185,7 +185,10 @@ export const useTaskStore = create<TaskState>()(
 					);
 					state.setTranscribeTask((prev) => {
 						if (!prev) return null;
-						if (prev.status === "completed" || prev.status === "failed") {
+						if (prev.status === "completed") {
+							return null;
+						}
+						if (prev.status === "failed") {
 							return prev;
 						}
 						recoveredCount += 1;

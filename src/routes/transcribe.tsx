@@ -9,7 +9,9 @@ import {
 	FileAudio,
 	FileVideo,
 	FolderOpen,
+	Loader2,
 	Play,
+	Plus,
 	Trash2,
 } from "lucide-react";
 
@@ -308,6 +310,7 @@ function TranscribePage() {
 				descriptionScanning="正在扫描媒体文件，请稍候..."
 				pickFilesLabel="添加媒体"
 				pickDirLabel="添加文件夹"
+				showPickFilesButton={false}
 				showPickDirButton={false}
 				showStartBatchButton={false}
 				showClearButton={false}
@@ -356,6 +359,19 @@ function TranscribePage() {
 							</Select>
 						</div>
 						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={handlePickFiles}
+								disabled={isAnyProcessing}
+							>
+								{isScanning ? (
+									<Loader2 className="mr-1 size-4 animate-spin" />
+								) : (
+									<Plus className="mr-1 size-4" />
+								)}
+								添加媒体
+							</Button>
 							<Button
 								variant="outline"
 								size="icon"

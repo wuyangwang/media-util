@@ -7,6 +7,7 @@ interface TaskPageToolbarProps {
 	descriptionScanning: string;
 	pickFilesLabel: string;
 	pickDirLabel: string;
+	showPickFilesButton?: boolean;
 	showPickDirButton?: boolean;
 	showStartBatchButton?: boolean;
 	showClearButton?: boolean;
@@ -26,6 +27,7 @@ export function TaskPageToolbar({
 	descriptionScanning,
 	pickFilesLabel,
 	pickDirLabel,
+	showPickFilesButton = true,
 	showPickDirButton = true,
 	showStartBatchButton = true,
 	showClearButton = true,
@@ -47,19 +49,21 @@ export function TaskPageToolbar({
 				</p>
 			</div>
 			<div className="flex gap-2">
-				<Button
-					onClick={onPickFiles}
-					variant="outline"
-					size="sm"
-					title={pickFilesLabel}
-				>
-					{isScanning ? (
-						<Loader2 className="mr-1 size-4 animate-spin" />
-					) : (
-						<Plus data-icon="inline-start" />
-					)}
-					{pickFilesLabel}
-				</Button>
+				{showPickFilesButton && (
+					<Button
+						onClick={onPickFiles}
+						variant="outline"
+						size="sm"
+						title={pickFilesLabel}
+					>
+						{isScanning ? (
+							<Loader2 className="mr-1 size-4 animate-spin" />
+						) : (
+							<Plus data-icon="inline-start" />
+						)}
+						{pickFilesLabel}
+					</Button>
+				)}
 				{showPickDirButton && (
 					<Button
 						onClick={onPickDir}
