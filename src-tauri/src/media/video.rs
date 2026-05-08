@@ -119,7 +119,7 @@ pub async fn update_concurrency(
     queue: tauri::State<'_, AppQueue>,
     limit: usize,
 ) -> Result<(), String> {
-    let normalized = limit.clamp(1, 8);
+    let normalized = limit.max(1);
     queue.update_limit(normalized).await;
     runtime::set_configured_concurrency(normalized);
     Ok(())

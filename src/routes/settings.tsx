@@ -356,23 +356,30 @@ function Settings() {
 						<CardContent>
 							<div className="flex items-center gap-4">
 								<span className="text-sm font-medium text-foreground">
-									并行任务数:
+									并发处理级别:
 								</span>
-								<Select
-									value={concurrency.toString()}
-									onValueChange={(v) => setConcurrency(parseInt(v, 10))}
-								>
+								<Select value={concurrency} onValueChange={setConcurrency}>
 									<SelectTrigger className="w-[180px]">
-										<SelectValue placeholder="并发任务数" />
+										<SelectValue placeholder="选择并发级别" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="1">1 (低占用)</SelectItem>
-										<SelectItem value="2">2 (推荐)</SelectItem>
-										<SelectItem value="3">3 (多线程)</SelectItem>
-										<SelectItem value="4">4 (全速)</SelectItem>
+										<SelectItem value="low">低 (单任务)</SelectItem>
+										<SelectItem value="medium">中 (平衡模式)</SelectItem>
+										<SelectItem value="high">
+											高 (全速模式:{" "}
+											{sysInfo.cpuCores > 1 ? sysInfo.cpuCores - 1 : 1} 线程)
+										</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
+							<p className="mt-3 text-xs text-muted-foreground">
+								{concurrency === "low" &&
+									"低级别适合在处理媒体时进行其他重度工作。"}
+								{concurrency === "medium" &&
+									"中级别在性能和系统响应之间取得平衡。"}
+								{concurrency === "high" &&
+									"高级别将尽可能利用 CPU 资源，可能会影响其他应用流畅度。"}
+							</p>
 						</CardContent>
 					</Card>
 				</div>

@@ -67,12 +67,18 @@ pub fn run() {
         .setup(|app| {
             // 从 Store 加载并发配置
             let store = app.store("settings.json")?;
-            let concurrency = store
-                .get("concurrency")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(media::recommended_queue_concurrency() as u64)
-                as usize;
-            let concurrency = concurrency.clamp(1, 8);
+            let concurrency = if let Some(val) = store.get("concurrency") {
+                if let Some(level) = val.as_str() {
+                    runtime::calculate_concurrency_from_level(level)
+                } else if let Some(num) = val.as_u64() {
+                    num as usize
+                } else {
+                    media::recommended_queue_concurrency()
+                }
+            } else {
+                media::recommended_queue_concurrency()
+            };
+
             runtime::set_configured_concurrency(concurrency);
 
             let queue = app.state::<media::AppQueue>();

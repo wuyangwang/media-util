@@ -67,11 +67,14 @@ export function useStoreValue<T>(key: string, defaultValue: T) {
  * 专门用于管理应用全局设置的 Hook
  */
 export function useAppSettings() {
-	const [concurrency, setConcurrency, isLoaded] = useStoreValue<number>(
-		"concurrency",
-		2,
-	);
+	const [rawConcurrency, setConcurrency, isLoaded] = useStoreValue<
+		string | number
+	>("concurrency", "medium");
 	const [theme, setTheme] = useStoreValue<string>("theme", "system");
+
+	// 确保并发设置是字符串级别，如果是旧的数字则默认为 medium
+	const concurrency =
+		typeof rawConcurrency === "number" ? "medium" : rawConcurrency;
 
 	return {
 		concurrency,

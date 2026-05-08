@@ -13,6 +13,9 @@ mod transcription;
 #[path = "media/video.rs"]
 mod video;
 
+use crate::runtime;
+use serde_json;
+
 pub use crate::config::AppConfig;
 pub use model_manager::TranscriptionModelStatus;
 pub use resource_manager::ResourceStatus;
@@ -121,9 +124,16 @@ pub async fn convert_video_queued(
 #[tauri::command]
 pub async fn update_concurrency(
     queue: tauri::State<'_, AppQueue>,
-    limit: usize,
+    limit: serde_json::Value,
 ) -> Result<(), String> {
-    video::update_concurrency(queue, limit).await
+    let numeric_limit = if let Some(level) = limit.as_str() {
+        runtime::calculate_concurrency_from_level(level)
+    } else if let Some(num) = limit.as_u64() {
+        num as usize
+    } else {
+        return Err("Invalid concurrency limit".to_string());
+    };
+    video::update_concurrency(queue, numeric_limit).await
 }
 
 #[tauri::command]

@@ -25,13 +25,20 @@ pub fn recommended_queue_concurrency() -> usize {
 }
 
 pub fn configured_concurrency() -> usize {
-    configured_concurrency_cell()
-        .load(Ordering::Relaxed)
-        .clamp(1, 8)
+    configured_concurrency_cell().load(Ordering::Relaxed).max(1)
 }
 
 pub fn set_configured_concurrency(limit: usize) {
-    configured_concurrency_cell().store(limit.clamp(1, 8), Ordering::Relaxed);
+    configured_concurrency_cell().store(limit.max(1), Ordering::Relaxed);
+}
+
+pub fn calculate_concurrency_from_level(level: &str) -> usize {
+    match level {
+        "low" => 1,
+        "medium" => recommended_queue_concurrency(),
+        "high" => worker_threads_reserve_one_core(),
+        _ => recommended_queue_concurrency(),
+    }
 }
 
 pub fn detection_worker_count(frame_count: usize) -> usize {
